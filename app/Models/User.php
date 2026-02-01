@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements JWTSubject
@@ -21,6 +22,9 @@ class User extends Authenticatable implements JWTSubject
      */
     protected $fillable = [
         'name',
+        'surname',
+        'avatar',
+        'role_id',
         'email',
         'password',
     ];
@@ -65,5 +69,8 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims()
     {
         return [];
+    }
+    public function role(){
+      return  $this->belongsTo(Role::class, "role_id");
     }
 }
