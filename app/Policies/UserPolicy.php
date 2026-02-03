@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class UserPolicy
 {
@@ -28,9 +27,10 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        if($user->can('publish articles')) {
+        if ($user->can('publish articles')) {
             return true;
         }
+
         return false;
     }
 

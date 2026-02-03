@@ -14,7 +14,9 @@ class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
+
     use HasRoles;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -51,6 +53,7 @@ class User extends Authenticatable implements JWTSubject
             'password' => 'hashed',
         ];
     }
+
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.
      *
@@ -60,7 +63,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->getKey();
     }
- 
+
     /**
      * Return a key value array, containing any custom claims to be added to the JWT.
      *
@@ -70,7 +73,9 @@ class User extends Authenticatable implements JWTSubject
     {
         return [];
     }
-    public function role(){
-      return  $this->belongsTo(Role::class, "role_id");
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
     }
 }
