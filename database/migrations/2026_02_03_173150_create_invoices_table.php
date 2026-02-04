@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('supplier_id')
                 ->constrained('suppliers');
 
-            $table->string('acscess_key', 49)->unique(); // claveAcceso SRI
+            $table->string('access_key', 49)->unique(); // claveAcceso SRI
             $table->string('invoice_number');
             $table->date('issue_date');
 

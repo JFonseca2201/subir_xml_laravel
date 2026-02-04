@@ -11,12 +11,14 @@ class Supplier extends Model
 
     protected $fillable = [
         'tax_id',
+        'ruc',
+        'supplier_id',
         'name',
-        'address'
+        'address',        
     ];
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class);
+        return $this->hasMany(Invoice::class, 'tax_id');
     }
 }
