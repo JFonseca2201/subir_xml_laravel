@@ -18,6 +18,7 @@ class InvoiceItem extends Model
         'quantity',
         'unit_price',
         'discount',
+        'subtotal',
         'total',
         'item_type'
     ];

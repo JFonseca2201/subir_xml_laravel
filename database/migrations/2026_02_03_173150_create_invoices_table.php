@@ -22,6 +22,7 @@ return new class extends Migration
             $table->date('issue_date');
 
             $table->decimal('subtotal', 12, 2);
+            $table->decimal('discount', 12, 2)->default(0);
             $table->decimal('tax', 12, 2);
             $table->decimal('total', 12, 2);
 

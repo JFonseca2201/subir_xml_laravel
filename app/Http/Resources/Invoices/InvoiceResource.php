@@ -29,6 +29,7 @@ class InvoiceResource extends JsonResource
             'issue_date' => \Carbon\Carbon::parse($this->resource->issue_date)->format('Y-m-d'),
             'subtotal'       => (float) $this->resource->subtotal,
             'tax'            => (float) $this->resource->tax,
+            'discount'            => (float) $this->resource->discount,
             'total'          => (float) $this->resource->total,            
             'invoices_items' => $this->resource->invoices_items->map(function($invoices_item){
                 return InvoiceItemResource::make($invoices_item);

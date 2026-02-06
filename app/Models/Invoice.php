@@ -18,6 +18,7 @@ class Invoice extends Model
         'access_key',
         'invoice_number',
         'issue_date',
+        'discount',
         'subtotal',
         'tax',
         'total'
@@ -33,26 +34,31 @@ class Invoice extends Model
         return $this->hasMany(InvoiceItem::class);
     }
 
-    public function scopeFilterAdvance($query, $search, $start_date, $end_date, $type, $supplier)
-    {
-        if ($search) {
-            $query->where('id', $search)->orWhere('invoice_number', 'LIKE', "%{$search}%");
-        }
-
-        if ($start_date && $end_date) {
-                $query->whereBetween('created_at', [
-                Carbon::parse($start_date)->format('Y-m-d').' 00:00:00',
-                Carbon::parse($end_date)->format('Y-m-d').' 23:59:59',
-            ]);
-                }
-        if ($type) {
-            $query->where('type', $type);
-        }
-        if ($supplier) {
-            $query->where('supplier_id', $supplier);
-        }
-        
-        return $query;
-
+    public function scopeFilterAdvance($query, $search, $start_date, $end_date,  $supplier)
+{
+    if ($search) {        
+        $query->where('invoice_number', 'LIKE', "%{$search}%")
+              ->orWhere('id', $search)              
+              ->orWhereHas('invoices_items', function($q) use ($search) {
+                  $q->where('code', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
+              });
     }
+
+    if ($start_date && $end_date) {
+        $start_date = trim($start_date);
+        $end_date = trim($end_date);
+        $query->whereBetween('issue_date', [
+            Carbon::parse($start_date)->format('Y-m-d'),
+            Carbon::parse($end_date)->format('Y-m-d'),
+        ]);
+    }
+
+    if ($supplier) {
+        $query->where('supplier_id', $supplier);
+    }
+
+    return $query;
+}
+
 }
