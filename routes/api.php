@@ -28,3 +28,4 @@ Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store'])
 Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
 Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
 Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
+Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'updateType']);

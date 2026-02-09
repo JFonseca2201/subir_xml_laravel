@@ -254,4 +254,22 @@ class InvoiceXmlImportController extends Controller
             ],
         ], 200);
     }
+
+    public function updateType(Request $request, $id)
+        {            
+            $request->validate([
+                'item_type' => 'required|int|max:55', 
+            ]);
+            $invoiceItem = InvoiceItem::find($id);
+            if (!$invoiceItem) {
+                return response()->json(['message' => 'Item de factura no encontrado'], 404);
+            }
+            $invoiceItem->item_type = (int)$request->input('item_type');            
+            $invoiceItem->save();            
+            return response()->json([
+                "invoiceItem"=>$invoiceItem, 
+                "status"=>200,
+                ]);
+        }
+
 }
