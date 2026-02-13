@@ -35,6 +35,7 @@ Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
 Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
 Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'updateType']);
 
+Route::post('partners/index', [PartnerController::class, 'index']);
 Route::resource('partners', PartnerController::class);
 Route::resource('accounts', AccountController::class);
 Route::resource('contributions', PartnerContributionController::class);

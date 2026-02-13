@@ -20,7 +20,10 @@ class PartnerController extends Controller
             ->latest()
             ->paginate(10);
 
-        return response()->json($partners);
+        return response()->json([
+            "status"=>200,
+            "partners"=>$partners
+            ]);
     }
 
     public function store(Request $request)
