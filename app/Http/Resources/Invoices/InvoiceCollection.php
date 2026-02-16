@@ -4,7 +4,6 @@ namespace App\Http\Resources\Invoices;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
-use App\Http\Resources\Invoices\InvoiceResource;
 
 class InvoiceCollection extends ResourceCollection
 {
@@ -21,5 +20,4 @@ class InvoiceCollection extends ResourceCollection
             'data' => InvoiceResource::collection($this->collection),
         ];
     }
-    
 }

@@ -2,10 +2,7 @@
 
 namespace App\Models;
 
-
-
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Invoice;
 
 class InvoiceItem extends Model
 {
@@ -20,7 +17,7 @@ class InvoiceItem extends Model
         'discount',
         'subtotal',
         'total',
-        'item_type'
+        'item_type',
     ];
 
     public function invoice()

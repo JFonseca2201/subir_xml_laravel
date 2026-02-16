@@ -24,9 +24,8 @@ class Transaction extends Model
         return $this->belongsTo(Account::class);
     }
 
-   public function transactionable()
+    public function transactionable()
     {
         return $this->morphOne(Transaction::class, 'transactionable');
     }
-
 }

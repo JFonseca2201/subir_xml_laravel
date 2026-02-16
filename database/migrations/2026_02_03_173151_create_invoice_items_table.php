@@ -23,11 +23,11 @@ return new class extends Migration
             $table->decimal('quantity', 10, 2);
             $table->decimal('unit_price', 12, 2);
             $table->decimal('discount', 12, 2)->default(0);
-            $table->decimal('subtotal', 12, 2); 
+            $table->decimal('subtotal', 12, 2);
             $table->decimal('tax', 12, 2)->default(0);
             $table->decimal('total', 12, 2);
             $table->tinyInteger('item_type')
-                  ->nullable();
+                ->nullable();
             $table->timestamps();
         });
 

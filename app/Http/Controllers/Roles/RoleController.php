@@ -17,23 +17,22 @@ class RoleController extends Controller
     {
         $search = $request->get('search');
         $roles = Role::where('name', 'like', "%{$search}%")
-                ->orderByDesc('id')
-                ->get();
-
+            ->orderByDesc('id')
+            ->get();
 
         return response()->json([
             'roles' => $roles->map(function ($role) {
                 return [
-                    'id'=>$role->id,
+                    'id' => $role->id,
                     'name' => $role->name,
                     'created_at' => $role->created_at->format('Y-m-d'),
                     'permissions' => $role->permissions->map(function ($permission) {
                         return [
-                            "id"=>$permission->id,
-                            "name"=>$permission->name
+                            'id' => $permission->id,
+                            'name' => $permission->name,
                         ];
                     }),
-                    "permissions_pluck"=>$role->permissions->pluck("name"),
+                    'permissions_pluck' => $role->permissions->pluck('name'),
                 ];
             }),
         ]);
@@ -63,22 +62,22 @@ class RoleController extends Controller
 
             foreach ($permissions as $key => $permission) {
                 $role->givePermissionTo($permission);
-            }            
+            }
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Rol creado con éxito.',
                 'data' => [
-                    'id'=>$role->id,
+                    'id' => $role->id,
                     'name' => $role->name,
                     'created_at' => $role->created_at->format('Y-m-d'),
                     'permissions' => $role->permissions->map(function ($permission) {
                         return [
-                            "id"=>$permission->id,
-                            "name"=>$permission->name
+                            'id' => $permission->id,
+                            'name' => $permission->name,
                         ];
                     }),
-                    "permissions_pluck"=>$role->permissions->pluck("name"),],
+                    'permissions_pluck' => $role->permissions->pluck('name'), ],
             ], 201);
 
         } catch (ValidationException $e) {
@@ -135,16 +134,16 @@ class RoleController extends Controller
                 'status' => 'success',
                 'message' => 'Rol actualizado con éxito.',
                 'data' => [
-                    'id'=>$role->id,
+                    'id' => $role->id,
                     'name' => $role->name,
                     'created_at' => $role->created_at->format('Y-m-d'),
                     'permissions' => $role->permissions->map(function ($permission) {
                         return [
-                            "id"=>$permission->id,
-                            "name"=>$permission->name
+                            'id' => $permission->id,
+                            'name' => $permission->name,
                         ];
                     }),
-                    "permissions_pluck"=>$role->permissions->pluck("name"),
+                    'permissions_pluck' => $role->permissions->pluck('name'),
                 ],
             ], 200);
 
@@ -172,7 +171,7 @@ class RoleController extends Controller
     {
         try {
             $role = Role::findOrFail($id);
-            
+
             if ($role->users()->count() > 0) {
                 return response()->json([
                     'status' => 'error',

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\EmployeePayment;
 use App\Models\Account;
+use App\Models\EmployeePayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +32,7 @@ class EmployeePaymentController extends Controller
 
             if ($account->current_balance < $validated['amount']) {
                 return response()->json([
-                    'message' => 'Saldo insuficiente'
+                    'message' => 'Saldo insuficiente',
                 ], 422);
             }
 

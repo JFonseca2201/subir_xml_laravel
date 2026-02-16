@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Account;
+use Illuminate\Database\Seeder;
 
 class AccountSeeder extends Seeder
 {
@@ -39,12 +39,11 @@ class AccountSeeder extends Seeder
             ],
         ];
 
-
         foreach ($accounts as $account) {
             Account::updateOrCreate(
                 ['code' => $account['code']],
                 $account
             );
         }
-    }        
+    }
 }

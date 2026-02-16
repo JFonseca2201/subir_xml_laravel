@@ -13,6 +13,7 @@ class Partner extends Model
         'identification',
         'phone',
         'email',
+        'address',
     ];
 
     public function contributions()

@@ -6,9 +6,9 @@ use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\TransferController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 use App\Http\Controllers\Roles\RoleController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 
 Route::group([
     /* 'middleware' => 'api', */
@@ -27,7 +27,6 @@ Route::group([
 ], function () {
     Route::resource('role', RoleController::class);
 });
-
 
 Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
 Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);

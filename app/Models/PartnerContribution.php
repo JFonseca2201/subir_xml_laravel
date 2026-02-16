@@ -18,7 +18,7 @@ class PartnerContribution extends Model
         'contribution_date' => 'date',
     ];
 
-        public function partner()
+    public function partner()
     {
         return $this->belongsTo(Partner::class);
     }
@@ -27,5 +27,4 @@ class PartnerContribution extends Model
     {
         return $this->morphOne(Transaction::class, 'transactionable');
     }
-
 }

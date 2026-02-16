@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Invoice;
 
 class Supplier extends Model
 {
@@ -14,7 +13,7 @@ class Supplier extends Model
         'ruc',
         'supplier_id',
         'name',
-        'address',        
+        'address',
     ];
 
     public function invoices()

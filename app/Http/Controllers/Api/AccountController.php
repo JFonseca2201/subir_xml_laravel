@@ -21,7 +21,7 @@ class AccountController extends Controller
             'name' => 'required|string',
             'type' => 'required|in:cash,bank',
             'bank_name' => 'nullable|string',
-            'initial_balance' => 'nullable|numeric'
+            'initial_balance' => 'nullable|numeric',
         ]);
 
         $account = Account::create($validated);
@@ -33,19 +33,21 @@ class AccountController extends Controller
     {
         return response()->json([
             'account' => $account,
-            'balance' => $account->current_balance
+            'balance' => $account->current_balance,
         ]);
     }
 
     public function update(Request $request, Account $account)
     {
         $account->update($request->all());
+
         return response()->json($account);
     }
 
     public function destroy(Account $account)
     {
         $account->delete();
+
         return response()->json(['message' => 'Cuenta eliminada']);
     }
 }

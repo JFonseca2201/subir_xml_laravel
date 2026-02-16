@@ -3,9 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\PartnerContribution;
-use App\Models\Transaction;
 use App\Models\Account;
+use App\Models\PartnerContribution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -19,7 +18,7 @@ class PartnerContributionController extends Controller
             ->when($search, function ($query) use ($search) {
                 $query->whereHas('partner', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('identification', 'like', "%{$search}%");
+                        ->orWhere('identification', 'like', "%{$search}%");
                 });
             })
             ->latest()
@@ -28,8 +27,7 @@ class PartnerContributionController extends Controller
         return response()->json($contributions);
     }
 
-
-   public function store(Request $request)
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'partner_id' => 'required|exists:partners,id',
@@ -59,7 +57,7 @@ class PartnerContributionController extends Controller
                 'account_id' => $account->id,
                 'type' => 'income',
                 'amount' => $validated['amount'],
-                'description' => 'Aporte de socio ID: ' . $validated['partner_id'] . ' - ' . $validated['contribution_date'],
+                'description' => 'Aporte de socio ID: '.$validated['partner_id'].' - '.$validated['contribution_date'],
                 'concept' => 'Aporte socio',
             ]);
 
@@ -70,26 +68,27 @@ class PartnerContributionController extends Controller
 
             return response()->json([
                 'message' => 'Aporte registrado correctamente',
-                'contribution' => $contribution
+                'contribution' => $contribution,
             ], 201);
 
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return response()->json([
                 'message' => 'Error al registrar el aporte',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-   public function show(int $id)
+    public function show(int $id)
     {
         $contribution = PartnerContribution::with(['partner', 'transaction'])->findOrFail($id);
 
         return response()->json($contribution);
     }
 
-   public function update(Request $request, int $id)
+    public function update(Request $request, int $id)
     {
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
@@ -113,19 +112,17 @@ class PartnerContributionController extends Controller
             if ($contribution->transaction) {
                 $contribution->transaction->update([
                     'amount' => $validated['amount'],
-                    'description' => 'Aporte de socio ID: ' . $contribution->partner_id .
-                                    ' - ' . $validated['contribution_date'],
+                    'description' => 'Aporte de socio ID: '.$contribution->partner_id.
+                                    ' - '.$validated['contribution_date'],
                 ]);
             }
 
             return response()->json([
                 'message' => 'Aporte actualizado correctamente',
-                'contribution' => $contribution
+                'contribution' => $contribution,
             ]);
         });
     }
-
-
 
     public function destroy(int $id)
     {
@@ -157,11 +154,8 @@ class PartnerContributionController extends Controller
             // 5️⃣ Respuesta exitosa
             return response()->json([
                 'message' => 'Aporte y transacción asociada eliminados correctamente',
-                'account_balance' => $account_balance
+                'account_balance' => $account_balance,
             ]);
         });
     }
-
-
-
 }
