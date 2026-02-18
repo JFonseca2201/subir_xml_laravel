@@ -26,17 +26,17 @@ Route::group([
     'middleware' => ['auth:api'],
 ], function () {
     Route::resource('role', RoleController::class);
+
+    Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
+    Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
+    Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
+    Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
+    Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'updateType']);
+
+    Route::post('partners/index', [PartnerController::class, 'index']);
+    Route::resource('partners', PartnerController::class);
+    Route::resource('accounts', AccountController::class);
+    Route::resource('contributions', PartnerContributionController::class);
+    Route::resource('employee-payments', EmployeePaymentController::class);
+    Route::resource('transfers', TransferController::class);
 });
-
-Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
-Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
-Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
-Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
-Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'updateType']);
-
-Route::post('partners/index', [PartnerController::class, 'index']);
-Route::resource('partners', PartnerController::class);
-Route::resource('accounts', AccountController::class);
-Route::resource('contributions', PartnerContributionController::class);
-Route::resource('employee-payments', EmployeePaymentController::class);
-Route::resource('transfers', TransferController::class);
