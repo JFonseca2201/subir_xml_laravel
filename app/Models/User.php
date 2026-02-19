@@ -58,9 +58,48 @@ class User extends Authenticatable implements JWTSubject
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
+            'email_verified_at' => 'datetime:Y-m-d H:i:s',
+            'created_at' => 'datetime:Y-m-d H:i:s',
+            'updated_at' => 'datetime:Y-m-d H:i:s',
             // 'password' => 'hashed',
         ];
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->created_at = now()->setTimezone('America/Guayaquil');
+        });
+
+        static::updating(function ($model) {
+            $model->updated_at = now()->setTimezone('America/Guayaquil');
+        });
+    }
+
+    /**
+     * Set user's name to uppercase.
+     */
+    public function setNameAttribute($value)
+    {
+        $this->attributes['name'] = strtoupper(trim($value));
+    }
+
+    /**
+     * Set user's surname to uppercase.
+     */
+    public function setSurnameAttribute($value)
+    {
+        $this->attributes['surname'] = strtoupper(trim($value));
+    }
+
+    /**
+     * Set user's address to uppercase.
+     */
+    public function setAddressAttribute($value)
+    {
+        $this->attributes['address'] = strtoupper(trim($value));
     }
 
     /**
@@ -85,10 +124,10 @@ class User extends Authenticatable implements JWTSubject
 
     public function role()
     {
-        return $this->belongsTo(Role::class , 'role_id');
+        return $this->belongsTo(Role::class, 'role_id');
     }
     public function sucursale()
     {
-        return $this->belongsTo(Sucursale::class , 'sucursale_id');
+        return $this->belongsTo(Sucursale::class, 'sucursale_id');
     }
 }

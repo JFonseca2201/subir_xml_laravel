@@ -22,12 +22,16 @@ class UserController extends Controller
         try {
             $search = $request->search;
 
-            $users = User::where("name", "like", "%{$search}%")->where("status", "1")->orderBy("id", "desc")->get();
+            $users = User::with(['role', 'sucursale'])
+                ->where("name", "like", "%{$search}%")
+                ->where("status", "1")
+                ->orderBy("id", "desc")
+                ->get();
 
             return response()->json([
                 'status' => 200,
                 'users' => $users->map(function ($user) {
-                return [
+                    return [
                         'id' => $user->id,
                         'name' => $user->name,
                         'surname' => $user->surname,
@@ -35,27 +39,25 @@ class UserController extends Controller
                         'identification' => $user->identification,
                         'role_id' => $user->role_id,
                         'role' => [
-                            'name' => $user->role->name,
+                            'name' => $user->role ? $user->role->name : 'N/A',
                         ],
-                        /* 'sucursale_id' => $user->sucursale_id,
-         'sucursale' => [
-         'name' => $user->sucursale->name ? $user->sucursale->name : 'N/A',
-         ], */
+                        'sucursale_id' => $user->sucursale_id,
+                        'sucursale' => [
+                            'name' => $user->sucursale ? $user->sucursale->name : 'N/A',
+                        ],
                         'gender' => $user->gender,
                         'phone' => $user->phone,
                         'address' => $user->address,
                         'avatar' => $user->avatar
-                        ? env('APP_URL') . Storage::url($user->avatar)
-                        : null,
+                            ? env('APP_URL') . Storage::url($user->avatar)
+                            : null,
                         'type_document' => $user->type_document,
                         'status' => $user->status,
                         'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
                     ];
-            }),
+                }),
             ], 200);
-
-        }
-        catch (\Throwable $th) {
+        } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
                 'message' => $th->getMessage(),
@@ -77,6 +79,9 @@ class UserController extends Controller
                 'email' => 'required|email|max:255|unique:users,email',
                 'password' => 'required|string|min:8',
                 'phone' => 'nullable|string|max:20',
+                'sucursale_id' => 'required|string|max:20',
+                'type_document' => 'required|string|max:20',
+                'identification' => 'required|string|max:20',
                 'address' => 'nullable|string|max:500',
                 'gender' => 'required|string|max:20',
                 'status' => 'required|string|max:20',
@@ -96,8 +101,8 @@ class UserController extends Controller
 
             $data = $validator->validated();
             $data['password'] = bcrypt($request->password);
+            // Guardar role_id para asignarlo después
             $role_id = $data['role_id'];
-            unset($data['role_id']);
 
             if ($request->hasFile('avatar')) {
                 $path = Storage::disk('public')->put('users', $request->file('avatar'));
@@ -115,8 +120,7 @@ class UserController extends Controller
                 'status' => 201,
                 'user' => $user,
             ], 201);
-        }
-        catch (\Throwable $th) {
+        } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
                 'message' => $th->getMessage(),
@@ -136,14 +140,12 @@ class UserController extends Controller
                 'status' => 200,
                 'user' => $user,
             ], 200);
-        }
-        catch (ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'status' => 404,
                 'message' => 'Usuario no encontrado',
             ], 404);
-        }
-        catch (\Throwable $th) {
+        } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
                 'message' => $th->getMessage(),
@@ -165,6 +167,9 @@ class UserController extends Controller
                 'email' => 'required|email|max:255|unique:users,email,' . $user->id,
                 'password' => 'nullable|string|min:8',
                 'phone' => 'nullable|string|max:20',
+                'sucursale_id' => 'required|string|max:20',
+                'type_document' => 'required|string|max:20',
+                'identification' => 'required|string|max:20',
                 'address' => 'nullable|string|max:500',
                 'gender' => 'required|string|max:20',
                 'status' => 'required|string|max:20',
@@ -213,14 +218,12 @@ class UserController extends Controller
                 'status' => 200,
                 'user' => $user,
             ], 200);
-        }
-        catch (ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'status' => 404,
                 'message' => 'Usuario no encontrado',
             ], 404);
-        }
-        catch (\Throwable $th) {
+        } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
                 'message' => $th->getMessage(),
@@ -247,14 +250,12 @@ class UserController extends Controller
                 'status' => 200,
                 'message' => 'Usuario eliminado correctamente',
             ], 200);
-        }
-        catch (ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'status' => 404,
                 'message' => 'Usuario no encontrado',
             ], 404);
-        }
-        catch (\Throwable $th) {
+        } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
                 'message' => $th->getMessage(),
