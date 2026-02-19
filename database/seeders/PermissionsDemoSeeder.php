@@ -249,8 +249,11 @@ class PermissionsDemoSeeder extends Seeder
         ]);
 
         $user = \App\Models\User::factory()->create([
-            'name' => 'Super-Admin User',
+            'name' => 'Super-Admin',
+            'surname' => 'User',
             'email' => 'laravest@gmail.com',
+            'type_document' => 'CI',
+            'identification' => '1793192550001',
             'password' => bcrypt('12345678'),
         ]);
         $user->assignRole($roleSuperAdmin);
@@ -287,7 +290,7 @@ class PermissionsDemoSeeder extends Seeder
 
         foreach ($accounts as $account) {
             Account::updateOrCreate(
-                ['code' => $account['code']],
+            ['code' => $account['code']],
                 $account
             );
         }

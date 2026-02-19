@@ -10,6 +10,7 @@ use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
+use App\Models\Config\Sucursale;
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -32,8 +33,11 @@ class User extends Authenticatable implements JWTSubject
         'gender',
         'status',
         'role_id',
+        'sucursale_id',
         'email',
         'password',
+        'type_document',
+        'identification',
     ];
 
     /**
@@ -55,7 +59,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            // 'password' => 'hashed',
         ];
     }
 
@@ -81,6 +85,10 @@ class User extends Authenticatable implements JWTSubject
 
     public function role()
     {
-        return $this->belongsTo(Role::class, 'role_id');
+        return $this->belongsTo(Role::class , 'role_id');
+    }
+    public function sucursale()
+    {
+        return $this->belongsTo(Sucursale::class , 'sucursale_id');
     }
 }

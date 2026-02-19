@@ -16,12 +16,13 @@ class InvoiceItem extends Model
         'unit_price',
         'discount',
         'subtotal',
+        'tax',
         'total',
         'item_type',
     ];
 
     public function invoice()
     {
-        return $this->belongsTo(Invoice::class, 'invoice_id');
+        return $this->belongsTo(Invoice::class , 'invoice_id');
     }
 }

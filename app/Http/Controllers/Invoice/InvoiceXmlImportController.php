@@ -84,7 +84,7 @@ class InvoiceXmlImportController extends Controller
             if (Invoice::where('access_key', $accessKey)->exists()) {
                 return response()->json([
                     'status' => 409,
-                    'message' => 'La factura ya a sido impiortada!',
+                    'message' => 'La factura ya a sido importada!',
                 ], 409);
             }
 
@@ -227,7 +227,7 @@ class InvoiceXmlImportController extends Controller
 
     public function show($id)
     {
-        $invoice = Invoice::with(['supplier', 'invoices_items'])->findOrFail($id);
+        $invoice = Invoice::with(['supplier', 'invoice_items'])->findOrFail($id);
 
         return response()->json([
             'status' => 200,

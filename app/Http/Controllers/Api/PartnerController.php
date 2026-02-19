@@ -15,9 +15,9 @@ class PartnerController extends Controller
 
         $partners = Partner::query()
             ->when($search, function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('identification', 'like', "%{$search}%");
-            })
+            $query->where('name', 'like', "%{$search}%")
+                ->orWhere('identification', 'like', "%{$search}%");
+        })
             ->latest()
             ->paginate(10);
 
@@ -29,8 +29,8 @@ class PartnerController extends Controller
 
     public function store(Request $request)
     {
-        $maxId = \App\Models\Partner::max('id') ?? 0;
-        DB::statement('ALTER TABLE partners AUTO_INCREMENT = '.($maxId + 1));
+        $maxId = Partner::max('id') ?? 0;
+        DB::statement('ALTER TABLE partners AUTO_INCREMENT = ' . ($maxId + 1));
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -57,8 +57,8 @@ class PartnerController extends Controller
         $partner = Partner::findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:partners,name,'.$partner->id,
-            'email' => 'required|email|max:255|unique:partners,email,'.$partner->id,
+            'name' => 'required|string|max:255|unique:partners,name,' . $partner->id,
+            'email' => 'required|email|max:255|unique:partners,email,' . $partner->id,
             'identification' => 'nullable|string|max:20',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:255',
