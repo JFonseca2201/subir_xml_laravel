@@ -30,8 +30,8 @@ class InvoiceResource extends JsonResource
             'tax' => (float) $this->resource->tax,
             'discount' => (float) $this->resource->discount,
             'total' => (float) $this->resource->total,
-            'invoices_items' => $this->resource->invoices_items->map(function ($invoices_item) {
-                return InvoiceItemResource::make($invoices_item);
+            'invoice_items' => $this->resource->invoice_items->map(function ($invoice_item) {
+                return InvoiceItemResource::make($invoice_item);
             }),
         ];
     }

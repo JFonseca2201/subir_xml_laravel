@@ -25,7 +25,7 @@ class Invoice extends Model
         return $this->belongsTo(Supplier::class);
     }
 
-    public function invoices_items()
+    public function invoice_items()
     {
         return $this->hasMany(InvoiceItem::class);
     }
@@ -35,10 +35,10 @@ class Invoice extends Model
         if ($search) {
             $query->where('invoice_number', 'LIKE', "%{$search}%")
                 ->orWhere('id', $search)
-                ->orWhereHas('invoices_items', function ($q) use ($search) {
-                    $q->where('code', 'LIKE', "%{$search}%")
-                        ->orWhere('description', 'LIKE', "%{$search}%");
-                });
+                ->orWhereHas('invoice_items', function ($q) use ($search) {
+                $q->where('code', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
+            });
         }
 
         if ($start_date && $end_date) {

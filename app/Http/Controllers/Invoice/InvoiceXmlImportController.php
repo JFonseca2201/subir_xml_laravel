@@ -247,7 +247,7 @@ class InvoiceXmlImportController extends Controller
                 'discount' => $invoice->discount,
                 'tax' => $invoice->tax,
                 'total' => $invoice->total,
-                'invoice_items' => $invoice->invoices_items,
+                'invoice_items' => $invoice->invoice_items,
             ],
         ], 200);
     }
