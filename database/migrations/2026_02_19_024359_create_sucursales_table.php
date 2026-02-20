@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration 
+return new class extends Migration
 {
     /**
      * Run the migrations.
@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('name'); // Nombre Comercial o Razon Social corto
             $table->string('address'); // Direccion Matriz
             $table->string('ruc', 13)->unique();
+            $table->string('phone', 15)->nullable();
+            $table->string('email', 255)->nullable();
             $table->string('trade_name')->nullable(); // Nombre Comercial
             $table->string('secuencial_factura')->default('000000001');
             $table->string('serie_factura')->default('001-001'); // Estb-PtoEmi

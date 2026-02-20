@@ -6,10 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -24,7 +23,9 @@ class UserController extends Controller
 
             $users = User::with(['role', 'sucursale'])
                 ->where('name', 'like', "%{$search}%")
-                ->where('status', '1')
+                ->where('surname', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('identification', 'like', "%{$search}%")
                 ->orderBy('id', 'desc')
                 ->get();
 
@@ -49,7 +50,7 @@ class UserController extends Controller
                             'gender' => $user->gender,
                             'phone' => $user->phone,
                             'address' => $user->address,
-                            'avatar' => $user->avatar ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/') : null,
+                            'avatar' => $user->avatar ? env('APP_URL') . Storage::url($user->avatar) : null,
                             'type_document' => $user->type_document,
                             'status' => $user->status,
                             'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
@@ -174,7 +175,7 @@ class UserController extends Controller
                         'gender' => $user->gender,
                         'phone' => $user->phone,
                         'address' => $user->address,
-                        'avatar' => $user->avatar ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/') : null,
+                        'avatar' => $user->avatar ? env('APP_URL') . Storage::url($user->avatar) : null,
                         'type_document' => $user->type_document,
                         'status' => $user->status,
                         'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
@@ -245,7 +246,7 @@ class UserController extends Controller
             $data = $validator->validated();
 
             // Set default values for optional fields
-            if (!isset($data['sucursale_id'])) {
+            if (! isset($data['sucursale_id'])) {
                 $data['sucursale_id'] = '1';
             }
 
@@ -301,7 +302,7 @@ class UserController extends Controller
                         'phone' => $user->phone,
                         'address' => $user->address,
                         'avatar' => $user->avatar
-                            ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/')
+                            ? env('APP_URL' . '/') . Storage::url($user->avatar)
                             : null,
                         'type_document' => $user->type_document,
                         'status' => $user->status,

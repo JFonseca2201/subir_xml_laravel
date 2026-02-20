@@ -14,6 +14,8 @@ class Sucursale extends Model
         'address',
         'ruc',
         'trade_name',
+        'phone',
+        'email',
         'secuencial_factura',
         'serie_factura',
         'establecimiento',
@@ -44,5 +46,10 @@ class Sucursale extends Model
         static::updating(function ($model) {
             $model->updated_at = now()->setTimezone('America/Guayaquil');
         });
+    }
+
+    public function users()
+    {
+        return $this->hasMany(\App\Models\User::class, 'sucursale_id');
     }
 }
