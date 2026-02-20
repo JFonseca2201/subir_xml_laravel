@@ -124,8 +124,6 @@ class PermissionsDemoSeeder extends Seeder
         Permission::create(['guard_name' => 'api', 'name' => 'manage_settings']);
         Permission::create(['guard_name' => 'api', 'name' => 'approve_transactions']);
 
-
-
         // create roles and assign existing permissions
 
         $roleSuperAdmin = Role::create(['guard_name' => 'api', 'name' => 'Super-Admin']);
@@ -184,7 +182,7 @@ class PermissionsDemoSeeder extends Seeder
             'import_xml',
             'export_data',
             'view_reports',
-            'approve_transactions'
+            'approve_transactions',
         ]);
 
         // Create Manager role with operational permissions
@@ -225,7 +223,7 @@ class PermissionsDemoSeeder extends Seeder
             'edit_partner_contribution',
             'import_xml',
             'export_data',
-            'view_reports'
+            'view_reports',
         ]);
 
         // Create Employee role with basic permissions
@@ -245,7 +243,7 @@ class PermissionsDemoSeeder extends Seeder
             'list_transaction',
             'list_transfer',
             'list_supplier',
-            'view_reports'
+            'view_reports',
         ]);
 
         $user = \App\Models\User::factory()->create([
@@ -289,10 +287,32 @@ class PermissionsDemoSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            Account::updateOrCreate(
-            ['code' => $account['code']],
-                $account
-            );
+            Account::updateOrCreate(['code' => $account['code']], $account);
         }
+
+        // Create sucursale data
+        $sucursale = [
+            'name' => 'Matriz',
+            'address' => 'Av. Principal 123 y Calle Secundaria',
+            'ruc' => '1793192550001',
+            'trade_name' => 'Mi Empresa S.A.',
+            'secuencial_factura' => '000000001',
+            'serie_factura' => '001-001',
+            'establecimiento' => '001',
+            'punto_emision' => '001',
+            'ambiente' => 1, // 1: Pruebas, 2: Produccion
+            'tipo_emision' => 1, // 1: Normal
+            'firma_electronica' => null,
+            'password_firma' => null,
+            'logo' => null,
+            'obligado_contabilidad' => 'SI',
+            'contribuyente_especial' => null,
+            'status' => 'active',
+        ];
+
+        \App\Models\Config\Sucursale::updateOrCreate(
+            ['ruc' => $sucursale['ruc'], 'name' => $sucursale['name']],
+            $sucursale,
+        );
     }
 }

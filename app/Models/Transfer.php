@@ -6,13 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transfer extends Model
 {
-    protected $fillable = [
-        'from_account_id',
-        'to_account_id',
-        'amount',
-        'transfer_date',
-        'description',
-    ];
+    protected $fillable = ['from_account_id', 'to_account_id', 'amount', 'transfer_date', 'description'];
 
     protected $casts = [
         'transfer_date' => 'date:Y-m-d',

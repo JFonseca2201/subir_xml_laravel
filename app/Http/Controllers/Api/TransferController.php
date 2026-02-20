@@ -12,7 +12,9 @@ class TransferController extends Controller
     public function index()
     {
         return response()->json(
-            Transfer::with(['fromAccount', 'toAccount'])->latest()->paginate(10)
+            Transfer::with(['fromAccount', 'toAccount'])
+                ->latest()
+                ->paginate(10),
         );
     }
 
@@ -27,7 +29,6 @@ class TransferController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated) {
-
             $from = \App\Models\Account::findOrFail($validated['from_account_id']);
             $to = \App\Models\Account::findOrFail($validated['to_account_id']);
 

@@ -41,7 +41,6 @@ class InvoiceXmlImportController extends Controller
         DB::beginTransaction();
 
         try {
-
             /** -----------------------------
              * 1. READ XML FILE
              * ------------------------------*/
@@ -51,11 +50,7 @@ class InvoiceXmlImportController extends Controller
             // Remove BOM if exists
             $xmlContent = preg_replace('/^\xEF\xBB\xBF/', '', $xmlContent);
 
-            $xml = simplexml_load_string(
-                $xmlContent,
-                'SimpleXMLElement',
-                LIBXML_NOCDATA
-            );
+            $xml = simplexml_load_string($xmlContent, 'SimpleXMLElement', LIBXML_NOCDATA);
 
             if ($xml === false) {
                 throw new \Exception('Archivo XML no válido.');
@@ -65,14 +60,10 @@ class InvoiceXmlImportController extends Controller
              * 2. HANDLE AUTORIZACION -> FACTURA
              * ------------------------------*/
             if (isset($xml->comprobante)) {
-                $xml = simplexml_load_string(
-                    (string) $xml->comprobante,
-                    'SimpleXMLElement',
-                    LIBXML_NOCDATA
-                );
+                $xml = simplexml_load_string((string) $xml->comprobante, 'SimpleXMLElement', LIBXML_NOCDATA);
             }
 
-            if ($xml === false || ! isset($xml->infoTributaria)) {
+            if ($xml === false || !isset($xml->infoTributaria)) {
                 throw new \Exception('XML no válido.');
             }
 
@@ -82,10 +73,13 @@ class InvoiceXmlImportController extends Controller
             $accessKey = (string) $xml->infoTributaria->claveAcceso;
 
             if (Invoice::where('access_key', $accessKey)->exists()) {
-                return response()->json([
-                    'status' => 409,
-                    'message' => 'La factura ya a sido importada!',
-                ], 409);
+                return response()->json(
+                    [
+                        'status' => 409,
+                        'message' => 'La factura ya a sido importada!',
+                    ],
+                    409,
+                );
             }
 
             /** -----------------------------
@@ -100,16 +94,13 @@ class InvoiceXmlImportController extends Controller
                     'ruc' => (string) $xml->infoTributaria->ruc,
                     'trade_name' => (string) $xml->infoTributaria->nombreComercial,
                     'address' => (string) $xml->infoTributaria->dirMatriz,
-                ]
+                ],
             );
 
             /** -----------------------------
              * 5. INVOICE
              * ------------------------------*/
-            $issueDate = Carbon::createFromFormat(
-                'd/m/Y',
-                (string) $xml->infoFactura->fechaEmision
-            );
+            $issueDate = Carbon::createFromFormat('d/m/Y', (string) $xml->infoFactura->fechaEmision);
 
             // IVA / impuestos
             $tax = 0;
@@ -140,11 +131,8 @@ class InvoiceXmlImportController extends Controller
              * 6. INVOICE ITEMS (PRODUCTS)
              * ------------------------------*/
             foreach ($xml->detalles->detalle as $item) {
-
                 // Descuento por línea
-                $lineDiscount = isset($item->descuento)
-                    ? (float) $item->descuento
-                    : 0;
+                $lineDiscount = isset($item->descuento) ? (float) $item->descuento : 0;
 
                 // Datos base
                 $item_type = (int) $request->item_type;
@@ -169,7 +157,7 @@ class InvoiceXmlImportController extends Controller
                     'description' => (string) $item->descripcion,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
-                    'subtotal' => $subtotal,      // ✅ CLAVE para evitar error SQL
+                    'subtotal' => $subtotal, // ✅ CLAVE para evitar error SQL
                     'discount' => $lineDiscount,
                     'tax' => $itemTax,
                     'total' => $total,
@@ -182,36 +170,40 @@ class InvoiceXmlImportController extends Controller
             /** -----------------------------
              * RESPONSE (NO TOCADO)
              * ------------------------------*/
-            return response()->json([
-                'status' => 200,
-                'message' => 'Factura importada con éxito.',
-                'data' => [
-                    'id' => $invoice->id,
-                    'supplier' => [
-                        'id' => $invoice->supplier->id,
-                        'name' => $invoice->supplier->name,
-                        'trade_name' => $invoice->supplier->trade_name,
-                        'address' => $invoice->supplier->address,
-                        'tax_id' => $invoice->supplier->tax_id,
+            return response()->json(
+                [
+                    'status' => 200,
+                    'message' => 'Factura importada con éxito.',
+                    'data' => [
+                        'id' => $invoice->id,
+                        'supplier' => [
+                            'id' => $invoice->supplier->id,
+                            'name' => $invoice->supplier->name,
+                            'trade_name' => $invoice->supplier->trade_name,
+                            'address' => $invoice->supplier->address,
+                            'tax_id' => $invoice->supplier->tax_id,
+                        ],
+                        'invoice_number' => $invoice->invoice_number,
+                        'issue_date' => $invoice->issue_date,
+                        'subtotal' => $invoice->subtotal,
+                        'disscount' => $invoice->disscount,
+                        'tax' => $invoice->tax,
+                        'total' => $invoice->total,
+                        'invoice_items' => $invoice_items,
                     ],
-                    'invoice_number' => $invoice->invoice_number,
-                    'issue_date' => $invoice->issue_date,
-                    'subtotal' => $invoice->subtotal,
-                    'disscount' => $invoice->disscount,
-                    'tax' => $invoice->tax,
-                    'total' => $invoice->total,
-                    'invoice_items' => $invoice_items,
                 ],
-            ], 201);
-
+                201,
+            );
         } catch (\Throwable $e) {
-
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Error importing invoice',
-                'error' => $e->getMessage(),
-            ], 500);
+            return response()->json(
+                [
+                    'message' => 'Error importing invoice',
+                    'error' => $e->getMessage(),
+                ],
+                500,
+            );
         }
     }
 
@@ -222,34 +214,36 @@ class InvoiceXmlImportController extends Controller
         return response()->json([
             'suppliers' => $suppliers,
         ]);
-
     }
 
     public function show($id)
     {
         $invoice = Invoice::with(['supplier', 'invoice_items'])->findOrFail($id);
 
-        return response()->json([
-            'status' => 200,
-            'data' => [
-                'id' => $invoice->id,
-                'supplier' => [
-                    'id' => $invoice->supplier->id,
-                    'name' => $invoice->supplier->name,
-                    'trade_name' => $invoice->supplier->trade_name,
-                    'address' => $invoice->supplier->address,
-                    'tax_id' => $invoice->supplier->tax_id,
-                    'ruc' => $invoice->supplier->ruc,
+        return response()->json(
+            [
+                'status' => 200,
+                'data' => [
+                    'id' => $invoice->id,
+                    'supplier' => [
+                        'id' => $invoice->supplier->id,
+                        'name' => $invoice->supplier->name,
+                        'trade_name' => $invoice->supplier->trade_name,
+                        'address' => $invoice->supplier->address,
+                        'tax_id' => $invoice->supplier->tax_id,
+                        'ruc' => $invoice->supplier->ruc,
+                    ],
+                    'invoice_number' => $invoice->invoice_number,
+                    'issue_date' => $invoice->issue_date,
+                    'subtotal' => $invoice->subtotal,
+                    'discount' => $invoice->discount,
+                    'tax' => $invoice->tax,
+                    'total' => $invoice->total,
+                    'invoice_items' => $invoice->invoice_items,
                 ],
-                'invoice_number' => $invoice->invoice_number,
-                'issue_date' => $invoice->issue_date,
-                'subtotal' => $invoice->subtotal,
-                'discount' => $invoice->discount,
-                'tax' => $invoice->tax,
-                'total' => $invoice->total,
-                'invoice_items' => $invoice->invoice_items,
             ],
-        ], 200);
+            200,
+        );
     }
 
     public function updateType(Request $request, $id)
@@ -258,7 +252,7 @@ class InvoiceXmlImportController extends Controller
             'item_type' => 'required|int|max:55',
         ]);
         $invoiceItem = InvoiceItem::find($id);
-        if (! $invoiceItem) {
+        if (!$invoiceItem) {
             return response()->json(['message' => 'Item de factura no encontrado'], 404);
         }
         $invoiceItem->item_type = (int) $request->input('item_type');

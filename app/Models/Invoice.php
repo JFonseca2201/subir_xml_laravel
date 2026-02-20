@@ -52,11 +52,11 @@ class Invoice extends Model
     public function scopeFilterAdvance($query, $search, $start_date, $end_date, $supplier)
     {
         if ($search) {
-            $query->where('invoice_number', 'LIKE', "%{$search}%")
+            $query
+                ->where('invoice_number', 'LIKE', "%{$search}%")
                 ->orWhere('id', $search)
                 ->orWhereHas('invoice_items', function ($q) use ($search) {
-                    $q->where('code', 'LIKE', "%{$search}%")
-                        ->orWhere('description', 'LIKE', "%{$search}%");
+                    $q->where('code', 'LIKE', "%{$search}%")->orWhere('description', 'LIKE', "%{$search}%");
                 });
         }
 

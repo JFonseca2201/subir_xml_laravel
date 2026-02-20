@@ -23,49 +23,51 @@ class UserController extends Controller
             $search = $request->search;
 
             $users = User::with(['role', 'sucursale'])
-                ->where("name", "like", "%{$search}%")
-                ->where("status", "1")
-                ->orderBy("id", "desc")
+                ->where('name', 'like', "%{$search}%")
+                ->where('status', '1')
+                ->orderBy('id', 'desc')
                 ->get();
 
-            return response()->json([
-                'status' => 200,
-                'users' => $users->map(function ($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'surname' => $user->surname,
-                        'email' => $user->email,
-                        'identification' => $user->identification,
-                        'role_id' => $user->role_id,
-                        'role' => [
-                            'name' => $user->role ? $user->role->name : 'N/A',
-                        ],
-                        'sucursale_id' => $user->sucursale_id,
-                        'sucursale' => [
-                            'name' => $user->sucursale ? $user->sucursale->name : 'N/A',
-                        ],
-                        'gender' => $user->gender,
-                        'phone' => $user->phone,
-                        'address' => $user->address,
-                        'avatar' => $user->avatar
-                            ? env('APP_URL') . Storage::url($user->avatar)
-                            : null,
-                        'type_document' => $user->type_document,
-                        'status' => $user->status,
-                        'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
-                    ];
-                }),
-            ], 200);
+            return response()->json(
+                [
+                    'status' => 200,
+                    'users' => $users->map(function ($user) {
+                        return [
+                            'id' => $user->id,
+                            'name' => $user->name,
+                            'surname' => $user->surname,
+                            'email' => $user->email,
+                            'identification' => $user->identification,
+                            'role_id' => $user->role_id,
+                            'role' => [
+                                'name' => $user->role ? $user->role->name : 'N/A',
+                            ],
+                            'sucursale_id' => $user->sucursale_id,
+                            'sucursale' => [
+                                'name' => $user->sucursale ? $user->sucursale->name : 'N/A',
+                            ],
+                            'gender' => $user->gender,
+                            'phone' => $user->phone,
+                            'address' => $user->address,
+                            'avatar' => $user->avatar ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/') : null,
+                            'type_document' => $user->type_document,
+                            'status' => $user->status,
+                            'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
+                        ];
+                    }),
+                ],
+                200,
+            );
         } catch (\Throwable $th) {
-            return response()->json([
-                'status' => 500,
-                'message' => $th->getMessage(),
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 500,
+                    'message' => $th->getMessage(),
+                ],
+                500,
+            );
         }
     }
-
-
 
     /**
      * Store a newly created resource in storage.
@@ -73,30 +75,40 @@ class UserController extends Controller
     public function store(Request $request)
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255',
-                'surname' => 'nullable|string|max:255',
-                'email' => 'required|email|max:255|unique:users,email',
-                'password' => 'required|string|min:8',
-                'phone' => 'nullable|string|max:20',
-                'sucursale_id' => 'required|string|max:20',
-                'type_document' => 'required|string|max:20',
-                'identification' => 'required|string|max:20',
-                'address' => 'nullable|string|max:500',
-                'gender' => 'required|string|max:20',
-                'status' => 'required|string|max:20',
-                'role_id' => 'required|string|max:20',
-                'avatar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:2048',
-            ]);
+            $validator = Validator::make(
+                $request->all(),
+                [
+                    'name' => 'required|string|max:255',
+                    'surname' => 'nullable|string|max:255',
+                    'email' => 'required|email|max:255|unique:users,email',
+                    'password' => 'required|string|min:8',
+                    'phone' => 'nullable|string|max:20',
+                    'sucursale_id' => 'required|string|max:20',
+                    'type_document' => 'required|string|max:20',
+                    'identification' => 'required|string|max:20',
+                    'address' => 'nullable|string|max:500',
+                    'gender' => 'required|string|max:20',
+                    'status' => 'required|string|max:20',
+                    'role_id' => 'required|string|max:20',
+                    'avatar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:2048',
+                ],
+                [
+                    'avatar.image' => 'The avatar field must be an image.',
+                    'avatar.mimes' => 'The avatar field must be a file of type: jpg, jpeg, png, webp.',
+                ],
+            );
 
             $maxId = User::max('id') ?? 0;
             DB::statement('ALTER TABLE users AUTO_INCREMENT = ' . ($maxId + 1));
 
             if ($validator->fails()) {
-                return response()->json([
-                    'status' => 422,
-                    'errors' => $validator->errors(),
-                ], 422);
+                return response()->json(
+                    [
+                        'status' => 422,
+                        'errors' => $validator->errors(),
+                    ],
+                    422,
+                );
             }
 
             $data = $validator->validated();
@@ -116,15 +128,21 @@ class UserController extends Controller
                 $user->assignRole($role);
             }
 
-            return response()->json([
-                'status' => 201,
-                'user' => $user,
-            ], 201);
+            return response()->json(
+                [
+                    'status' => 201,
+                    'user' => $user,
+                ],
+                201,
+            );
         } catch (\Throwable $th) {
-            return response()->json([
-                'status' => 500,
-                'message' => $th->getMessage(),
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 500,
+                    'message' => $th->getMessage(),
+                ],
+                500,
+            );
         }
     }
 
@@ -134,22 +152,52 @@ class UserController extends Controller
     public function show(string $id)
     {
         try {
-            $user = User::findOrFail($id);
+            $user = User::with(['role', 'sucursale'])->findOrFail($id);
 
-            return response()->json([
-                'status' => 200,
-                'user' => $user,
-            ], 200);
+            return response()->json(
+                [
+                    'status' => 200,
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'surname' => $user->surname,
+                        'email' => $user->email,
+                        'identification' => $user->identification,
+                        'role_id' => $user->role_id,
+                        'role' => [
+                            'name' => $user->role ? $user->role->name : 'N/A',
+                        ],
+                        'sucursale_id' => $user->sucursale_id,
+                        'sucursale' => [
+                            'name' => $user->sucursale ? $user->sucursale->name : 'N/A',
+                        ],
+                        'gender' => $user->gender,
+                        'phone' => $user->phone,
+                        'address' => $user->address,
+                        'avatar' => $user->avatar ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/') : null,
+                        'type_document' => $user->type_document,
+                        'status' => $user->status,
+                        'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
+                    ],
+                ],
+                200,
+            );
         } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Usuario no encontrado',
-            ], 404);
+            return response()->json(
+                [
+                    'status' => 404,
+                    'message' => 'Usuario no encontrado',
+                ],
+                404,
+            );
         } catch (\Throwable $th) {
-            return response()->json([
-                'status' => 500,
-                'message' => $th->getMessage(),
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 500,
+                    'message' => $th->getMessage(),
+                ],
+                500,
+            );
         }
     }
 
@@ -161,30 +209,45 @@ class UserController extends Controller
         try {
             $user = User::findOrFail($id);
 
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255',
-                'surname' => 'nullable|string|max:255',
-                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-                'password' => 'nullable|string|min:8',
-                'phone' => 'nullable|string|max:20',
-                'sucursale_id' => 'required|string|max:20',
-                'type_document' => 'required|string|max:20',
-                'identification' => 'required|string|max:20',
-                'address' => 'nullable|string|max:500',
-                'gender' => 'required|string|max:20',
-                'status' => 'required|string|max:20',
-                'role_id' => 'required|string|max:20',
-                'avatar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:2048',
-            ]);
+            $validator = Validator::make(
+                $request->all(),
+                [
+                    'name' => 'required|string|max:255',
+                    'surname' => 'nullable|string|max:255',
+                    'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+                    'password' => 'nullable|string|min:8',
+                    'phone' => 'nullable|string|max:20',
+                    'sucursale_id' => 'nullable|string|max:20',
+                    'type_document' => 'required|string|max:20',
+                    'identification' => 'required|string|max:20',
+                    'address' => 'nullable|string|max:500',
+                    'gender' => 'nullable|string|max:20',
+                    'status' => 'nullable|string|max:20',
+                    'role_id' => 'nullable|string|max:20',
+                    'avatar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:2048',
+                ],
+                [
+                    'avatar.image' => 'The avatar field must be an image.',
+                    'avatar.mimes' => 'The avatar field must be a file of type: jpg, jpeg, png, webp.',
+                ],
+            );
 
             if ($validator->fails()) {
-                return response()->json([
-                    'status' => 422,
-                    'errors' => $validator->errors(),
-                ], 422);
+                return response()->json(
+                    [
+                        'status' => 422,
+                        'errors' => $validator->errors(),
+                    ],
+                    422,
+                );
             }
 
             $data = $validator->validated();
+
+            // Set default values for optional fields
+            if (!isset($data['sucursale_id'])) {
+                $data['sucursale_id'] = '1';
+            }
 
             // Only update password if provided
             if (empty($data['password'])) {
@@ -214,20 +277,55 @@ class UserController extends Controller
                 $user->syncRoles([$role]);
             }
 
-            return response()->json([
-                'status' => 200,
-                'user' => $user,
-            ], 200);
+            // Reload user with relationships to get updated data
+            $user->load(['role', 'sucursale']);
+
+            return response()->json(
+                [
+                    'status' => 200,
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'surname' => $user->surname,
+                        'email' => $user->email,
+                        'identification' => $user->identification,
+                        'role_id' => $user->role_id,
+                        'role' => [
+                            'name' => $user->role ? $user->role->name : 'N/A',
+                        ],
+                        'sucursale_id' => $user->sucursale_id,
+                        'sucursale' => [
+                            'name' => $user->sucursale ? $user->sucursale->name : 'N/A',
+                        ],
+                        'gender' => $user->gender,
+                        'phone' => $user->phone,
+                        'address' => $user->address,
+                        'avatar' => $user->avatar
+                            ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/')
+                            : null,
+                        'type_document' => $user->type_document,
+                        'status' => $user->status,
+                        'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
+                    ],
+                ],
+                200,
+            );
         } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Usuario no encontrado',
-            ], 404);
+            return response()->json(
+                [
+                    'status' => 404,
+                    'message' => 'Usuario no encontrado',
+                ],
+                404,
+            );
         } catch (\Throwable $th) {
-            return response()->json([
-                'status' => 500,
-                'message' => $th->getMessage(),
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 500,
+                    'message' => $th->getMessage(),
+                ],
+                500,
+            );
         }
     }
 
@@ -246,20 +344,29 @@ class UserController extends Controller
 
             $user->delete();
 
-            return response()->json([
-                'status' => 200,
-                'message' => 'Usuario eliminado correctamente',
-            ], 200);
+            return response()->json(
+                [
+                    'status' => 200,
+                    'message' => 'Usuario eliminado correctamente',
+                ],
+                200,
+            );
         } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Usuario no encontrado',
-            ], 404);
+            return response()->json(
+                [
+                    'status' => 404,
+                    'message' => 'Usuario no encontrado',
+                ],
+                404,
+            );
         } catch (\Throwable $th) {
-            return response()->json([
-                'status' => 500,
-                'message' => $th->getMessage(),
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 500,
+                    'message' => $th->getMessage(),
+                ],
+                500,
+            );
         }
     }
 }

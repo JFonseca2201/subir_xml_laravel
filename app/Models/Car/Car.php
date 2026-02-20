@@ -9,13 +9,7 @@ class Car extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = [
-        'brand',
-        'model',
-        'year',
-        'color',
-        'placa',
-    ];
+    protected $fillable = ['brand', 'model', 'year', 'color', 'placa'];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',

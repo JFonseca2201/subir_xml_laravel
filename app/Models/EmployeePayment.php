@@ -6,12 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class EmployeePayment extends Model
 {
-    protected $fillable = [
-        'employee_name',
-        'amount',
-        'payment_date',
-        'concept',
-    ];
+    protected $fillable = ['employee_name', 'amount', 'payment_date', 'concept'];
 
     protected $casts = [
         'payment_date' => 'date:Y-m-d',

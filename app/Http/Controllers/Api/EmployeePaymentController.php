@@ -12,9 +12,7 @@ class EmployeePaymentController extends Controller
 {
     public function index()
     {
-        return response()->json(
-            EmployeePayment::latest()->paginate(10)
-        );
+        return response()->json(EmployeePayment::latest()->paginate(10));
     }
 
     public function store(Request $request)
@@ -27,13 +25,15 @@ class EmployeePaymentController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated) {
-
             $account = Account::where('name', 'Banco Guayaquil')->firstOrFail();
 
             if ($account->current_balance < $validated['amount']) {
-                return response()->json([
-                    'message' => 'Saldo insuficiente',
-                ], 422);
+                return response()->json(
+                    [
+                        'message' => 'Saldo insuficiente',
+                    ],
+                    422,
+                );
             }
 
             $payment = EmployeePayment::create($validated);

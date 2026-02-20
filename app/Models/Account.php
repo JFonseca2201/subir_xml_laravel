@@ -6,13 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Account extends Model
 {
-    protected $fillable = [
-        'name',
-        'type',
-        'bank_name',
-        'initial_balance',
-        'is_active',
-    ];
+    protected $fillable = ['name', 'type', 'bank_name', 'initial_balance', 'is_active'];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',
@@ -50,13 +44,9 @@ class Account extends Model
     // 🔥 Saldo dinámico
     public function getCurrentBalanceAttribute()
     {
-        $income = $this->transactions()
-            ->where('type', 'income')
-            ->sum('amount');
+        $income = $this->transactions()->where('type', 'income')->sum('amount');
 
-        $expense = $this->transactions()
-            ->where('type', 'expense')
-            ->sum('amount');
+        $expense = $this->transactions()->where('type', 'expense')->sum('amount');
 
         return $this->initial_balance + $income - $expense;
     }

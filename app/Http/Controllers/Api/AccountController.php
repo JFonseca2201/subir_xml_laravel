@@ -10,9 +10,7 @@ class AccountController extends Controller
 {
     public function index()
     {
-        return response()->json(
-            Account::with('transactions')->get()
-        );
+        return response()->json(Account::with('transactions')->get());
     }
 
     public function store(Request $request)

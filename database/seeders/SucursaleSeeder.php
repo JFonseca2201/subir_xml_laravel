@@ -32,7 +32,7 @@ class SucursaleSeeder extends Seeder
         foreach ($sucursales as $sucursal) {
             Sucursale::updateOrCreate(
                 ['ruc' => $sucursal['ruc'], 'establecimiento' => $sucursal['establecimiento']],
-                $sucursal
+                $sucursal,
             );
         }
     }

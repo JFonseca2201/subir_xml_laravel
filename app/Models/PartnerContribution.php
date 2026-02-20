@@ -6,13 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PartnerContribution extends Model
 {
-    protected $fillable = [
-        'partner_id',
-        'amount',
-        'account_id',
-        'contribution_date',
-        'notes',
-    ];
+    protected $fillable = ['partner_id', 'amount', 'account_id', 'contribution_date', 'notes'];
 
     protected $casts = [
         'contribution_date' => 'date:Y-m-d',

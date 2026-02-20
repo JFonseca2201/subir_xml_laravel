@@ -17,8 +17,7 @@ class PartnerContributionController extends Controller
         $contributions = PartnerContribution::with('partner')
             ->when($search, function ($query) use ($search) {
                 $query->whereHas('partner', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('identification', 'like', "%{$search}%");
+                    $q->where('name', 'like', "%{$search}%")->orWhere('identification', 'like', "%{$search}%");
                 });
             })
             ->latest()
@@ -57,7 +56,8 @@ class PartnerContributionController extends Controller
                 'account_id' => $account->id,
                 'type' => 'income',
                 'amount' => $validated['amount'],
-                'description' => 'Aporte de socio ID: '.$validated['partner_id'].' - '.$validated['contribution_date'],
+                'description' =>
+                    'Aporte de socio ID: ' . $validated['partner_id'] . ' - ' . $validated['contribution_date'],
                 'concept' => 'Aporte socio',
             ]);
 
@@ -66,18 +66,23 @@ class PartnerContributionController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'message' => 'Aporte registrado correctamente',
-                'contribution' => $contribution,
-            ], 201);
-
+            return response()->json(
+                [
+                    'message' => 'Aporte registrado correctamente',
+                    'contribution' => $contribution,
+                ],
+                201,
+            );
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Error al registrar el aporte',
-                'error' => $e->getMessage(),
-            ], 500);
+            return response()->json(
+                [
+                    'message' => 'Error al registrar el aporte',
+                    'error' => $e->getMessage(),
+                ],
+                500,
+            );
         }
     }
 
@@ -97,7 +102,6 @@ class PartnerContributionController extends Controller
         ]);
 
         return DB::transaction(function () use ($id, $validated) {
-
             // 1️⃣ Buscar aporte
             $contribution = PartnerContribution::findOrFail($id);
 
@@ -112,8 +116,8 @@ class PartnerContributionController extends Controller
             if ($contribution->transaction) {
                 $contribution->transaction->update([
                     'amount' => $validated['amount'],
-                    'description' => 'Aporte de socio ID: '.$contribution->partner_id.
-                                    ' - '.$validated['contribution_date'],
+                    'description' =>
+                        'Aporte de socio ID: ' . $contribution->partner_id . ' - ' . $validated['contribution_date'],
                 ]);
             }
 
@@ -127,7 +131,6 @@ class PartnerContributionController extends Controller
     public function destroy(int $id)
     {
         return DB::transaction(function () use ($id) {
-
             // 1️⃣ Buscar aporte por ID
             $contribution = PartnerContribution::findOrFail($id);
 

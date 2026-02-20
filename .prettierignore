@@ -1,0 +1,8 @@
+/vendor/
+/storage/
+/bootstrap/cache/
+/node_modules/
+/public/
+/database/migrations/
+*.blade.php
+index.php

@@ -51,7 +51,7 @@ class RoleController extends Controller
                 [
                     'name.required' => 'El nombre del rol es obligatorio.',
                     'name.unique' => 'Este rol ya existe.',
-                ]
+                ],
             );
 
             $role = Role::create([
@@ -64,36 +64,42 @@ class RoleController extends Controller
                 $role->givePermissionTo($permission);
             }
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Rol creado con éxito.',
-                'data' => [
-                    'id' => $role->id,
-                    'name' => $role->name,
-                    'created_at' => $role->created_at->format('Y-m-d'),
-                    'permissions' => $role->permissions->map(function ($permission) {
-                        return [
-                            'id' => $permission->id,
-                            'name' => $permission->name,
-                        ];
-                    }),
-                    'permissions_pluck' => $role->permissions->pluck('name'), ],
-            ], 201);
-
+            return response()->json(
+                [
+                    'status' => 'success',
+                    'message' => 'Rol creado con éxito.',
+                    'data' => [
+                        'id' => $role->id,
+                        'name' => $role->name,
+                        'created_at' => $role->created_at->format('Y-m-d'),
+                        'permissions' => $role->permissions->map(function ($permission) {
+                            return [
+                                'id' => $permission->id,
+                                'name' => $permission->name,
+                            ];
+                        }),
+                        'permissions_pluck' => $role->permissions->pluck('name'),
+                    ],
+                ],
+                201,
+            );
         } catch (ValidationException $e) {
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Error de validación.',
-                'errors' => $e->errors(),
-            ], 422);
-
+            return response()->json(
+                [
+                    'status' => 'error',
+                    'message' => 'Error de validación.',
+                    'errors' => $e->errors(),
+                ],
+                422,
+            );
         } catch (Throwable $e) {
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No se pudo crear el rol.',
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 'error',
+                    'message' => 'No se pudo crear el rol.',
+                ],
+                500,
+            );
         }
     }
 
@@ -115,12 +121,12 @@ class RoleController extends Controller
 
             $validated = $request->validate(
                 [
-                    'name' => 'required|string|max:100|unique:roles,name,'.$role->id.',id,guard_name,api',
+                    'name' => 'required|string|max:100|unique:roles,name,' . $role->id . ',id,guard_name,api',
                 ],
                 [
                     'name.required' => 'El nombre del rol es obligatorio.',
                     'name.unique' => 'Ya existe otro rol con este nombre.',
-                ]
+                ],
             );
 
             $role->update([
@@ -130,37 +136,42 @@ class RoleController extends Controller
             $permissions = $request->permissions;
             $role->syncPermissions($permissions);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Rol actualizado con éxito.',
-                'data' => [
-                    'id' => $role->id,
-                    'name' => $role->name,
-                    'created_at' => $role->created_at->format('Y-m-d'),
-                    'permissions' => $role->permissions->map(function ($permission) {
-                        return [
-                            'id' => $permission->id,
-                            'name' => $permission->name,
-                        ];
-                    }),
-                    'permissions_pluck' => $role->permissions->pluck('name'),
+            return response()->json(
+                [
+                    'status' => 'success',
+                    'message' => 'Rol actualizado con éxito.',
+                    'data' => [
+                        'id' => $role->id,
+                        'name' => $role->name,
+                        'created_at' => $role->created_at->format('Y-m-d'),
+                        'permissions' => $role->permissions->map(function ($permission) {
+                            return [
+                                'id' => $permission->id,
+                                'name' => $permission->name,
+                            ];
+                        }),
+                        'permissions_pluck' => $role->permissions->pluck('name'),
+                    ],
                 ],
-            ], 200);
-
+                200,
+            );
         } catch (ValidationException $e) {
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Error de validación.',
-                'errors' => $e->errors(),
-            ], 422);
-
+            return response()->json(
+                [
+                    'status' => 'error',
+                    'message' => 'Error de validación.',
+                    'errors' => $e->errors(),
+                ],
+                422,
+            );
         } catch (Throwable $e) {
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No se pudo actualizar el rol.',
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 'error',
+                    'message' => 'No se pudo actualizar el rol.',
+                ],
+                500,
+            );
         }
     }
 
@@ -173,32 +184,40 @@ class RoleController extends Controller
             $role = Role::findOrFail($id);
 
             if ($role->users()->count() > 0) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'No se puede eliminar el rol porque tiene usuarios asignados.',
-                ], 409);
+                return response()->json(
+                    [
+                        'status' => 'error',
+                        'message' => 'No se puede eliminar el rol porque tiene usuarios asignados.',
+                    ],
+                    409,
+                );
             }
 
             $role->delete();
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Rol eliminado con éxito.',
-            ], 200);
-
+            return response()->json(
+                [
+                    'status' => 'success',
+                    'message' => 'Rol eliminado con éxito.',
+                ],
+                200,
+            );
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Rol no encontrado.',
-            ], 404);
-
+            return response()->json(
+                [
+                    'status' => 'error',
+                    'message' => 'Rol no encontrado.',
+                ],
+                404,
+            );
         } catch (Throwable $e) {
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No se pudo eliminar el rol.',
-            ], 500);
+            return response()->json(
+                [
+                    'status' => 'error',
+                    'message' => 'No se pudo eliminar el rol.',
+                ],
+                500,
+            );
         }
     }
 }

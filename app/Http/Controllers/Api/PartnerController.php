@@ -15,9 +15,8 @@ class PartnerController extends Controller
 
         $partners = Partner::query()
             ->when($search, function ($query) use ($search) {
-            $query->where('name', 'like', "%{$search}%")
-                ->orWhere('identification', 'like', "%{$search}%");
-        })
+                $query->where('name', 'like', "%{$search}%")->orWhere('identification', 'like', "%{$search}%");
+            })
             ->latest()
             ->paginate(10);
 
@@ -77,9 +76,12 @@ class PartnerController extends Controller
         $partner = Partner::findOrFail($id);
 
         if ($partner->contributions()->exists()) {
-            return response()->json([
-                'message' => 'No se puede eliminar el socio porque tiene aportes registrados.',
-            ], 422);
+            return response()->json(
+                [
+                    'message' => 'No se puede eliminar el socio porque tiene aportes registrados.',
+                ],
+                422,
+            );
         }
 
         $partner->delete();

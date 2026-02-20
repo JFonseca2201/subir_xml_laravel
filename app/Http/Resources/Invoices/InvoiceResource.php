@@ -13,15 +13,17 @@ class InvoiceResource extends JsonResource
             'id' => $this->resource->id,
             'supplier_id' => $this->resource->supplier_id,
             'supplier' => $this->resource->supplier
-                ? collect([$this->resource->supplier])->map(function ($supplier) {
-                    return [
-                        'id' => $supplier->id,
-                        'name' => $supplier->name,
-                        'tax_id' => $supplier->tax_id,
-                        'trade_name' => $supplier->trade_name,
-                        'address' => $supplier->address,
-                    ];
-                })->first()
+                ? collect([$this->resource->supplier])
+                    ->map(function ($supplier) {
+                        return [
+                            'id' => $supplier->id,
+                            'name' => $supplier->name,
+                            'tax_id' => $supplier->tax_id,
+                            'trade_name' => $supplier->trade_name,
+                            'address' => $supplier->address,
+                        ];
+                    })
+                    ->first()
                 : null,
             'invoice_number' => $this->resource->invoice_number,
             'access_key' => $this->resource->access_key,

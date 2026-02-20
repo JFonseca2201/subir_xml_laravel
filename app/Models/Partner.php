@@ -8,13 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Partner extends Model
 {
-    protected $fillable = [
-        'name',
-        'identification',
-        'phone',
-        'email',
-        'address',
-    ];
+    protected $fillable = ['name', 'identification', 'phone', 'email', 'address'];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',
