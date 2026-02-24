@@ -209,7 +209,6 @@ class UserController extends Controller
     {
         try {
             $user = User::findOrFail($id);
-
             $validator = Validator::make(
                 $request->all(),
                 [
@@ -270,6 +269,7 @@ class UserController extends Controller
             if (isset($data['role_id'])) {
                 unset($data['role_id']);
             }
+
 
             $user->update($data);
 

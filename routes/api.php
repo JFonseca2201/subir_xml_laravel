@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\TransferController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Config\ProductCategorieController;
 use App\Http\Controllers\Config\SucursaleController;
 use App\Http\Controllers\Config\WarehouseController;
 use App\Http\Controllers\Invoice\InvoiceXmlImportController;
@@ -44,6 +45,9 @@ Route::group(
         Route::get('sucursales/{id}', [SucursaleController::class, 'show']);
         Route::put('sucursales/{id}', [SucursaleController::class, 'update']);
         Route::resource('warehouses', WarehouseController::class);
+
+        Route::post('categories/{id}', [ProductCategorieController::class, 'update']);
+        Route::resource('categories', ProductCategorieController::class);
 
         Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
         Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);

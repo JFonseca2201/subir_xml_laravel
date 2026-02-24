@@ -177,6 +177,8 @@ class WarehouseController extends Controller
             $data['name'] = strtoupper(trim($data['name']));
             $data['address'] = $data['address'] ? strtoupper(trim($data['address'])) : null;
 
+            //dd($data);
+
             $warehouse->update($data);
 
             // Recargar la relación para obtener los datos actualizados
