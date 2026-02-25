@@ -4,26 +4,43 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Config\Sucursale;
 
 class Invoice extends Model
 {
     protected $table = 'invoices';
 
     protected $fillable = [
+        'tax_id',
+        'customer_id',
+        'customer_name',
+        'customer_address',
+        'customer_phone',
+        'customer_email',
+        'subtotal',
+        'tax',
+        'total',
+        'status',
+        'payment_method',
+        'payment_status',
+        'due_date',
+        'notes',
+        'created_by',
+        'sucursal_id',
         'supplier_id',
         'access_key',
         'invoice_number',
         'issue_date',
-        'discount',
-        'subtotal',
-        'tax',
-        'total',
     ];
 
     protected $casts = [
-        'issue_date' => 'datetime:Y-m-d H:i:s',
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
+        'subtotal' => 'decimal:2',
+        'tax' => 'decimal:2',
+        'total' => 'decimal:2',
+        'due_date' => 'date',
+        'issue_date' => 'date',
     ];
 
     protected static function boot()
@@ -39,38 +56,103 @@ class Invoice extends Model
         });
     }
 
-    public function supplier()
+    public function items()
     {
-        return $this->belongsTo(Supplier::class);
+        return $this->hasMany(InvoiceItem::class, 'invoice_id');
     }
 
     public function invoice_items()
     {
-        return $this->hasMany(InvoiceItem::class);
+        return $this->hasMany(InvoiceItem::class, 'invoice_id');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function sucursal()
+    {
+        return $this->belongsTo(Sucursale::class, 'sucursal_id');
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id');
+    }
+
+    public function getFormattedTotalAttribute()
+    {
+        return '$' . number_format($this->total, 2);
+    }
+
+    public function getFormattedSubtotalAttribute()
+    {
+        return '$' . number_format($this->subtotal, 2);
+    }
+
+    public function getFormattedTaxAttribute()
+    {
+        return '$' . number_format($this->tax, 2);
+    }
+
+    public function getDueDateFormattedAttribute()
+    {
+        return $this->due_date ? Carbon::parse($this->due_date)->format('d/m/Y') : null;
+    }
+
+    public function getCreatedAtFormattedAttribute()
+    {
+        return Carbon::parse($this->created_at)->format('d/m/Y H:i');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopePaid($query)
+    {
+        return $query->where('payment_status', 'paid');
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('payment_status', 'pending');
+    }
+
+    public function scopeOverdue($query)
+    {
+        return $query->where('due_date', '<', now())
+                    ->where('payment_status', '!=', 'paid');
     }
 
     public function scopeFilterAdvance($query, $search, $start_date, $end_date, $supplier)
     {
         if ($search) {
-            $query
-                ->where('invoice_number', 'LIKE', "%{$search}%")
-                ->orWhere('id', $search)
-                ->orWhereHas('invoice_items', function ($q) use ($search) {
-                    $q->where('code', 'LIKE', "%{$search}%")->orWhere('description', 'LIKE', "%{$search}%");
-                });
+            $query->where(function ($q) use ($search) {
+                $q->where('customer_name', 'like', "%{$search}%")
+                  ->orWhere('tax_id', 'like', "%{$search}%")
+                  ->orWhere('total', 'like', "%{$search}%")
+                  ->orWhere('status', 'like', "%{$search}%");
+            });
         }
 
-        if ($start_date && $end_date) {
-            $start_date = trim($start_date);
-            $end_date = trim($end_date);
-            $query->whereBetween('issue_date', [
-                Carbon::parse($start_date)->format('Y-m-d'),
-                Carbon::parse($end_date)->format('Y-m-d'),
-            ]);
+        if ($start_date) {
+            $query->whereDate('created_at', '>=', $start_date);
+        }
+
+        if ($end_date) {
+            $query->whereDate('created_at', '<=', $end_date);
         }
 
         if ($supplier) {
-            $query->where('supplier_id', $supplier);
+            $query->where('tax_id', $supplier);
         }
 
         return $query;

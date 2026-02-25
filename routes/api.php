@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\TransferController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Config\ProductCategorieController;
 use App\Http\Controllers\Config\SucursaleController;
+use App\Http\Controllers\Config\SupplierController;
 use App\Http\Controllers\Config\WarehouseController;
 use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 use App\Http\Controllers\Roles\RoleController;
@@ -40,26 +41,48 @@ Route::group(
         'middleware' => ['auth:api'],
     ],
     function () {
+        // ============= RUTAS DE ROLES ================
         Route::resource('role', RoleController::class);
+
+        // ============= RUTAS DE USUARIOS ==============
         Route::resource('users', UserController::class);
+
+        // ============= RUTAS DE SUCURSALES ==============
         Route::get('sucursales/{id}', [SucursaleController::class, 'show']);
         Route::put('sucursales/{id}', [SucursaleController::class, 'update']);
+
+        // ============= RUTAS DE ALMACENES ==============
         Route::resource('warehouses', WarehouseController::class);
 
+        // ============= RUTAS DE CATEGORÍAS ==============
         Route::post('categories/{id}', [ProductCategorieController::class, 'update']);
         Route::resource('categories', ProductCategorieController::class);
 
+        // ============= RUTAS DE FACTURAS ==============
         Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
         Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
         Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
         Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
         Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'updateType']);
 
+        // ============= RUTAS DE PARTNERS ==============
         Route::post('partners/index', [PartnerController::class, 'index']);
         Route::resource('partners', PartnerController::class);
+
+        // ============= RUTAS DE PROVEEDORES ============
+        Route::resource('suppliers', SupplierController::class);
+        Route::get('suppliers/last-id', [SupplierController::class, 'getLastId']);
+
+        // ============= RUTAS DE CUENTAS ================
         Route::resource('accounts', AccountController::class);
+
+        // ============= RUTAS DE CONTRIBUCIONES ==========
         Route::resource('contributions', PartnerContributionController::class);
+
+        // ============= RUTAS DE PAGOS EMPLEADOS =========
         Route::resource('employee-payments', EmployeePaymentController::class);
+
+        // ============= RUTAS DE TRANSFERENCIAS ==========
         Route::resource('transfers', TransferController::class);
     },
 );

@@ -32,4 +32,19 @@ class Supplier extends Model
     {
         return $this->hasMany(Invoice::class, 'tax_id');
     }
+
+    public function getFormattedRucAttribute()
+    {
+        if (!$this->ruc) {
+            return null;
+        }
+        
+        // Formatear RUC ecuatoriano (13 dígitos)
+        $ruc = $this->ruc;
+        if (strlen($ruc) === 13) {
+            return substr($ruc, 0, 2) . '-' . substr($ruc, 2, 3) . '-' . substr($ruc, 5, 3) . '-' . substr($ruc, 8);
+        }
+        
+        return $ruc;
+    }
 }

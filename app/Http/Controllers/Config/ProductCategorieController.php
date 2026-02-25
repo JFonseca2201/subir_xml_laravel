@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Config\ProductCategorie;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class ProductCategorieController extends Controller
 {
@@ -48,6 +49,10 @@ class ProductCategorieController extends Controller
             $path = Storage::putFile('categories', $request->file('image'));
             $request->request->add(['imagen' => $path]);
         }
+
+        $maxId = ProductCategorie::max('id') ?? 0;
+        DB::statement('ALTER TABLE product_categories AUTO_INCREMENT = ' . ($maxId + 1));
+
         $categorie = ProductCategorie::create($request->all());
 
         return response()->json([

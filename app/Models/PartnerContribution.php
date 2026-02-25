@@ -12,6 +12,7 @@ class PartnerContribution extends Model
         'contribution_date' => 'date:Y-m-d',
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
+        'amount' => 'decimal:2',
     ];
 
     protected static function boot()
@@ -35,5 +36,15 @@ class PartnerContribution extends Model
     public function transaction()
     {
         return $this->morphOne(Transaction::class, 'transactionable');
+    }
+
+    public function getFormattedAmountAttribute()
+    {
+        return '$' . number_format($this->amount, 2);
+    }
+
+    public function getContributionDateFormattedAttribute()
+    {
+        return $this->contribution_date ? $this->contribution_date->format('d/m/Y') : null;
     }
 }

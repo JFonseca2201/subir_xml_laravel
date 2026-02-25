@@ -12,6 +12,7 @@ class Transfer extends Model
         'transfer_date' => 'date:Y-m-d',
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
+        'amount' => 'decimal:2',
     ];
 
     protected static function boot()
@@ -35,5 +36,15 @@ class Transfer extends Model
     public function toAccount()
     {
         return $this->belongsTo(Account::class, 'to_account_id');
+    }
+
+    public function getFormattedAmountAttribute()
+    {
+        return '$' . number_format($this->amount, 2);
+    }
+
+    public function getTransferDateFormattedAttribute()
+    {
+        return $this->transfer_date ? $this->transfer_date->format('d/m/Y') : null;
     }
 }

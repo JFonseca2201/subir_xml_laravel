@@ -22,45 +22,45 @@ class User extends Authenticatable implements JWTSubject
     /**
      * The attributes that are mass assignable.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $fillable = [
         'name',
         'surname',
-        'avatar',
+        'email',
+        'password',
         'phone',
         'address',
         'gender',
+        'type_document',
+        'identification',
+        'avatar',
         'status',
         'role_id',
         'sucursale_id',
-        'email',
-        'password',
-        'type_document',
-        'identification',
     ];
 
     /**
      * The attributes that should be hidden for serialization.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     /**
-     * Get the attributes that should be cast.
+     * The attributes that should be cast.
      *
-     * @return array<string, string>
+     * @var array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime:Y-m-d H:i:s',
-            'created_at' => 'datetime:Y-m-d H:i:s',
-            'updated_at' => 'datetime:Y-m-d H:i:s',
-            // 'password' => 'hashed',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'created_at' => 'datetime:Y-m-d H:i:s',
+        'updated_at' => 'datetime:Y-m-d H:i:s',
+    ];
 
     protected static function boot()
     {
@@ -73,30 +73,6 @@ class User extends Authenticatable implements JWTSubject
         static::updating(function ($model) {
             $model->updated_at = now()->setTimezone('America/Guayaquil');
         });
-    }
-
-    /**
-     * Set user's name to uppercase.
-     */
-    public function setNameAttribute($value)
-    {
-        $this->attributes['name'] = strtoupper(trim($value));
-    }
-
-    /**
-     * Set user's surname to uppercase.
-     */
-    public function setSurnameAttribute($value)
-    {
-        $this->attributes['surname'] = strtoupper(trim($value));
-    }
-
-    /**
-     * Set user's address to uppercase.
-     */
-    public function setAddressAttribute($value)
-    {
-        $this->attributes['address'] = strtoupper(trim($value));
     }
 
     /**
@@ -123,8 +99,42 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->belongsTo(Role::class, 'role_id');
     }
+
     public function sucursale()
     {
         return $this->belongsTo(Sucursale::class, 'sucursale_id');
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class, 'customer_id');
+    }
+
+    public function createdInvoices()
+    {
+        return $this->hasMany(Invoice::class, 'created_by');
+    }
+
+    public function getFullNameAttribute()
+    {
+        return $this->name . ' ' . $this->surname;
+    }
+
+    public function getAvatarUrlAttribute()
+    {
+        if ($this->avatar) {
+            return env('APP_URL') . 'storage/' . $this->avatar;
+        }
+        return null;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', '1');
+    }
+
+    public function scopeInactive($query)
+    {
+        return $query->where('status', '0');
     }
 }
