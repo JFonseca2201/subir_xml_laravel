@@ -9,6 +9,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Config\ProductCategorieController;
 use App\Http\Controllers\Config\SucursaleController;
 use App\Http\Controllers\Config\SupplierController;
+use App\Http\Controllers\Config\UnitConversionController;
+use App\Http\Controllers\Config\UnitController;
 use App\Http\Controllers\Config\WarehouseController;
 use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 use App\Http\Controllers\Roles\RoleController;
@@ -53,6 +55,12 @@ Route::group(
 
         // ============= RUTAS DE ALMACENES ==============
         Route::resource('warehouses', WarehouseController::class);
+
+        // ============= RUTAS DE UNIDADES ==============
+        Route::resource('units', UnitController::class);
+
+        // ============= RUTAS DE CONVERSIONES DE UNIDADES ==============
+        Route::resource('unit-conversions', UnitConversionController::class);
 
         // ============= RUTAS DE CATEGORÍAS ==============
         Route::post('categories/{id}', [ProductCategorieController::class, 'update']);
