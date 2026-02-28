@@ -13,6 +13,7 @@ use App\Http\Controllers\Config\UnitConversionController;
 use App\Http\Controllers\Config\UnitController;
 use App\Http\Controllers\Config\WarehouseController;
 use App\Http\Controllers\Invoice\InvoiceXmlImportController;
+use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Roles\RoleController;
 use App\Http\Controllers\User\UserController;
 use Illuminate\Support\Facades\Route;
@@ -80,6 +81,9 @@ Route::group(
         // ============= RUTAS DE PROVEEDORES ============
         Route::resource('suppliers', SupplierController::class);
         Route::get('suppliers/last-id', [SupplierController::class, 'getLastId']);
+
+        // ============= RUTAS DE PRODUCTOS ==============
+        Route::resource('products', ProductController::class);
 
         // ============= RUTAS DE CUENTAS ================
         Route::resource('accounts', AccountController::class);
