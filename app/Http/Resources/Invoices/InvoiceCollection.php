@@ -13,11 +13,4 @@ class InvoiceCollection extends ResourceCollection
             'data' => InvoiceResource::collection($this->collection),
         ];
     }
-
-    public function with(Request $request): array
-    {
-        return [
-            'data' => InvoiceResource::collection($this->collection),
-        ];
-    }
 }

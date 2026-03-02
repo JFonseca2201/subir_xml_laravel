@@ -11,35 +11,23 @@ class Invoice extends Model
     protected $table = 'invoices';
 
     protected $fillable = [
-        'tax_id',
-        'customer_id',
-        'customer_name',
-        'customer_address',
-        'customer_phone',
-        'customer_email',
-        'subtotal',
-        'tax',
-        'total',
-        'status',
-        'payment_method',
-        'payment_status',
-        'due_date',
-        'notes',
-        'created_by',
-        'sucursal_id',
         'supplier_id',
         'access_key',
         'invoice_number',
         'issue_date',
+        'subtotal',
+        'discount',
+        'tax',
+        'total',
     ];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
         'subtotal' => 'decimal:2',
+        'discount' => 'decimal:2',
         'tax' => 'decimal:2',
         'total' => 'decimal:2',
-        'due_date' => 'date',
         'issue_date' => 'date',
     ];
 
@@ -101,45 +89,17 @@ class Invoice extends Model
         return '$' . number_format($this->tax, 2);
     }
 
-    public function getDueDateFormattedAttribute()
-    {
-        return $this->due_date ? Carbon::parse($this->due_date)->format('d/m/Y') : null;
-    }
-
-    public function getCreatedAtFormattedAttribute()
-    {
-        return Carbon::parse($this->created_at)->format('d/m/Y H:i');
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
-    }
-
-    public function scopePaid($query)
-    {
-        return $query->where('payment_status', 'paid');
-    }
-
-    public function scopePending($query)
-    {
-        return $query->where('payment_status', 'pending');
-    }
-
-    public function scopeOverdue($query)
-    {
-        return $query->where('due_date', '<', now())
-                    ->where('payment_status', '!=', 'paid');
-    }
-
     public function scopeFilterAdvance($query, $search, $start_date, $end_date, $supplier)
     {
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('customer_name', 'like', "%{$search}%")
-                  ->orWhere('tax_id', 'like', "%{$search}%")
-                  ->orWhere('total', 'like', "%{$search}%")
-                  ->orWhere('status', 'like', "%{$search}%");
+                $q->where('invoice_number', 'like', "%{$search}%")
+                    ->orWhere('access_key', 'like', "%{$search}%")
+                    ->orWhere('total', 'like', "%{$search}%")
+                    ->orWhereHas('invoice_items', function ($itemQuery) use ($search) {
+                        $itemQuery->where('code', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -152,7 +112,7 @@ class Invoice extends Model
         }
 
         if ($supplier) {
-            $query->where('tax_id', $supplier);
+            $query->where('supplier_id', $supplier);
         }
 
         return $query;
