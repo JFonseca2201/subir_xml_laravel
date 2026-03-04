@@ -292,10 +292,12 @@ class PermissionsDemoSeeder extends Seeder
 
         // Create sucursale data
         $sucursale = [
-            'name' => 'Matriz',
-            'address' => 'Av. Principal 123 y Calle Secundaria',
+            'name' => 'COMPAÑIA DE SERVICIOS Y MANTENIMIENTO AUTOMOTRIZ LUXURY EVYS CIA. LTDA.',
+            'address' => 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C',
             'ruc' => '1793192550001',
-            'trade_name' => 'Mi Empresa S.A.',
+            'phone' => '022698134',
+            'email' => 'comp.luxuryevys@gmail.com',
+            'trade_name' => 'LUXURY EVYS CIA. LTDA.',
             'secuencial_factura' => '000000001',
             'serie_factura' => '001-001',
             'establecimiento' => '001',

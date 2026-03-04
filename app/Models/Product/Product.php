@@ -33,9 +33,7 @@ class Product extends Model
         'price',
         'price_sale',
         'purchase_price',
-        'wholesale_price',
         'tax_rate',
-        'discount',
         'max_discount',
         'discount_percentage',
         'brand',
@@ -44,7 +42,6 @@ class Product extends Model
         'min_stock',
         'max_stock',
         'is_taxable',
-        'is_active',
         'is_gift',
         'notes',
         'state',
@@ -56,15 +53,12 @@ class Product extends Model
         'price' => 'decimal:2',
         'price_sale' => 'decimal:2',
         'purchase_price' => 'decimal:2',
-        'wholesale_price' => 'decimal:2',
         'tax_rate' => 'decimal:2',
-        'discount' => 'decimal:2',
         'max_discount' => 'decimal:2',
         'discount_percentage' => 'decimal:2',
         'min_stock' => 'decimal:2',
         'max_stock' => 'decimal:2',
         'is_taxable' => 'boolean',
-        'is_active' => 'boolean',
         'is_gift' => 'boolean',
     ];
 
@@ -92,10 +86,10 @@ class Product extends Model
         return $link;
     }
 
-    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $sucursale_id, $disponibilidad, $is_gift)
+    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id,  $disponibilidad, $is_gift)
     {
         if ($search) {
-            $query->where(DB::raw("products.description || '' || products.sku"), 'ilike', '%' . $search . '%');
+            $query->where(DB::raw("products.description || '' || products.sku"), 'like', '%' . $search . '%');
         }
         if ($categorie_id) {
             $query->where('product_categorie_id', $categorie_id);

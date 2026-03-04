@@ -83,6 +83,7 @@ Route::group(
         Route::get('suppliers/last-id', [SupplierController::class, 'getLastId']);
 
         // ============= RUTAS DE PRODUCTOS ==============
+        Route::get('products/config', [ProductController::class, 'config']);
         Route::resource('products', ProductController::class);
 
         // ============= RUTAS DE CUENTAS ================
