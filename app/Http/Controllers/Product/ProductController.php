@@ -425,8 +425,8 @@ class ProductController extends Controller
             $product->load(['categorie', 'warehouse', 'unit', 'supplier']);
 
             return response()->json([
-                'message' => 200,
-                'message_text' => 'Producto actualizado exitosamente',
+                'status' => 200,
+                'message' => 'Producto actualizado exitosamente',
                 'product' => [
                     'id' => $product->id,
                     'description' => strtoupper(trim($product->description)),
@@ -503,9 +503,9 @@ class ProductController extends Controller
             $product = Product::findOrFail($id);
 
             // Eliminar imagen si existe
-            if ($product->imagen) {
+            /* if ($product->imagen) {
                 Storage::delete($product->imagen);
-            }
+            } */
 
             // Eliminar el producto (soft delete)
             $product->delete();

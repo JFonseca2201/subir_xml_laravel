@@ -20,117 +20,118 @@ class PermissionsDemoSeeder extends Seeder
         // Reset cached roles and permissions
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        Permission::create(['guard_name' => 'api', 'name' => 'dashboard']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'dashboard']);
         // create permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'register_role']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_role']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_role']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_role']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_role']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_role']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_role']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_role']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_user']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_user']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_user']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_user']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_user']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_user']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_user']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_user']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'settings']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'settings']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_product']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_product']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_product']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_product']);
-        Permission::create(['guard_name' => 'api', 'name' => 'show_inventory_product']);
-        Permission::create(['guard_name' => 'api', 'name' => 'show_wallet_price_product']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_product']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_product']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_product']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_product']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'show_inventory_product']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'show_wallet_price_product']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_client']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_client']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_client']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_client']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_client']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_client']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_client']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_client']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_car']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_car']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_car']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_car']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_car']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_car']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_car']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_car']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_employee']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_employee']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_employee']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_employee']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_employee']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_employee']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_employee']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_employee']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_partner']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_partner']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_partner']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_partner']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_partner']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_partner']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_partner']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_partner']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_sale']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_sale']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_sale']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_sale']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_sale']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_sale']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_sale']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_sale']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'return']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'return']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_purchase']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_purchase']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_purchase']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_purchase']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_purchase']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_purchase']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_purchase']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_purchase']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'register_transport']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_transport']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_transport']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_transport']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_transport']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_transport']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_transport']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_transport']);
 
-        Permission::create(['guard_name' => 'api', 'name' => 'conversions']);
-        Permission::create(['guard_name' => 'api', 'name' => 'kardex']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'conversions']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'kardex']);
 
         // Invoice permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'register_invoice']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_invoice']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_invoice']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_invoice']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_invoice']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_invoice']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_invoice']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_invoice']);
 
         // Transaction permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'register_transaction']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_transaction']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_transaction']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_transaction']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_transaction']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_transaction']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_transaction']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_transaction']);
 
         // Transfer permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'register_transfer']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_transfer']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_transfer']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_transfer']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_transfer']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_transfer']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_transfer']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_transfer']);
 
         // Supplier permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'register_supplier']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_supplier']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_supplier']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_supplier']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_supplier']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_supplier']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_supplier']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_supplier']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_supplier']);
 
         // Employee payment permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'register_employee_payment']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_employee_payment']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_employee_payment']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_employee_payment']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_employee_payment']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_employee_payment']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_employee_payment']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_employee_payment']);
 
         // Partner contribution permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'register_partner_contribution']);
-        Permission::create(['guard_name' => 'api', 'name' => 'list_partner_contribution']);
-        Permission::create(['guard_name' => 'api', 'name' => 'edit_partner_contribution']);
-        Permission::create(['guard_name' => 'api', 'name' => 'delete_partner_contribution']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_partner_contribution']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_partner_contribution']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_partner_contribution']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_partner_contribution']);
 
         // Specific permissions
-        Permission::create(['guard_name' => 'api', 'name' => 'import_xml']);
-        Permission::create(['guard_name' => 'api', 'name' => 'export_data']);
-        Permission::create(['guard_name' => 'api', 'name' => 'view_reports']);
-        Permission::create(['guard_name' => 'api', 'name' => 'manage_settings']);
-        Permission::create(['guard_name' => 'api', 'name' => 'approve_transactions']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'import_xml']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'export_data']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'view_reports']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'manage_settings']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'approve_transactions']);
 
         // create roles and assign existing permissions
 
-        $roleSuperAdmin = Role::create(['guard_name' => 'api', 'name' => 'Super-Admin']);
+        $roleSuperAdmin = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Super-Admin']);
         // gets all permissions via Gate::before rule; see AuthServiceProvider
 
         // Create Admin role with most permissions except user/role management
-        $roleAdmin = Role::create(['guard_name' => 'api', 'name' => 'Admin']);
+        $roleAdmin = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Admin']);
         $roleAdmin->givePermissionTo([
             'dashboard',
             'settings',
@@ -186,7 +187,7 @@ class PermissionsDemoSeeder extends Seeder
         ]);
 
         // Create Manager role with operational permissions
-        $roleManager = Role::create(['guard_name' => 'api', 'name' => 'Manager']);
+        $roleManager = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Manager']);
         $roleManager->givePermissionTo([
             'dashboard',
             'list_product',
@@ -227,7 +228,7 @@ class PermissionsDemoSeeder extends Seeder
         ]);
 
         // Create Employee role with basic permissions
-        $roleEmployee = Role::create(['guard_name' => 'api', 'name' => 'Employee']);
+        $roleEmployee = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Employee']);
         $roleEmployee->givePermissionTo([
             'dashboard',
             'list_product',
@@ -246,14 +247,16 @@ class PermissionsDemoSeeder extends Seeder
             'view_reports',
         ]);
 
-        $user = \App\Models\User::factory()->create([
-            'name' => 'Super-Admin',
-            'surname' => 'User',
-            'email' => 'laravest@gmail.com',
-            'type_document' => 'CI',
-            'identification' => '1793192550001',
-            'password' => bcrypt('12345678'),
-        ]);
+        $user = \App\Models\User::updateOrCreate(
+            ['identification' => '1793192550001'],
+            [
+                'name' => 'Super-Admin',
+                'surname' => 'User',
+                'email' => 'laravest@gmail.com',
+                'type_document' => 'CI',
+                'password' => bcrypt('12345678'),
+            ]
+        );
         $user->assignRole($roleSuperAdmin);
 
         $accounts = [
@@ -316,5 +319,66 @@ class PermissionsDemoSeeder extends Seeder
             ['ruc' => $sucursale['ruc'], 'name' => $sucursale['name']],
             $sucursale,
         );
+
+        // ============= CREAR UNIDADES ==============
+        $units = [
+            ['name' => 'UNIDAD', 'state' => 1],
+            ['name' => 'CAJA', 'state' => 1],
+            ['name' => 'KILOGRAMO', 'state' => 1],
+            ['name' => 'LITRO', 'state' => 1],
+            ['name' => 'METRO', 'state' => 1],
+            ['name' => 'PAR', 'state' => 1],
+            ['name' => 'DOCENA', 'state' => 1],
+            ['name' => 'GALÓN', 'state' => 1],
+            ['name' => 'BULTO', 'state' => 1],
+        ];
+
+        foreach ($units as $unit) {
+            \App\Models\Config\Unit::updateOrCreate(
+                ['name' => $unit['name']],
+                $unit
+            );
+        }
+
+        // ============= CREAR CATEGORÍAS ==============
+        $categories = [
+            ['title' => 'REPUESTOS AUTOMOTRICES', 'imagen' => 'http://localhost:8000/storage/categories/repuestos_automotrices.png', 'state' => 1],
+            ['title' => 'LUBRICANTES Y ACEITES', 'imagen' => 'http://localhost:8000/storage/categories/lubricantes_aceites.png', 'state' => 1],
+            ['title' => 'HERRAMIENTAS', 'imagen' => 'http://localhost:8000/storage/categories/herramientas.png', 'state' => 1],
+            ['title' => 'EQUIPOS DE TALLER', 'imagen' => 'http://localhost:8000/storage/categories/equipos_taller.png', 'state' => 1],
+            ['title' => 'LLANTAS Y NEUMÁTICOS', 'imagen' => 'http://localhost:8000/storage/categories/llantas_neumaticos.png', 'state' => 1],
+            ['title' => 'BATERÍAS', 'imagen' => 'http://localhost:8000/storage/categories/baterias.png', 'state' => 1],
+            ['title' => 'FILTROS', 'imagen' => 'http://localhost:8000/storage/categories/filtros.png', 'state' => 1],
+            ['title' => 'FRENOS', 'imagen' => 'http://localhost:8000/storage/categories/frenos.png', 'state' => 1],
+            ['title' => 'SUSPENSIÓN Y DIRECCIÓN', 'imagen' => 'http://localhost:8000/storage/categories/suspension_direccion.png', 'state' => 1],
+            ['title' => 'SISTEMA ELÉCTRICO', 'imagen' => 'http://localhost:8000/storage/categories/sistema_electrico.png', 'state' => 1],
+            ['title' => 'CARROCERÍA Y ACCESORIOS', 'imagen' => 'http://localhost:8000/storage/categories/carroceria_accesorios.png', 'state' => 1],
+            ['title' => 'SERVICIOS DE TALLER', 'imagen' => 'http://localhost:8000/storage/categories/servicios_taller.png', 'state' => 1],
+            ['title' => 'PRODUCTOS DE LIMPIEZA', 'imagen' => 'http://localhost:8000/storage/categories/productos_limpieza.png', 'state' => 1],
+            ['title' => 'ADITIVOS Y QUÍMICOS', 'imagen' => 'http://localhost:8000/storage/categories/aditivos_quimicos.png', 'state' => 1],
+        ];
+
+        foreach ($categories as $category) {
+            \App\Models\Config\ProductCategorie::updateOrCreate(
+                ['title' => $category['title'], 'imagen' => $category['imagen']],
+                $category
+            );
+        }
+
+        // ============= CREAR ALMACENES ==============
+        $warehouses = [
+            ['name' => 'ALMACÉN PRINCIPAL', 'sucursale_id' => '1', 'state' => 0],
+            ['name' => 'ALMACÉN SECUNDARIO', 'sucursale_id' => '1', 'state' => 0],
+            ['name' => 'ALMACÉN DE REPUESTOS', 'sucursale_id' => '1', 'state' => 0],
+            ['name' => 'ALMACÉN DE LUBRICANTES', 'sucursale_id' => '1', 'state' => 0],
+            ['name' => 'ALMACÉN DE HERRAMIENTAS', 'sucursale_id' => '1', 'state' => 0],
+        ];
+
+        foreach ($warehouses as $warehouse) {
+            \App\Models\Config\Warehouse::updateOrCreate(
+                ['name' => $warehouse['name'], 'sucursale_id' => $warehouse['sucursale_id']],
+                $warehouse
+            );
+        }
     }
 }
