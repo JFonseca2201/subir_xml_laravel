@@ -94,27 +94,18 @@ class Product extends Model
         if ($categorie_id) {
             $query->where('product_categorie_id', $categorie_id);
         }
+        if ($warehouse_id) {
+            $query->where('warehouse_id', $warehouse_id);
+        }
+        if ($unit_id) {
+            $query->where('unit_id', $unit_id);
+        }
         if ($disponibilidad) {
-            $query->where('disponibilidad', $disponibilidad);
+            $query->where('state', $disponibilidad);
         }
         if ($is_gift) {
             $query->where('is_gift', $is_gift);
         }
-        if ($warehouse_id) {
-            $query->whereHas('warehouses', function ($warehouse) use ($warehouse_id) {
-                $warehouse->where('warehouse_id', $warehouse_id);
-            });
-        }
-        if ($unit_id) {
-            $query->whereHas('units', function ($unit) use ($unit_id) {
-                $unit->where('unit_id', $unit_id);
-            });
-        }/* 
-        if ($sucursale_id) {
-            $query->whereHas('wallets', function ($wallet) use ($sucursale_id) {
-                $wallet->where('sucursale_id', $sucursale_id);
-            });
-        } */
 
         return $query;
     }
