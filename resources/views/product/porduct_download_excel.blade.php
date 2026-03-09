@@ -51,7 +51,13 @@
                 <td>{{ $product->min_stock }}</td>
                 <td>{{ $product->max_stock }}</td>
                 <td>{{ $product->is_taxable == 1 ? 'Sujeto a IVA' : 'Exento de IVA' }}</td>
-                <td>{{ $product->is_gift == 1 ? 'Sí' : 'No' }}</td>
+                @if ($product->is_gift == 1)
+                    <td style="background-color: #287fa7; color: white;">Sí</td>
+                @elseif ($product->is_gift == 2)
+                    <td style="background-color: #b83e2e; color: white;">No</td>
+                @else
+                    <td style="background-color: #6c757d; color: white;">N/A</td>
+                @endif
                 <td>{{ $product->notes }}</td>
                 <td>{{ $product->state == 1 ? 'Activo' : 'Inactivo' }}</td>
             </tr>

@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Product;
 
 use App\Exports\Product\ProductDownloadExcel;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Product\ProductCollection;
+use App\Http\Resources\Product\ProductResource;
 use App\Models\Config\ProductCategorie;
 use App\Models\Config\Unit;
 use App\Models\Config\Warehouse;
 use App\Models\Supplier;
 use App\Models\Product\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -37,62 +40,9 @@ class ProductController extends Controller
 
             return response()->json([
                 'status' => 200,
-                'message' => 'Productos obtenidos exitosamente',
-                'products' => $products->map(function ($product) {
-                    return [
-                        'id' => $product->id,
-                        'description' => strtoupper(trim($product->description)),
-                        'sku' => strtoupper(trim($product->sku)),
-                        'imagen' => $product->imagen ? env('APP_URL') . 'storage/' . $product->imagen : null,
-                        'code_aux' => strtoupper(trim($product->code_aux)),
-                        'uses' => $product->uses,
-                        'product_categorie_id' => $product->product_categorie_id,
-                        'warehouse_id' => $product->warehouse_id,
-                        'unit_id' => $product->unit_id,
-                        'supplier_id' => $product->supplier_id,
-                        'price' => (float) $product->price,
-                        'price_sale' => (float) $product->price_sale,
-                        'purchase_price' => (float) $product->purchase_price,
-                        'tax_rate' => (float) $product->tax_rate,
-                        'max_discount' => (float) $product->max_discount,
-                        'discount_percentage' => (float) $product->discount_percentage,
-                        'brand' => strtoupper(trim($product->brand)),
-                        'stock' => (float) $product->stock,
-                        'item_type' => (int) $product->item_type,
-                        'min_stock' => (float) $product->min_stock,
-                        'max_stock' => (float) $product->max_stock,
-                        'is_taxable' => (bool) $product->is_taxable,
-                        'is_gift' => (int) $product->is_gift,
-                        'notes' => trim($product->notes),
-                        'state' => (int) $product->state,
-                        'categorie' => $product->categorie ? [
-                            'id' => $product->categorie->id,
-                            'title' => $product->categorie->title,
-                        ] : null,
-                        'warehouse' => $product->warehouse ? [
-                            'id' => $product->warehouse->id,
-                            'name' => $product->warehouse->name,
-                        ] : null,
-                        'unit' => $product->unit ? [
-                            'id' => $product->unit->id,
-                            'name' => strtoupper(trim($product->unit->name)),
-                        ] : null,
-                        'supplier' => $product->supplier ? [
-                            'id' => $product->supplier->id,
-                            'name' => $product->supplier->name,
-                        ] : null,
-                        'created_at' => $product->created_at->format('Y/m/d h:i:s'),
-                        'updated_at' => $product->updated_at->format('Y/m/d h:i:s'),
-                    ];
-                }),
-                'pagination' => [
-                    'total' => $products->total(),
-                    'per_page' => $products->perPage(),
-                    'current_page' => $products->currentPage(),
-                    'last_page' => $products->lastPage(),
-                    'from' => $products->firstItem(),
-                    'to' => $products->lastItem(),
-                ]
+                'total' => $products->total(),
+                'total_page' => $products->lastPage(),
+                'products' => ProductCollection::make($products),
             ]);
         } catch (\Throwable $th) {
             return response()->json([
@@ -177,6 +127,7 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         try {
+
             // Validar que el producto no exista por descripción
             $is_product_exists = Product::where('description', $request->description)->first();
             if ($is_product_exists) {
@@ -224,78 +175,54 @@ class ProductController extends Controller
             ]);
 
             // Crear el producto
+            Log::info('Creating product with data:', $request->all());
             $product = Product::create($request->all());
+            Log::info('Product created successfully:', ['id' => $product->id, 'description' => $product->description]);
 
             // Manejar la imagen si se envía
             if ($request->hasFile('imagen')) {
+                Log::info('Image file detected:', ['filename' => $request->file('imagen')->getClientOriginalName()]);
                 $path = Storage::putFile('products', $request->file('imagen'));
                 $product->update([
                     'imagen' => $path,
                 ]);
+                Log::info('Image saved:', ['path' => $path]);
             }
 
             // Cargar relaciones para la respuesta
+            Log::info('Loading relations...');
             $product->load(['categorie', 'warehouse', 'unit', 'supplier']);
+            Log::info('Relations loaded successfully');
 
-            return response()->json([
-                'message' => 200,
-                'message_text' => 'Producto creado exitosamente',
-                'product' => [
-                    'id' => $product->id,
-                    'description' => strtoupper(trim($product->description)),
-                    'sku' => strtoupper(trim($product->sku)),
-                    'imagen' => $product->imagen,
-                    'code_aux' => strtoupper(trim($product->code_aux)),
-                    'uses' => $product->uses,
-                    'product_categorie_id' => $product->product_categorie_id,
-                    'warehouse_id' => $product->warehouse_id,
-                    'unit_id' => $product->unit_id,
-                    'supplier_id' => $product->supplier_id,
-                    'price' => (float) $product->price,
-                    'price_sale' => (float) $product->price_sale,
-                    'purchase_price' => (float) $product->purchase_price,
-                    'tax_rate' => (float) $product->tax_rate,
-                    'max_discount' => (float) $product->max_discount,
-                    'discount_percentage' => (float) $product->discount_percentage,
-                    'brand' => strtoupper(trim($product->brand)),
-                    'stock' => (float) $product->stock,
-                    'item_type' => (int) $product->item_type,
-                    'min_stock' => (float) $product->min_stock,
-                    'max_stock' => (float) $product->max_stock,
-                    'is_taxable' => (bool) $product->is_taxable,
-                    'is_gift' => (int) $product->is_gift,
-                    'notes' => trim($product->notes),
-                    'state' => (int) $product->state,
-                    'categorie' => $product->categorie ? [
-                        'id' => $product->categorie->id,
-                        'title' => $product->categorie->title,
-                    ] : null,
-                    'warehouse' => $product->warehouse ? [
-                        'id' => $product->warehouse->id,
-                        'name' => $product->warehouse->name,
-                    ] : null,
-                    'unit' => $product->unit ? [
-                        'id' => $product->unit->id,
-                        'name' => strtoupper(trim($product->unit->name)),
-                    ] : null,
-                    'supplier' => $product->supplier ? [
-                        'id' => $product->supplier->id,
-                        'name' => $product->supplier->name,
-                    ] : null,
-                    'created_at' => $product->created_at->format('Y/m/d h:i:s'),
-                    'updated_at' => $product->updated_at->format('Y/m/d h:i:s'),
-                ]
+            // DEBUG: Mostrar datos del producto antes de la respuesta
+            Log::info('Product data for response:', [
+                'id' => $product->id,
+                'description' => $product->description,
+                'sku' => $product->sku,
+                'categorie' => $product->categorie,
+                'warehouse' => $product->warehouse,
+                'unit' => $product->unit,
+                'supplier' => $product->supplier,
             ]);
+
+            $response = [
+                'status' => 200,
+                'message' => 'Producto creado exitosamente',
+                'product' => new ProductResource($product),
+            ];
+
+            Log::info('Final response prepared:', $response);
+            return response()->json($response);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 422,
-                'message_text' => 'Error de validación',
+                'status' => 422,
+                'message' => 'Error de validación',
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Throwable $th) {
             return response()->json([
-                'message' => 500,
-                'message_text' => 'Error al crear el producto',
+                'status' => 500,
+                'message' => 'Error al crear el producto',
                 'error' => $th->getMessage(),
             ], 500);
         }
@@ -313,51 +240,7 @@ class ProductController extends Controller
             return response()->json([
                 'status' => 200,
                 'message' => 'Producto obtenido exitosamente',
-                'product' => [
-                    'id' => $product->id,
-                    'description' => strtoupper(trim($product->description)),
-                    'sku' => strtoupper(trim($product->sku)),
-                    'imagen' => $product->imagen ? env('APP_URL') . 'storage/' . $product->imagen : null,
-                    'code_aux' => strtoupper(trim($product->code_aux)),
-                    'uses' => $product->uses,
-                    'product_categorie_id' => $product->product_categorie_id,
-                    'warehouse_id' => $product->warehouse_id,
-                    'unit_id' => $product->unit_id,
-                    'supplier_id' => $product->supplier_id,
-                    'price' => (float) $product->price,
-                    'price_sale' => (float) $product->price_sale,
-                    'purchase_price' => (float) $product->purchase_price,
-                    'tax_rate' => (float) $product->tax_rate,
-                    'max_discount' => (float) $product->max_discount,
-                    'discount_percentage' => (float) $product->discount_percentage,
-                    'brand' => strtoupper(trim($product->brand)),
-                    'stock' => (float) $product->stock,
-                    'item_type' => (int) $product->item_type,
-                    'min_stock' => (float) $product->min_stock,
-                    'max_stock' => (float) $product->max_stock,
-                    'is_taxable' => (bool) $product->is_taxable,
-                    'is_gift' => (int) $product->is_gift,
-                    'notes' => trim($product->notes),
-                    'state' => (int) $product->state,
-                    'categorie' => $product->categorie ? [
-                        'id' => $product->categorie->id,
-                        'title' => $product->categorie->title,
-                    ] : null,
-                    'warehouse' => $product->warehouse ? [
-                        'id' => $product->warehouse->id,
-                        'name' => $product->warehouse->name,
-                    ] : null,
-                    'unit' => $product->unit ? [
-                        'id' => $product->unit->id,
-                        'name' => strtoupper(trim($product->unit->name)),
-                    ] : null,
-                    'supplier' => $product->supplier ? [
-                        'id' => $product->supplier->id,
-                        'name' => $product->supplier->name,
-                    ] : null,
-                    'created_at' => $product->created_at->format('Y/m/d h:i:s'),
-                    'updated_at' => $product->updated_at->format('Y/m/d h:i:s'),
-                ]
+                'product' => new ProductResource($product),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -382,7 +265,6 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
 
-            // Validar que el producto no exista por descripción (excepto el actual)
             if ($request->description && $request->description !== $product->description) {
                 $is_product_exists = Product::where('description', $request->description)
                     ->where('id', '!=', $id)
@@ -395,7 +277,6 @@ class ProductController extends Controller
                 }
             }
 
-            // Validar que el SKU no exista (excepto el actual)
             if ($request->sku && $request->sku !== $product->sku) {
                 $is_product_sku_exists = Product::where('sku', $request->sku)
                     ->where('id', '!=', $id)
@@ -408,7 +289,6 @@ class ProductController extends Controller
                 }
             }
 
-            // Validar campos
             $request->validate([
                 'description' => 'required|string|max:255',
                 'sku' => 'nullable|string|max:50|unique:products,sku,' . $id,
@@ -434,12 +314,9 @@ class ProductController extends Controller
                 'imagen' => 'nullable|image|max:2048',
             ]);
 
-            // Actualizar el producto
             $product->update($request->all());
 
-            // Manejar la imagen si se envía
             if ($request->hasFile('imagen')) {
-                // Eliminar imagen anterior si existe
                 if ($product->imagen) {
                     Storage::delete($product->imagen);
                 }
@@ -450,62 +327,17 @@ class ProductController extends Controller
                 ]);
             }
 
-            // Cargar relaciones para la respuesta
             $product->load(['categorie', 'warehouse', 'unit', 'supplier']);
 
             return response()->json([
                 'status' => 200,
                 'message' => 'Producto actualizado exitosamente',
-                'product' => [
-                    'id' => $product->id,
-                    'description' => strtoupper(trim($product->description)),
-                    'sku' => strtoupper(trim($product->sku)),
-                    'imagen' => $product->imagen ? env('APP_URL') . 'storage/' . $product->imagen : null,
-                    'code_aux' => strtoupper(trim($product->code_aux)),
-                    'uses' => $product->uses,
-                    'product_categorie_id' => $product->product_categorie_id,
-                    'warehouse_id' => $product->warehouse_id,
-                    'unit_id' => $product->unit_id,
-                    'supplier_id' => $product->supplier_id,
-                    'price' => (float) $product->price,
-                    'price_sale' => (float) $product->price_sale,
-                    'purchase_price' => (float) $product->purchase_price,
-                    'tax_rate' => (float) $product->tax_rate,
-                    'max_discount' => (float) $product->max_discount,
-                    'discount_percentage' => (float) $product->discount_percentage,
-                    'brand' => strtoupper(trim($product->brand)),
-                    'stock' => (float) $product->stock,
-                    'item_type' => (int) $product->item_type,
-                    'min_stock' => (float) $product->min_stock,
-                    'max_stock' => (float) $product->max_stock,
-                    'is_taxable' => (bool) $product->is_taxable,
-                    'is_gift' => (int) $product->is_gift,
-                    'notes' => trim($product->notes),
-                    'state' => (int) $product->state,
-                    'categorie' => $product->categorie ? [
-                        'id' => $product->categorie->id,
-                        'title' => $product->categorie->title,
-                    ] : null,
-                    'warehouse' => $product->warehouse ? [
-                        'id' => $product->warehouse->id,
-                        'name' => $product->warehouse->name,
-                    ] : null,
-                    'unit' => $product->unit ? [
-                        'id' => $product->unit->id,
-                        'name' => strtoupper(trim($product->unit->name)),
-                    ] : null,
-                    'supplier' => $product->supplier ? [
-                        'id' => $product->supplier->id,
-                        'name' => $product->supplier->name,
-                    ] : null,
-                    'created_at' => $product->created_at->format('Y/m/d h:i:s'),
-                    'updated_at' => $product->updated_at->format('Y/m/d h:i:s'),
-                ]
+                'product' => new ProductResource($product),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 422,
-                'message_text' => 'Error de validación',
+                'status' => 422,
+                'message' => 'Error de validación',
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

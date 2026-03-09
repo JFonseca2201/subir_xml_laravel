@@ -58,8 +58,8 @@ class Product extends Model
         'discount_percentage' => 'decimal:2',
         'min_stock' => 'decimal:2',
         'max_stock' => 'decimal:2',
-        'is_taxable' => 'boolean',
-        'is_gift' => 'boolean',
+        'is_taxable' => 'integer',
+        'is_gift' => 'integer',
     ];
 
     protected static function boot()
@@ -89,7 +89,10 @@ class Product extends Model
     public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id,  $disponibilidad, $is_gift)
     {
         if ($search) {
-            $query->where(DB::raw("products.description || '' || products.sku"), 'like', '%' . $search . '%');
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', '%' . $search . '%')
+                    ->orWhere('sku', 'like', '%' . $search . '%');
+            });
         }
         if ($categorie_id) {
             $query->where('product_categorie_id', $categorie_id);
