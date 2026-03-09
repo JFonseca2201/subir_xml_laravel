@@ -1,0 +1,100 @@
+{
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": "entity.name.tag.html",
+        "settings": {
+          "foreground": "#569cd6",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "entity.name.tag.blade",
+        "settings": {
+          "foreground": "#c586c0",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "meta.tag.table.html",
+        "settings": {
+          "foreground": "#1e40af",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "meta.tag.thead.html",
+        "settings": {
+          "foreground": "#7c3aed",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "meta.tag.tbody.html",
+        "settings": {
+          "foreground": "#059669",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "meta.tag.tr.html",
+        "settings": {
+          "foreground": "#0891b2",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "meta.tag.th.html",
+        "settings": {
+          "foreground": "#ea580c",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "meta.tag.td.html",
+        "settings": {
+          "foreground": "#be185d",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "keyword.control.blade",
+        "settings": {
+          "foreground": "#dc2626",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "entity.name.function.blade",
+        "settings": {
+          "foreground": "#7c3aed",
+          "fontStyle": "bold"
+        }
+      },
+      {
+        "scope": "string.quoted.blade",
+        "settings": {
+          "foreground": "#059669"
+        }
+      },
+      {
+        "scope": "punctuation.definition.string.begin.blade",
+        "settings": {
+          "foreground": "#ea580c"
+        }
+      },
+      {
+        "scope": "punctuation.definition.string.end.blade",
+        "settings": {
+          "foreground": "#ea580c"
+        }
+      }
+    ]
+  },
+  "files.associations": {
+    "*.blade.php": "blade"
+  },
+  "emmet.includeLanguages": {
+    "blade": "html"
+  }
+}

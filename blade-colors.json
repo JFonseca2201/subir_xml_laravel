@@ -1,0 +1,16 @@
+{
+  "blade.colors": {
+    "table": "#1e40af",
+    "thead": "#7c3aed", 
+    "tbody": "#059669",
+    "tr": "#0891b2",
+    "th": "#ea580c",
+    "td": "#be185d",
+    "foreach": "#dc2626",
+    "if": "#059669",
+    "else": "#7c3aed",
+    "endif": "#ea580c",
+    "echo": "#0891b2",
+    "comment": "#6b7280"
+  }
+}

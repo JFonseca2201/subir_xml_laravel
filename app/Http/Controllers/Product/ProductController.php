@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Product;
 
+use App\Exports\Product\ProductDownloadExcel;
 use App\Http\Controllers\Controller;
 use App\Models\Config\ProductCategorie;
 use App\Models\Config\Unit;
@@ -10,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\Product\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ProductController extends Controller
 {
@@ -137,6 +139,33 @@ class ProductController extends Controller
             return response()->json([
                 'status' => 500,
                 'message' => 'Error al obtener la configuración',
+                'error' => $th->getMessage(),
+            ], 500);
+        }
+    }
+    public function download_excel(Request $request)
+    {
+
+        try {
+            // Obtener parámetros de búsqueda
+            $search = $request->get('search', '');
+            $categorie_id = $request->get('categorie_id');
+            $warehouse_id = $request->get('warehouse_id');
+            $unit_id = $request->get('unit_id');
+            $disponibilidad = $request->get('disponibilidad');
+            $is_gift = $request->get('is_gift');
+
+            // Aplicar filtros usando el scope
+            $products = Product::with(['categorie', 'warehouse', 'unit', 'supplier'])
+                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift)
+                ->orderBy('id', 'desc')
+                ->get();
+
+            return Excel::download(new ProductDownloadExcel($products), 'products.xlsx');
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error al obtener los productos',
                 'error' => $th->getMessage(),
             ], 500);
         }

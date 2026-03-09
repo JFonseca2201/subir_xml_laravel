@@ -99,3 +99,4 @@ Route::group(
         Route::resource('transfers', TransferController::class);
     },
 );
+Route::get('products-excel', [ProductController::class, 'download_excel']);
