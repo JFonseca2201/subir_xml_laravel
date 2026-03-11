@@ -20,13 +20,26 @@ class InvoiceXmlImportController extends Controller
         $supplier = $request->supplier_id;
         $start_date = $request->start_date;
         $end_date = $request->end_date;
+        $page = $request->get('page', 1);
+        $per_page = $request->get('per_page', 10);
 
         $invoices = Invoice::filterAdvance($search, $start_date, $end_date, $supplier)
             ->orderBy('id', 'desc')
-            ->paginate(10);
+            ->paginate($per_page, ['*'], 'page', $page);
 
         return response()->json([
-            'total_page' => $invoices->lastPage(),
+            'total' => $invoices->total(),
+            'count' => $invoices->count(),
+            'per_page' => $invoices->perPage(),
+            'current_page' => $invoices->currentPage(),
+            'total_pages' => $invoices->lastPage(),
+            'from' => $invoices->firstItem(),
+            'to' => $invoices->lastItem(),
+            'has_more_pages' => $invoices->hasMorePages(),
+            'next_page_url' => $invoices->nextPageUrl(),
+            'prev_page_url' => $invoices->previousPageUrl(),
+            'first_page_url' => $invoices->url(1),
+            'last_page_url' => $invoices->url($invoices->lastPage()),
             'invoices' => InvoiceCollection::make($invoices),
         ]);
     }
