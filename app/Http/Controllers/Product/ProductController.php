@@ -31,17 +31,29 @@ class ProductController extends Controller
             $unit_id = $request->get('unit_id');
             $disponibilidad = $request->get('disponibilidad');
             $is_gift = $request->get('is_gift');
+            $page = $request->get('page', 1);
+            $per_page = $request->get('per_page', 10);
 
             // Aplicar filtros usando el scope
             $products = Product::with(['categorie', 'warehouse', 'unit', 'supplier'])
                 ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift)
                 ->orderBy('id', 'desc')
-                ->paginate(10);
+                ->paginate($per_page, ['*'], 'page', $page);
 
             return response()->json([
                 'status' => 200,
                 'total' => $products->total(),
-                'total_page' => $products->lastPage(),
+                'count' => $products->count(),
+                'per_page' => $products->perPage(),
+                'current_page' => $products->currentPage(),
+                'total_pages' => $products->lastPage(),
+                'from' => $products->firstItem(),
+                'to' => $products->lastItem(),
+                'has_more_pages' => $products->hasMorePages(),
+                'next_page_url' => $products->nextPageUrl(),
+                'prev_page_url' => $products->previousPageUrl(),
+                'first_page_url' => $products->url(1),
+                'last_page_url' => $products->url($products->lastPage()),
                 'products' => ProductCollection::make($products),
             ]);
         } catch (\Throwable $th) {

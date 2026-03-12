@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoices\InvoiceCollection;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Product\Product;
 use App\Models\Supplier;
 // MODELS
 use Carbon\Carbon;
@@ -85,14 +86,16 @@ class InvoiceXmlImportController extends Controller
              * ------------------------------*/
             $accessKey = (string) $xml->infoTributaria->claveAcceso;
 
-            if (Invoice::where('access_key', $accessKey)->exists()) {
-                return response()->json(
-                    [
-                        'status' => 409,
-                        'message' => 'La factura ya a sido importada!',
-                    ],
-                    409,
-                );
+            // 1. VALIDACIÓN CRÍTICA: ¿Ya existe esta factura?
+            $facturaExiste = Invoice::where('access_key', $accessKey)->exists();
+
+            if ($facturaExiste) {
+                return response()->json([
+                    'status' => 422,
+                    'message' => 'La factura con clave de acceso ' . $accessKey . ' ya fue ingresada anteriormente. El stock no ha sido modificado.',
+                    'access_key' => $accessKey,
+                    'error_type' => 'duplicate_invoice'
+                ], 422); // Error de validación
             }
 
             /** -----------------------------
@@ -164,10 +167,58 @@ class InvoiceXmlImportController extends Controller
                 // Total final del ítem
                 $total = round($subtotal - $lineDiscount + $itemTax, 2);
 
+                /** -----------------------------
+                 * 6.1 VERIFICAR Y CREAR/ACTUALIZAR PRODUCTO
+                 * ------------------------------*/
+                $code = (string) $item->codigoPrincipal;
+                $description = (string) $item->descripcion;
+
+                // Solo procesar productos si item_type = 1
+                if ($item_type == 1) {
+                    // Buscar producto por SKU o descripción
+                    $product = Product::where('sku', $code)
+                        ->orWhere('description', $description)
+                        ->first();
+
+                    if (!$product) {
+                        // Crear nuevo producto con valores quemados
+                        $product = Product::create([
+                            'description' => $description,
+                            'sku' => $code,
+                            'imagen' => null,
+                            'code_aux' => '',
+                            'uses' => null,
+                            'product_categorie_id' => 1,
+                            'warehouse_id' => 1,
+                            'unit_id' => 1,
+                            'supplier_id' => $supplier->id,
+                            'price' => $unitPrice * 1.55,
+                            'price_sale' => $unitPrice * 1.55,
+                            'purchase_price' => $unitPrice,
+                            'tax_rate' => 15,
+                            'max_discount' => (float) ((($unitPrice * 1.55) - ($unitPrice)) * 0.10),
+                            'discount_percentage' => 10,
+                            'brand' => 'SM',
+                            'stock' => $quantity,
+                            'item_type' => $item_type,
+                            'min_stock' => 1,
+                            'max_stock' => 5,
+                            'is_taxable' => 1,
+                            'is_gift' => 2,
+                            'notes' => 'Producto importado desde Factura: ' . $invoice->invoice_number,
+                            'state' => 1,
+                        ]);
+                    } else {
+                        // Actualizar stock del producto existente
+                        $product->stock += $quantity;
+                        $product->save();
+                    }
+                }
+
                 $invoice_items = InvoiceItem::create([
                     'invoice_id' => $invoice->id,
-                    'code' => (string) $item->codigoPrincipal,
-                    'description' => (string) $item->descripcion,
+                    'code' => $code,
+                    'description' => $description,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'subtotal' => $subtotal, // ✅ CLAVE para evitar error SQL
