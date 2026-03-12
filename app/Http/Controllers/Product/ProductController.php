@@ -401,4 +401,11 @@ class ProductController extends Controller
             ], 500);
         }
     }
+    function test()
+    {
+        return response()->json([
+            'message' => 200,
+            'message_text' => 'Este es un test para el commit del backend',
+        ]);
+    }
 }
