@@ -84,6 +84,7 @@ Route::group(
 
         // ============= RUTAS DE PRODUCTOS ==============
         Route::get('products/config', [ProductController::class, 'config']);
+        Route::post('products/process', [InvoiceXmlImportController::class, 'processInvoice']);
         Route::resource('products', ProductController::class);
 
         // ============= RUTAS DE CUENTAS ================

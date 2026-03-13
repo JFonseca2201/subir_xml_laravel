@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Invoice;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoices\InvoiceCollection;
+use App\Models\Config\ProductCategorie;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Product\Product;
@@ -141,6 +142,7 @@ class InvoiceXmlImportController extends Controller
                 'discount' => $globalDiscount,
                 'tax' => $tax,
                 'total' => (float) $xml->infoFactura->importeTotal,
+                'invoice_process' => 2, // 2 = no procesado por defecto
             ]);
 
             /** -----------------------------
@@ -174,46 +176,7 @@ class InvoiceXmlImportController extends Controller
                 $description = (string) $item->descripcion;
 
                 // Solo procesar productos si item_type = 1
-                if ($item_type == 1) {
-                    // Buscar producto por SKU o descripción
-                    $product = Product::where('sku', $code)
-                        ->orWhere('description', $description)
-                        ->first();
 
-                    if (!$product) {
-                        // Crear nuevo producto con valores quemados
-                        $product = Product::create([
-                            'description' => $description,
-                            'sku' => $code,
-                            'imagen' => null,
-                            'code_aux' => '',
-                            'uses' => null,
-                            'product_categorie_id' => 1,
-                            'warehouse_id' => 1,
-                            'unit_id' => 1,
-                            'supplier_id' => $supplier->id,
-                            'price' => $unitPrice * 1.55,
-                            'price_sale' => $unitPrice * 1.55,
-                            'purchase_price' => $unitPrice,
-                            'tax_rate' => 15,
-                            'max_discount' => (float) ((($unitPrice * 1.55) - ($unitPrice)) * 0.10),
-                            'discount_percentage' => 10,
-                            'brand' => 'SM',
-                            'stock' => $quantity,
-                            'item_type' => $item_type,
-                            'min_stock' => 1,
-                            'max_stock' => 5,
-                            'is_taxable' => 1,
-                            'is_gift' => 2,
-                            'notes' => 'Producto importado desde Factura: ' . $invoice->invoice_number,
-                            'state' => 1,
-                        ]);
-                    } else {
-                        // Actualizar stock del producto existente
-                        $product->stock += $quantity;
-                        $product->save();
-                    }
-                }
 
                 $invoice_items = InvoiceItem::create([
                     'invoice_id' => $invoice->id,
@@ -274,9 +237,12 @@ class InvoiceXmlImportController extends Controller
     public function config()
     {
         $suppliers = Supplier::orderBy('name', 'desc')->get();
+        $category = ProductCategorie::orderBy('title', 'desc')->get();
 
         return response()->json([
+            'status' => 200,
             'suppliers' => $suppliers,
+            'categories' => $category,
         ]);
     }
 
@@ -314,17 +280,137 @@ class InvoiceXmlImportController extends Controller
     {
         $request->validate([
             'item_type' => 'required|int|max:55',
+            'categorie_id' => 'nullable|int|exists:product_categories,id',
         ]);
         $invoiceItem = InvoiceItem::find($id);
         if (!$invoiceItem) {
             return response()->json(['message' => 'Item de factura no encontrado'], 404);
         }
         $invoiceItem->item_type = (int) $request->input('item_type');
+
+        // Actualizar categoría si se proporciona
+        if ($request->has('categorie_id')) {
+            $invoiceItem->categorie_id = $request->input('categorie_id');
+        }
+
         $invoiceItem->save();
 
         return response()->json([
-            'invoiceItem' => $invoiceItem,
+            'invoiceItem' => $invoiceItem->fresh(['category']),
             'status' => 200,
         ]);
+    }
+
+    public function processInvoice(Request $request)
+    {
+        try {
+            // Validar datos requeridos
+            $validated = $request->validate([
+                'invoice' => 'required|integer|exists:invoices,id',
+                'categorie_id' => 'nullable|int|exists:product_categories,id',
+            ]);
+
+            // Obtener la factura actual
+            $invoiceModel = Invoice::find($validated['invoice']);
+            if (!$invoiceModel) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'Factura no encontrada',
+                ], 404);
+            }
+
+            // Obtener todos los ítems de la factura
+            $invoiceItems = InvoiceItem::where('invoice_id', $invoiceModel->id)->get();
+
+            if ($invoiceItems->isEmpty()) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'No se encontraron ítems en esta factura',
+                ], 404);
+            }
+
+            $processedCount = 0;
+
+            // Procesar cada ítem de la factura
+            foreach ($invoiceItems as $invoiceItem) {
+                // Usar la categoría del request si se proporciona, sino la del ítem
+                $category = $validated['categorie_id'] ?? $invoiceItem->categorie_id;
+                $category = $category ?? 1; // Default a 1 si es null
+
+                $item_type = $invoiceItem->item_type;
+                $code = $invoiceItem->code;
+                $description = $invoiceItem->description;
+                $quantity = $invoiceItem->quantity;
+                $unitPrice = $invoiceItem->unit_price;
+
+                if ($item_type == 1) {
+                    // Buscar producto por SKU o descripción
+                    $product = Product::where('sku', $code)
+                        ->orWhere('description', $description)
+                        ->first();
+
+                    if (!$product) {
+                        // Crear nuevo producto con valores quemados
+                        $product = Product::create([
+                            'description' => $description,
+                            'sku' => $code,
+                            'imagen' => null,
+                            'code_aux' => '',
+                            'uses' => null,
+                            'product_categorie_id' => $category,
+                            'warehouse_id' => 1,
+                            'unit_id' => 1,
+                            'supplier_id' => $invoiceModel->supplier_id,
+                            'price' => $unitPrice * 1.55,
+                            'price_sale' => $unitPrice * 1.55,
+                            'purchase_price' => $unitPrice,
+                            'tax_rate' => 15,
+                            'max_discount' => (float) ((($unitPrice * 1.55) - ($unitPrice)) * 0.25),
+                            'discount_percentage' => 25,
+                            'brand' => 'SM',
+                            'stock' => $quantity,
+                            'item_type' => $item_type,
+                            'min_stock' => 1,
+                            'max_stock' => 5,
+                            'is_taxable' => 1,
+                            'is_gift' => 2,
+                            'notes' => 'Producto importado desde la Factura: ' . $invoiceModel->invoice_number,
+                            'state' => 1,
+                        ]);
+                        $processedCount++;
+                    } else {
+                        // Actualizar stock del producto existente
+                        $product->stock += $quantity;
+                        $product->save();
+                        $processedCount++;
+                    }
+                }
+            }
+
+            // Actualizar el estado de la factura (1 = procesada)
+            $invoiceModel->update([
+                'invoice_process' => 1
+            ]);
+
+            return response()->json([
+                'message' => $processedCount . ' producto(s) procesado(s) correctamente',
+                'status' => 200,
+                'invoice' => $invoiceModel->fresh(['supplier']),
+                'processed_items' => $processedCount,
+                'total_items' => $invoiceItems->count(),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'Error de validación',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error al procesar la factura',
+                'error' => $th->getMessage(),
+            ], 500);
+        }
     }
 }

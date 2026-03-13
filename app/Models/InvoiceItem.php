@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Config\ProductCategorie;
 use Illuminate\Database\Eloquent\Model;
 
 class InvoiceItem extends Model
@@ -19,6 +20,7 @@ class InvoiceItem extends Model
         'tax',
         'total',
         'item_type',
+        'product_categorie_id',
     ];
 
     protected $casts = [
@@ -48,6 +50,11 @@ class InvoiceItem extends Model
     public function invoice()
     {
         return $this->belongsTo(Invoice::class, 'invoice_id');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(ProductCategorie::class, 'product_categorie_id');
     }
 
     public function getFormattedUnitPriceAttribute()

@@ -19,6 +19,7 @@ class Invoice extends Model
         'discount',
         'tax',
         'total',
+        'invoice_process',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Invoice extends Model
         'tax' => 'decimal:2',
         'total' => 'decimal:2',
         'issue_date' => 'date',
+        'invoice_process' => 'integer',
     ];
 
     protected static function boot()
