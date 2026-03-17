@@ -201,22 +201,6 @@ class ProductController extends Controller
                 Log::info('Image saved:', ['path' => $path]);
             }
 
-            // Cargar relaciones para la respuesta
-            Log::info('Loading relations...');
-            $product->load(['categorie', 'warehouse', 'unit', 'supplier']);
-            Log::info('Relations loaded successfully');
-
-            // DEBUG: Mostrar datos del producto antes de la respuesta
-            Log::info('Product data for response:', [
-                'id' => $product->id,
-                'description' => $product->description,
-                'sku' => $product->sku,
-                'categorie' => $product->categorie,
-                'warehouse' => $product->warehouse,
-                'unit' => $product->unit,
-                'supplier' => $product->supplier,
-            ]);
-
             $response = [
                 'status' => 200,
                 'message' => 'Producto creado exitosamente',
