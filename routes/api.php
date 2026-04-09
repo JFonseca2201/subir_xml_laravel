@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\TransferController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Client\ClientController;
 use App\Http\Controllers\Config\ProductCategorieController;
 use App\Http\Controllers\Config\SucursaleController;
 use App\Http\Controllers\Config\SupplierController;
@@ -86,6 +87,9 @@ Route::group(
         Route::get('products/config', [ProductController::class, 'config']);
         Route::post('products/process', [InvoiceXmlImportController::class, 'processInvoice']);
         Route::resource('products', ProductController::class);
+
+        // ============= RUTAS DE CLIENTES ==============
+        Route::resource('clients', ClientController::class);
 
         // ============= RUTAS DE CUENTAS ================
         Route::resource('accounts', AccountController::class);

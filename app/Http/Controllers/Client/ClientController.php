@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Controller;
 use App\Models\Client\Client;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class ClientController extends Controller
@@ -16,7 +17,6 @@ class ClientController extends Controller
     {
         $query = Client::query();
 
-        // Filtros
         if ($request->has('search')) {
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
@@ -37,7 +37,6 @@ class ClientController extends Controller
             $query->where('type_client', $request->get('type_client'));
         }
 
-        // Paginación
         $page = $request->get('page', 1);
         $per_page = $request->get('per_page', 10);
 
@@ -68,12 +67,12 @@ class ClientController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
+            'type_client' => 'required|integer|in:1,2',
+            'name' => 'nullable|string|max:255',
             'surname' => 'nullable|string|max:255',
-            'full_name' => 'required|string|max:255|unique:clients',
+            'full_name' => 'required_if:type_client,2|string|max:255|unique:clients',
             'phone' => 'required|string|max:20|unique:clients',
             'email' => 'nullable|email|max:255|unique:clients',
-            'type_client' => 'nullable|string|max:50',
             'type_document' => 'nullable|string|max:10',
             'n_document' => 'required|string|max:20|unique:clients',
             'birth_date' => 'nullable|date',
@@ -98,13 +97,31 @@ class ClientController extends Controller
             ], 422);
         }
 
+        $maxId = Client::max('id') ?? 0;
+        DB::statement('ALTER TABLE clients AUTO_INCREMENT = ' . ($maxId + 1));
+
+        // Procesar según el tipo de cliente
+        $typeClient = $request->get('type_client');
+
+        if ($typeClient == 1) {
+            // Cliente final: combinar name + surname para full_name
+            $fullName = trim($request->get('name') . ' ' . $request->get('surname'));
+            $name = $request->get('name');
+            $surname = $request->get('surname');
+        } else {
+            // Cliente company: usar full_name directamente
+            $fullName = $request->get('full_name');
+            $name = null;
+            $surname = null;
+        }
+
         $client = Client::create([
-            'name' => $request->get('name'),
-            'surname' => $request->get('surname'),
-            'full_name' => $request->get('full_name'),
+            'name' => $name,
+            'surname' => $surname,
+            'full_name' => $fullName,
             'phone' => $request->get('phone'),
             'email' => $request->get('email'),
-            'type_client' => $request->get('type_client'),
+            'type_client' => $typeClient,
             'type_document' => $request->get('type_document'),
             'n_document' => $request->get('n_document'),
             'birth_date' => $request->get('birth_date'),
@@ -114,10 +131,10 @@ class ClientController extends Controller
             'gender' => $request->get('gender'),
             'ubigeo_region' => $request->get('ubigeo_region'),
             'ubigeo_provincia' => $request->get('ubigeo_provincia'),
-            'ubigeo_distrito' => $request->get('ubigeo_distrito'),
+            'ubigeo_ciudad' => $request->get('ubigeo_ciudad'),
             'region' => $request->get('region'),
             'provincia' => $request->get('provincia'),
-            'distrito' => $request->get('distrito'),
+            'ciudad' => $request->get('ciudad'),
             'address' => $request->get('address'),
         ]);
 
@@ -163,7 +180,7 @@ class ClientController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'surname' => 'nullable|string|max:255',
             'full_name' => 'required|string|max:255|unique:clients,full_name,' . $id,
             'phone' => 'required|string|max:20|unique:clients,phone,' . $id,
@@ -209,10 +226,10 @@ class ClientController extends Controller
             'gender' => $request->get('gender'),
             'ubigeo_region' => $request->get('ubigeo_region'),
             'ubigeo_provincia' => $request->get('ubigeo_provincia'),
-            'ubigeo_distrito' => $request->get('ubigeo_distrito'),
+            'ubigeo_ciudad' => $request->get('ubigeo_ciudad'),
             'region' => $request->get('region'),
             'provincia' => $request->get('provincia'),
-            'distrito' => $request->get('distrito'),
+            'ciudad' => $request->get('ciudad'),
             'address' => $request->get('address'),
         ]);
 

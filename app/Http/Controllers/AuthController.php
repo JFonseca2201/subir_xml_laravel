@@ -96,6 +96,7 @@ class AuthController extends Controller
             'token_type' => 'bearer',
             'expires_in' => auth()->factory()->getTTL() * 60,
             'user' => [
+                'id' => auth()->user()->id,
                 'full_name' => auth()->user()->name . ' ' . auth()->user()->surname,
                 'email' => auth()->user()->email,
                 'avatar' => auth()->user()->avatar ? env('APP_URL') . 'storage/' . auth()->user()->avatar : null,
