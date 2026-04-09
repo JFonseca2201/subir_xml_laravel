@@ -1,0 +1,12 @@
+1 Sedan
+2 Hatchback
+3 Camioneta
+4 SUV
+5 Furgoneta
+6 Camion
+7 Deportivo
+8 Coupe
+9 Convertible
+10 Minivan
+11 Pickup
+12 Van

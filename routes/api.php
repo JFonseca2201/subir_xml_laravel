@@ -17,6 +17,7 @@ use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Roles\RoleController;
 use App\Http\Controllers\User\UserController;
+use App\Http\Controllers\Vehicle\VehicleController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(
@@ -90,6 +91,10 @@ Route::group(
 
         // ============= RUTAS DE CLIENTES ==============
         Route::resource('clients', ClientController::class);
+
+        // ============= RUTAS DE VEHÍCULOS ==============
+        Route::resource('vehicles', VehicleController::class);
+        Route::get('vehicle-types', [VehicleController::class, 'getVehicleTypes']);
 
         // ============= RUTAS DE CUENTAS ================
         Route::resource('accounts', AccountController::class);
