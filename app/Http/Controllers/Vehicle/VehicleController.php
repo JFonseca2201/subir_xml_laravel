@@ -5,22 +5,23 @@ namespace App\Http\Controllers\Vehicle;
 use App\Http\Controllers\Controller;
 use App\Models\Vehicles\Vehicle;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class VehicleController extends Controller
 {
     /**
-     * Get vehicle types from config.
+     * Get vehicle brands from config.
      */
-    public function getVehicleTypes()
+    public function getVehicleBrands()
     {
-        $vehicleTypes = config('vehicle_types');
-
+        $vehicleBrands = config('vehicle_brands');
         return response()->json([
             'status' => 200,
-            'types' => $vehicleTypes,
-            'total' => count($vehicleTypes),
+            'brands' => $vehicleBrands,
+            'total' => count($vehicleBrands),
         ]);
     }
 
@@ -31,57 +32,27 @@ class VehicleController extends Controller
     {
         $query = Vehicle::query();
 
-        // Filtros
-        if ($request->has('search')) {
+        // Búsqueda global
+        if ($request->filled('search')) {
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
-                $q->where('license_plate', 'like', '%' . $search . '%')
-                    ->orWhere('brand', 'like', '%' . $search . '%')
-                    ->orWhere('model', 'like', '%' . $search . '%')
-                    ->orWhere('color', 'like', '%' . $search . '%')
-                    ->orWhere('vehicle_type', 'like', '%' . $search . '%')
-                    ->orWhere('description', 'like', '%' . $search . '%');
+                $q->where('license_plate', 'like', "%$search%")
+                    ->orWhere('model', 'like', "%$search%")
+                    ->orWhere('description', 'like', "%$search%");
             });
         }
 
-        if ($request->has('brand')) {
-            $query->where('brand', $request->get('brand'));
+        // Filtros exactos
+        foreach (['brand', 'year', 'color', 'vehicle_type'] as $filter) {
+            if ($request->filled($filter)) {
+                $query->where($filter, $request->get($filter));
+            }
         }
 
-        if ($request->has('year')) {
-            $query->where('year', $request->get('year'));
-        }
-
-        if ($request->has('color')) {
-            $query->where('color', $request->get('color'));
-        }
-
-        if ($request->has('vehicle_type')) {
-            $query->where('vehicle_type', $request->get('vehicle_type'));
-        }
-
-        // Paginación
-        $page = $request->get('page', 1);
         $per_page = $request->get('per_page', 10);
+        $vehicles = $query->orderBy('id', 'desc')->paginate($per_page);
 
-        $vehicles = $query->orderBy('id', 'desc')
-            ->paginate($per_page, ['*'], 'page', $page);
-
-        return response()->json([
-            'total' => $vehicles->total(),
-            'count' => $vehicles->count(),
-            'per_page' => $vehicles->perPage(),
-            'current_page' => $vehicles->currentPage(),
-            'total_pages' => $vehicles->lastPage(),
-            'from' => $vehicles->firstItem(),
-            'to' => $vehicles->lastItem(),
-            'has_more_pages' => $vehicles->hasMorePages(),
-            'next_page_url' => $vehicles->nextPageUrl(),
-            'prev_page_url' => $vehicles->previousPageUrl(),
-            'first_page_url' => $vehicles->url(1),
-            'last_page_url' => $vehicles->url($vehicles->lastPage()),
-            'vehicles' => $vehicles->items(),
-        ]);
+        return response()->json($vehicles);
     }
 
     /**
@@ -89,83 +60,62 @@ class VehicleController extends Controller
      */
     public function store(Request $request)
     {
-        $vehicleTypes = config('vehicle_types');
-        $allowedTypes = implode(',', array_values($vehicleTypes));
+        // 1. Obtener opciones permitidas desde config para validar
+        $allowedTypes = array_keys(config('vehicle_types', []));
+        // Si en tu config las marcas son ID => Nombre, validamos contra los IDs
+        $allowedBrands = array_keys(config('vehicle_brands', []));
 
-        // Normalizar el tipo de vehículo (primera letra mayúscula)
-        $vehicleType = $request->get('vehicle_type');
-        $normalizedType = ucfirst(strtolower($vehicleType));
+        $maxId = Vehicle::max('id') ?? 0;
+        DB::statement('ALTER TABLE vehicles AUTO_INCREMENT = ' . ($maxId + 1));
 
-        // Debug: Log para verificar valores
-        Log::info('Vehicle type received: ' . $vehicleType);
-        Log::info('Normalized type: ' . $normalizedType);
-        Log::info('Allowed types: ' . $allowedTypes);
-
-        // Reemplazar el valor normalizado en el request
-        $request->merge(['vehicle_type' => $normalizedType]);
-
+        // 2. Validación Robusta
         $validator = Validator::make($request->all(), [
-            'license_plate' => 'required|string|max:20|unique:vehicles',
-            'brand' => 'required|string|max:100',
-            'model' => 'required|string|max:100',
-            'year' => 'required|integer|min:1900|max:' . (date('Y') + 1),
-            'color' => 'required|string|max:50',
-            'vehicle_type' => 'required|string|in:' . $allowedTypes,
-            'description' => 'nullable|string|max:1000',
+            'user_id' => 'required|exists:users,id',
+            'license_plate' => [
+                'required',
+                'string',
+                'unique:vehicles,license_plate',
+                // Regex de Ecuador: soporta los 4 formatos que pusimos en Vue
+                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3})$/'
+            ],
+            'brand'        => 'required',
+            'model'        => 'required|string|max:100',
+            'year'         => 'required|integer|min:1900|max:' . (date('Y') + 5),
+            'color'        => 'required|string',
+            'vehicle_type' => 'required|string',
+            'description'  => 'nullable|string|max:1000',
+            'status'       => 'default_1',
+        ], [
+            'license_plate.regex' => 'El formato de la placa es inválido para Ecuador.',
+            'license_plate.unique' => 'Esta placa ya está registrada en el sistema.'
         ]);
 
         if ($validator->fails()) {
-            // Debug: Mostrar información detallada del error
-            $errors = $validator->errors();
-            Log::error('Validation errors: ' . json_encode($errors->all()));
-
             return response()->json([
                 'status' => 422,
-                'message' => 'Error de validación',
-                'errors' => $errors,
-                'debug_info' => [
-                    'received_type' => $request->get('vehicle_type'),
-                    'allowed_types' => $allowedTypes,
-                    'vehicle_types_config' => $vehicleTypes
-                ]
+                'message' => 'Datos inválidos',
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        $vehicle = Vehicle::create([
-            'license_plate' => $request->get('license_plate'),
-            'brand' => $request->get('brand'),
-            'model' => $request->get('model'),
-            'year' => $request->get('year'),
-            'color' => $request->get('color'),
-            'vehicle_type' => $request->get('vehicle_type'),
-            'description' => $request->get('description'),
-        ]);
+        // 3. Creación limpia (El frontend ya envía los datos formateados)
+        $vehicle = Vehicle::create($request->only([
+            'license_plate',
+            'brand',
+            'model',
+            'year',
+            'color',
+            'vehicle_type',
+            'description',
+            'user_id',
+            'status'
+        ]));
 
         return response()->json([
             'status' => 201,
-            'message' => 'Vehículo creado exitosamente',
+            'message' => 'Vehículo registrado exitosamente',
             'vehicle' => $vehicle,
-        ]);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        $vehicle = Vehicle::find($id);
-
-        if (!$vehicle) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Vehículo no encontrado',
-            ], 404);
-        }
-
-        return response()->json([
-            'status' => 200,
-            'vehicle' => $vehicle,
-        ]);
+        ], 201);
     }
 
     /**
@@ -176,53 +126,38 @@ class VehicleController extends Controller
         $vehicle = Vehicle::find($id);
 
         if (!$vehicle) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Vehículo no encontrado',
-            ], 404);
+            return response()->json(['status' => 404, 'message' => 'Vehículo no encontrado'], 404);
         }
 
-        $vehicleTypes = config('vehicle_types');
-        $allowedTypes = implode(',', array_values($vehicleTypes));
-
-        // Normalizar el tipo de vehículo (primera letra mayúscula)
-        $vehicleType = $request->get('vehicle_type');
-        $normalizedType = ucfirst(strtolower($vehicleType));
-
-        // Reemplazar el valor normalizado en el request
-        $request->merge(['vehicle_type' => $normalizedType]);
-
         $validator = Validator::make($request->all(), [
-            'license_plate' => 'required|string|max:20|unique:vehicles,license_plate,' . $id,
-            'brand' => 'required|string|max:100',
-            'model' => 'required|string|max:100',
-            'year' => 'required|integer|min:1900|max:' . (date('Y') + 1),
-            'color' => 'required|string|max:50',
-            'vehicle_type' => 'required|string|in:' . $allowedTypes,
-            'description' => 'nullable|string|max:1000',
+            'user_id' => 'required|exists:users,id',
+            'license_plate' => [
+                'required',
+                'string',
+                Rule::unique('vehicles')->ignore($id),
+                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3})$/'
+            ],
+            'brand'        => 'required',
+            'model'        => 'required|string|max:100',
+            'year'         => 'required|integer|min:1900|max:' . (date('Y') + 5),
+            'color'        => 'required|string',
+            'vehicle_type' => 'required|string',
+            'description'  => 'nullable|string|max:1000',
+            'status'       => 'required|integer|in:1,2',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'status' => 422,
-                'message' => 'Error de validación',
                 'errors' => $validator->errors(),
             ], 422);
         }
 
-        $vehicle->update([
-            'license_plate' => $request->get('license_plate'),
-            'brand' => $request->get('brand'),
-            'model' => $request->get('model'),
-            'year' => $request->get('year'),
-            'color' => $request->get('color'),
-            'vehicle_type' => $request->get('vehicle_type'),
-            'description' => $request->get('description'),
-        ]);
+        $vehicle->update($request->all());
 
         return response()->json([
             'status' => 200,
-            'message' => 'Vehículo actualizado exitosamente',
+            'message' => 'Vehículo actualizado',
             'vehicle' => $vehicle->fresh(),
         ]);
     }
@@ -235,76 +170,11 @@ class VehicleController extends Controller
         $vehicle = Vehicle::find($id);
 
         if (!$vehicle) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Vehículo no encontrado',
-            ], 404);
+            return response()->json(['status' => 404, 'message' => 'No encontrado'], 404);
         }
 
-        $vehicle->delete(); // Soft delete
+        $vehicle->delete();
 
-        return response()->json([
-            'status' => 200,
-            'message' => 'Vehículo eliminado exitosamente',
-        ]);
-    }
-
-    /**
-     * Restore a soft deleted vehicle.
-     */
-    public function restore(string $id)
-    {
-        $vehicle = Vehicle::withTrashed()->find($id);
-
-        if (!$vehicle) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Vehículo no encontrado',
-            ], 404);
-        }
-
-        if (!$vehicle->trashed()) {
-            return response()->json([
-                'status' => 422,
-                'message' => 'El vehículo no está eliminado',
-            ], 422);
-        }
-
-        $vehicle->restore();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Vehículo restaurado exitosamente',
-            'vehicle' => $vehicle->fresh(),
-        ]);
-    }
-
-    /**
-     * Force delete a vehicle permanently.
-     */
-    public function forceDelete(string $id)
-    {
-        $vehicle = Vehicle::withTrashed()->find($id);
-
-        if (!$vehicle) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Vehículo no encontrado',
-            ], 404);
-        }
-
-        if (!$vehicle->trashed()) {
-            return response()->json([
-                'status' => 422,
-                'message' => 'El vehículo no está eliminado',
-            ], 422);
-        }
-
-        $vehicle->forceDelete();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Vehículo eliminado permanentemente',
-        ]);
+        return response()->json(['status' => 200, 'message' => 'Eliminado correctamente']);
     }
 }

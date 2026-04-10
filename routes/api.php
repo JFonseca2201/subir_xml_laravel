@@ -95,6 +95,7 @@ Route::group(
         // ============= RUTAS DE VEHÍCULOS ==============
         Route::resource('vehicles', VehicleController::class);
         Route::get('vehicle-types', [VehicleController::class, 'getVehicleTypes']);
+        Route::get('vehicle-brands', [VehicleController::class, 'getVehicleBrands']);
 
         // ============= RUTAS DE CUENTAS ================
         Route::resource('accounts', AccountController::class);

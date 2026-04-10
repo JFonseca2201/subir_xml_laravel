@@ -1,0 +1,255 @@
+Toyota
+Honda
+Nissan
+Mazda
+Mitsubishi
+Suzuki
+Subaru
+Lexus
+Infiniti
+Acura
+Daihatsu
+Scion
+Hino
+Volkswagen
+BMW
+Mercedes-Benz
+Audi
+Porsche
+Opel
+Vauxhall
+SEAT
+Skoda
+Mini
+Smart
+Bentley
+Rolls-Royce
+Lamborghini
+Ferrari
+Maserati
+Alfa Romeo
+Fiat
+Lancia
+Abarth
+Dacia
+Renault
+Peugeot
+Citroën
+DS Automobiles
+Bugatti
+McLaren
+Aston Martin
+Jaguar
+Land Rover
+Lotus
+MG
+Rover
+Ford
+Chevrolet
+GMC
+Buick
+Cadillac
+Lincoln
+Mercury
+Pontiac
+Oldsmobile
+Saturn
+Hummer
+Dodge
+Ram
+Jeep
+Chrysler
+Plymouth
+Tesla
+Rivian
+Lucid Motors
+Fisker
+Karma
+Hyundai
+Kia
+Genesis
+SsangYong
+BYD
+Geely
+Chery
+Great Wall
+FAW
+SAIC
+Dongfeng
+Changan
+GAC
+BAIC
+JAC
+Brilliance
+Qoros
+Wuling
+Baojun
+Haval
+WeY
+ORA
+NIO
+XPeng
+Li Auto
+Aiways
+Xpeng
+Leapmotor
+Zeekr
+Avatr
+IM Motors
+HiPhi
+Freightliner
+Western Star
+Peterbilt
+Kenworth
+Mack
+Volvo Trucks
+Scania
+MAN
+Iveco
+DAF
+Isuzu
+UD Trucks
+Fuso
+International
+Sterling
+White
+Autocar
+Harley-Davidson
+Indian
+Kawasaki
+Yamaha
+Ducati
+BMW Motorrad
+Triumph
+KTM
+Husqvarna
+Aprilia
+Moto Guzzi
+Vespa
+Piaggio
+Gilera
+Derbi
+Bajaj
+Royal Enfield
+Hero
+TVS
+Rivian
+Lucid
+Fisker
+Karma
+NIO
+XPeng
+Li Auto
+Aiways
+Xpeng
+Leapmotor
+Zeekr
+Avatr
+IM Motors
+HiPhi
+Byton
+Faraday Future
+Lordstown
+Nikola
+Workhorse
+Canoo
+Bollinger
+Rimac
+Pininfarina
+Lightning
+DeLorean
+Shelby
+Saleen
+Vector
+Panoz
+Mosler
+Spyker
+Gumpert
+Artega
+Tramontana
+Zenvo
+Koenigsegg
+Pagani
+Ginetta
+Caterham
+Westfield
+Radical
+Ultima
+Noble
+TVR
+Morgan
+Ariel
+BAC
+Hennessey
+Callaway
+Lingenfelter
+Roush
+Steeda
+Ford Transit
+Mercedes-Benz Vito
+Mercedes-Benz Sprinter
+Volkswagen Transporter
+Volkswagen Crafter
+Renault Trafic
+Renault Master
+Peugeot Boxer
+Peugeot Expert
+Citroën Berlingo
+Citroën Jumpy
+Citroën Jumper
+Fiat Ducato
+Fiat Talento
+Fiat Doblò
+Iveco Daily
+Nissan NV
+Toyota HiAce
+Toyota ProAce
+Hyundai H-1
+Kia Carnival
+Mitsubishi L300
+Mitsubishi L400
+Saab
+Daewoo
+Proton
+Perodua
+Holden
+Lada
+Zastava
+Yugo
+Tata
+Mahindra
+Ashok Leyland
+Force Motors
+Premier
+Hindustan
+Weltmeister
+Singulato
+Qiantu
+CHJ
+Lynk & Co
+Polestar
+Volvo
+Smart
+DS Automobiles
+Caterpillar
+Komatsu
+Hitachi
+JCB
+Volvo CE
+Liebherr
+Kobelco
+Case
+New Holland
+John Deere
+Massey Ferguson
+Fendt
+Claas
+AGCO
+Challenger
+Valtra
+Landini
+McCormick
+Same
+Deutz-Fahr
+Steyr
+Tank
