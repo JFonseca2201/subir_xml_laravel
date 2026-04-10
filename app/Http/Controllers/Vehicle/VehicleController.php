@@ -26,6 +26,19 @@ class VehicleController extends Controller
     }
 
     /**
+     * Get vehicle types from config.
+     */
+    public function getVehicleTypes()
+    {
+        $vehicleTypes = config('vehicle_types');
+        return response()->json([
+            'status' => 200,
+            'types' => $vehicleTypes,
+            'total' => count($vehicleTypes),
+        ]);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
