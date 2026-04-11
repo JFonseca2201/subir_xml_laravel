@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\EmployeePaymentController;
 use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
@@ -99,6 +100,10 @@ Route::group(
 
         // ============= RUTAS DE CUENTAS ================
         Route::resource('accounts', AccountController::class);
+
+        // ============= RUTAS DE EMPLEADOS ================
+        Route::resource('employees', EmployeeController::class);
+
 
         // ============= RUTAS DE CONTRIBUCIONES ==========
         Route::resource('contributions', PartnerContributionController::class);
