@@ -22,12 +22,11 @@ return new class extends Migration
 
             $table->decimal('initial_balance', 15, 2)->default(0);
 
-            $table->boolean('is_active')->default(true);
-            $table->boolean('is_system')->default(false); // 🔒 cuentas del sistema
+            $table->integer('state')->default(1); // 1 es activo, 2 es inactivo
+            $table->boolean('is_system')->default(true); // 1 es verdadero, 2 es falso
 
             $table->timestamps();
         });
-
     }
 
     /**

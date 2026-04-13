@@ -31,7 +31,7 @@ class AccountController extends Controller
             'type' => 'required|in:cash,bank',
             'bank_name' => 'nullable|string|max:255',
             'initial_balance' => 'nullable|numeric|min:0',
-            'is_active' => 'nullable|boolean',
+            'state' => 'nullable|integer',
         ]);
 
         try {
@@ -78,7 +78,7 @@ class AccountController extends Controller
             'type' => 'sometimes|required|in:cash,bank',
             'bank_name' => 'nullable|string|max:255',
             'initial_balance' => 'sometimes|nullable|numeric|min:0',
-            'is_active' => 'nullable|boolean',
+            'state' => 'nullable|integer',
         ]);
 
         try {

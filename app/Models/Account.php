@@ -14,14 +14,14 @@ class Account extends Model
         'type',
         'bank_name',
         'initial_balance',
-        'is_active'
+        'state'
     ];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
         'initial_balance' => 'decimal:2',
-        'is_active' => 'boolean',
+        'state' => 'integer',
     ];
 
     protected static function boot()
@@ -69,7 +69,7 @@ class Account extends Model
     // Scope para cuentas activas
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->where('state', 1);
     }
 
     // Scope para cuentas de tipo específico
