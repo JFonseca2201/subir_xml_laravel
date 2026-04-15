@@ -14,6 +14,7 @@ class Account extends Model
         'type',
         'bank_name',
         'initial_balance',
+        'current_balance',
         'state'
     ];
 
@@ -21,6 +22,7 @@ class Account extends Model
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
         'initial_balance' => 'decimal:2',
+        'current_balance' => 'decimal:2',
         'state' => 'integer',
     ];
 
@@ -39,7 +41,7 @@ class Account extends Model
 
     public function transactions()
     {
-        return $this->hasMany(\App\Models\Transaction::class);
+        return $this->hasMany(AccountTransaction::class);
     }
 
     public function outgoingTransfers()

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\AccountTransferController;
+use App\Http\Controllers\Api\EmployeeAdvanceController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\EmployeePaymentController;
 use App\Http\Controllers\Api\PartnerContributionController;
@@ -110,8 +112,16 @@ Route::group(
 
         // ============= RUTAS DE PAGOS EMPLEADOS =========
         Route::resource('employee-payments', EmployeePaymentController::class);
+        Route::get('employees/{employeeId}/check-pending-advances', [EmployeePaymentController::class, 'checkPendingAdvances']);
+        Route::get('available-accounts', [EmployeePaymentController::class, 'getAvailableAccounts']);
+
+        // ============= RUTAS DE ADELANTOS DE EMPLEADOS =========
+        Route::resource('employee-advances', EmployeeAdvanceController::class);
+        Route::get('employees/{employeeId}/pending-advances', [EmployeeAdvanceController::class, 'getPendingAdvances']);
+        Route::post('employee-advances/discount', [EmployeeAdvanceController::class, 'discountAdvances']);
 
         // ============= RUTAS DE TRANSFERENCIAS ==========
+        Route::resource('account-transfers', AccountTransferController::class);
         Route::resource('transfers', TransferController::class);
     },
 );

@@ -112,6 +112,12 @@ class PermissionsDemoSeeder extends Seeder
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_employee_payment']);
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_employee_payment']);
 
+        // Employee permissions
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_employee']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_employee']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_employee']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_employee']);
+
         // Partner contribution permissions
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_partner_contribution']);
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_partner_contribution']);
@@ -124,6 +130,8 @@ class PermissionsDemoSeeder extends Seeder
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'view_reports']);
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'manage_settings']);
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'approve_transactions']);
+
+
 
         // create roles and assign existing permissions
 
@@ -147,6 +155,11 @@ class PermissionsDemoSeeder extends Seeder
             'register_employee',
             'list_employee',
             'edit_employee',
+            'delete_employee',
+            'register_employee_payment',
+            'list_employee_payment',
+            'edit_employee_payment',
+            'delete_employee_payment',
             'register_partner',
             'list_partner',
             'edit_partner',
@@ -367,7 +380,7 @@ class PermissionsDemoSeeder extends Seeder
 
         // ============= CREAR ALMACENES ==============
         $warehouses = [
-            ['name' => 'ALMACÉN PRINCIPAL', 'sucursale_id' => '1', 'state' => 0],
+            ['name' => 'LUXURY EVYS CIA. LTDA.', 'sucursale_id' => '1', 'state' => 0],
             ['name' => 'ALMACÉN SECUNDARIO', 'sucursale_id' => '1', 'state' => 0],
             ['name' => 'ALMACÉN DE REPUESTOS', 'sucursale_id' => '1', 'state' => 0],
             ['name' => 'ALMACÉN DE LUBRICANTES', 'sucursale_id' => '1', 'state' => 0],

@@ -11,16 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('employee_payments', function (Blueprint $table) {
+        Schema::create('employee_advances', function (Blueprint $table) {
             $table->id();
-
             $table->foreignId('employee_id')->constrained('employees')->onDelete('cascade');
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->decimal('amount', 15, 2);
-            $table->date('payment_date');
+            $table->date('advance_date');
             $table->text('concept')->nullable();
-            $table->string('payment_type', 20)->default('cash')->comment('cash, transfer, check');
-            $table->tinyInteger('state')->default(1)->comment('1=Activo, 2=Inactivo');
+            $table->tinyInteger('state')->default(1)->comment('1=Pendiente, 2=Descontado, 3=Anulado');
+            $table->foreignId('employee_payment_id')->nullable()->constrained('employee_payments')->onDelete('set null');
             $table->foreignId('sucursale_id')->nullable()->default(1)->constrained('sucursales')->onDelete('set null');
             $table->timestamps();
             $table->softDeletes();
@@ -32,6 +31,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('employee_payments');
+        Schema::dropIfExists('employee_advances');
     }
 };

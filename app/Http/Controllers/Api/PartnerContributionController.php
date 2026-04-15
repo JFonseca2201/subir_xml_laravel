@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountTransaction;
 use App\Models\PartnerContribution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,18 +52,20 @@ class PartnerContributionController extends Controller
                 'notes' => $validated['notes'] ?? null,
             ]);
 
-            // 3️⃣ Registrar transacción usando relación morph
-            $contribution->transaction()->create([
+            // 3° Registrar transacción en AccountTransaction
+            AccountTransaction::create([
                 'account_id' => $account->id,
                 'type' => 'income',
+                'category' => 'contribution',
                 'amount' => $validated['amount'],
-                'description' =>
-                    'Aporte de socio ID: ' . $validated['partner_id'] . ' - ' . $validated['contribution_date'],
-                'concept' => 'Aporte socio',
+                'description' => 'Aporte de socio ID: ' . $validated['partner_id'] . ' - ' . $validated['contribution_date'],
+                'reference_id' => $contribution->id,
+                'reference_type' => 'partner_contribution',
+                'transaction_date' => $validated['contribution_date'],
             ]);
 
             // 4️⃣ Actualizar saldo de la cuenta
-            $account->increment('initial_balance', $validated['amount']);
+            $account->increment('current_balance', $validated['amount']);
 
             DB::commit();
 
@@ -102,23 +105,36 @@ class PartnerContributionController extends Controller
         ]);
 
         return DB::transaction(function () use ($id, $validated) {
-            // 1️⃣ Buscar aporte
+            // 1° Buscar aporte
             $contribution = PartnerContribution::findOrFail($id);
 
-            // 2️⃣ Actualizar aporte
+            $oldAmount = $contribution->amount;
+            $newAmount = $validated['amount'];
+            $difference = $newAmount - $oldAmount;
+
+            // 2° Actualizar aporte
             $contribution->update([
                 'amount' => $validated['amount'],
                 'contribution_date' => $validated['contribution_date'],
                 'notes' => $validated['notes'] ?? $contribution->notes,
             ]);
 
-            // 3️⃣ Actualizar la transacción asociada
-            if ($contribution->transaction) {
-                $contribution->transaction->update([
+            // 3° Actualizar la transacción asociada en AccountTransaction
+            $existingTransaction = AccountTransaction::where('reference_type', 'partner_contribution')
+                ->where('reference_id', $contribution->id)
+                ->first();
+
+            if ($existingTransaction) {
+                $existingTransaction->update([
                     'amount' => $validated['amount'],
-                    'description' =>
-                        'Aporte de socio ID: ' . $contribution->partner_id . ' - ' . $validated['contribution_date'],
+                    'description' => 'Aporte de socio ID: ' . $contribution->partner_id . ' - ' . $validated['contribution_date'],
                 ]);
+            }
+
+            // 4° Ajustar saldo de la cuenta Banco Guayaquil
+            if ($difference != 0) {
+                $account = Account::where('code', 'BGA')->lockForUpdate()->firstOrFail();
+                $account->increment('current_balance', $difference);
             }
 
             return response()->json([
@@ -134,27 +150,27 @@ class PartnerContributionController extends Controller
             // 1️⃣ Buscar aporte por ID
             $contribution = PartnerContribution::findOrFail($id);
 
-            // 2️⃣ Borrar transacción asociada si existe
-            if ($contribution->transaction) {
-                $contribution->transaction->delete();
+            // 2° Borrar transacción asociada si existe en AccountTransaction
+            $existingTransaction = AccountTransaction::where('reference_type', 'partner_contribution')
+                ->where('reference_id', $contribution->id)
+                ->first();
+
+            if ($existingTransaction) {
+                $existingTransaction->delete();
             }
 
             // 3️⃣ Borrar el aporte
             $contribution->delete();
 
-            // 4️⃣ Actualizar saldo real de la cuenta (solo si tiene account_id)
+            // 4° Actualizar saldo de la cuenta Banco Guayaquil
             $account_balance = null;
-            if ($contribution->account_id) {
-                $account = Account::lockForUpdate()->findOrFail($contribution->account_id);
+            $account = Account::where('code', 'BGA')->lockForUpdate()->firstOrFail();
 
-                // recalcular saldo real de todos los aportes restantes
-                $new_balance = PartnerContribution::where('account_id', $account->id)->sum('amount');
+            // Recalcular saldo real de todos los aportes restantes
+            $new_balance = PartnerContribution::where('account_id', $account->id)->sum('amount');
+            $account->update(['current_balance' => $new_balance]);
 
-                $account->update(['initial_balance' => $new_balance]);
-                $account_balance = $new_balance;
-            }
-
-            // 5️⃣ Respuesta exitosa
+            // 5° Respuesta exitosa
             return response()->json([
                 'message' => 'Aporte y transacción asociada eliminados correctamente',
                 'account_balance' => $account_balance,
