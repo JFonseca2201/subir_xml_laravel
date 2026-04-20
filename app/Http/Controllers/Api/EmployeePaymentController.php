@@ -198,11 +198,27 @@ class EmployeePaymentController extends Controller
 
             // Procesar adelantos seleccionados
             if (!empty($selectedAdvanceIds)) {
-                \App\Models\EmployeeAdvance::whereIn('id', $selectedAdvanceIds)
-                    ->update([
+                $advancesToDiscount = \App\Models\EmployeeAdvance::whereIn('id', $selectedAdvanceIds)->get();
+
+                foreach ($advancesToDiscount as $advance) {
+                    // Actualizar estado del adelanto
+                    $advance->update([
                         'state' => 2, // Descontado
                         'employee_payment_id' => $payment->id
                     ]);
+
+                    // Crear AccountTransaction para el adelanto descontado
+                    \App\Models\AccountTransaction::create([
+                        'account_id' => $account->id,
+                        'type' => 'expense',
+                        'category' => 'salary_advance',
+                        'amount' => $advance->amount,
+                        'description' => 'Adelanto descontado - ' . ($advance->concept ?? 'Sin concepto'),
+                        'reference_id' => $advance->id,
+                        'reference_type' => 'employee_advance',
+                        'transaction_date' => $request->get('payment_date'),
+                    ]);
+                }
             }
 
             // Debitar el monto de la cuenta seleccionada
@@ -293,7 +309,21 @@ class EmployeePaymentController extends Controller
     public function destroy(EmployeePayment $employeePayment)
     {
         return DB::transaction(function () use ($employeePayment) {
-            $employeePayment->transaction()->delete();
+            // Eliminar AccountTransaction asociada
+            $existingTransaction = \App\Models\AccountTransaction::where('reference_type', 'employee_payment')
+                ->where('reference_id', $employeePayment->id)
+                ->first();
+
+            if ($existingTransaction) {
+                $existingTransaction->delete();
+            }
+
+            // Devolver adelantos a estado pendiente
+            $employeePayment->advances()->update([
+                'state' => 1, // Pendiente
+                'employee_payment_id' => null
+            ]);
+
             $employeePayment->delete();
 
             return response()->json(['message' => 'Pago eliminado']);

@@ -123,6 +123,7 @@ Route::group(
         // ============= RUTAS DE TRANSFERENCIAS ==========
         Route::resource('account-transfers', AccountTransferController::class);
         Route::resource('transfers', TransferController::class);
+        Route::get('transfer-accounts', [TransferController::class, 'getAvailableAccounts']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);

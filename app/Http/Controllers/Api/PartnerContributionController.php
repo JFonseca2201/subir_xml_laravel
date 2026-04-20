@@ -14,19 +14,42 @@ class PartnerContributionController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $month = $request->month;
+        $year = $request->year;
 
         $contributions = PartnerContribution::with('partner')
+            // Filtro por socio
             ->when($search, function ($query) use ($search) {
                 $query->whereHas('partner', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")->orWhere('identification', 'like', "%{$search}%");
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('identification', 'like', "%{$search}%");
                 });
             })
-            ->latest()
+            // Filtro por año (obligatorio para la consistencia del grupo)
+            ->when($year, function ($query) use ($year) {
+                $query->whereYear('contribution_date', $year);
+            })
+            // Filtro por mes (opcional: si se limpia, trae todo el año agrupado)
+            ->when($month, function ($query) use ($month) {
+                $query->whereMonth('contribution_date', $month);
+            })
+            /** * ORDENAMIENTO CRÍTICO PARA AGRUPACIÓN:
+             * Ordenamos por fecha de forma descendente para que el frontend
+             * reciba primero lo más nuevo y los grupos se armen correctamente.
+             */
+            ->orderBy('contribution_date', 'desc')
             ->paginate(10);
 
-        return response()->json($contributions);
+        return response()->json([
+            'data' => $contributions->items(), // Enviamos solo los items en 'data' para el frontend
+            'message' => 'Contribuciones obtenidas exitosamente',
+            'status' => 200,
+            'total' => $contributions->total(),
+            'per_page' => $contributions->perPage(),
+            'current_page' => $contributions->currentPage(),
+            'last_page' => $contributions->lastPage(),
+        ]);
     }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -71,6 +94,7 @@ class PartnerContributionController extends Controller
 
             return response()->json(
                 [
+                    'status' => 200,
                     'message' => 'Aporte registrado correctamente',
                     'contribution' => $contribution,
                 ],
@@ -81,6 +105,7 @@ class PartnerContributionController extends Controller
 
             return response()->json(
                 [
+                    'status' => 200,
                     'message' => 'Error al registrar el aporte',
                     'error' => $e->getMessage(),
                 ],
@@ -138,6 +163,7 @@ class PartnerContributionController extends Controller
             }
 
             return response()->json([
+                'status' => 200,
                 'message' => 'Aporte actualizado correctamente',
                 'contribution' => $contribution,
             ]);
@@ -172,6 +198,7 @@ class PartnerContributionController extends Controller
 
             // 5° Respuesta exitosa
             return response()->json([
+                'status' => 200,
                 'message' => 'Aporte y transacción asociada eliminados correctamente',
                 'account_balance' => $account_balance,
             ]);

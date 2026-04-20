@@ -290,11 +290,28 @@ class EmployeeAdvanceController extends Controller
         return DB::transaction(function () use ($request) {
             $advanceIds = $request->get('advance_ids');
 
-            EmployeeAdvance::whereIn('id', $advanceIds)
-                ->update([
+            // Obtener los adelantos a descontar
+            $advancesToDiscount = EmployeeAdvance::whereIn('id', $advanceIds)->get();
+
+            foreach ($advancesToDiscount as $advance) {
+                // Actualizar estado del adelanto
+                $advance->update([
                     'state' => 2, // Descontado
                     'employee_payment_id' => $request->get('employee_payment_id')
                 ]);
+
+                // Crear AccountTransaction para el adelanto descontado
+                AccountTransaction::create([
+                    'account_id' => $advance->account_id ?? 1, // Usar cuenta del adelanto o default
+                    'type' => 'expense',
+                    'category' => 'salary_advance',
+                    'amount' => $advance->amount,
+                    'description' => 'Adelanto descontado - ' . ($advance->concept ?? 'Sin concepto'),
+                    'reference_id' => $advance->id,
+                    'reference_type' => 'employee_advance',
+                    'transaction_date' => now()->format('Y-m-d'),
+                ]);
+            }
 
             return response()->json([
                 'status' => 200,
