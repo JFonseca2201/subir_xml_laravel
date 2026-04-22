@@ -19,10 +19,10 @@ class Account extends Model
     ];
 
     protected $casts = [
-        'created_at' => 'datetime:Y-m-d H:i:s',
-        'updated_at' => 'datetime:Y-m-d H:i:s',
         'initial_balance' => 'decimal:2',
         'current_balance' => 'decimal:2',
+        'created_at' => 'datetime:Y-m-d H:i:s',
+        'updated_at' => 'datetime:Y-m-d H:i:s',
         'state' => 'integer',
     ];
 
@@ -57,6 +57,11 @@ class Account extends Model
     // Saldo dinámico con manejo de errores
     public function getCurrentBalanceAttribute()
     {
+        // Si existe current_balance en la base de datos, usarlo directamente
+        if (isset($this->attributes['current_balance'])) {
+            return $this->attributes['current_balance'];
+        }
+
         try {
             $income = $this->transactions()->where('type', 'income')->sum('amount');
             $expense = $this->transactions()->where('type', 'expense')->sum('amount');
@@ -78,5 +83,17 @@ class Account extends Model
     public function scopeByType($query, $type)
     {
         return $query->where('type', $type);
+    }
+
+    // Relaciones para transferencias enviadas
+    public function sentTransfers()
+    {
+        return $this->hasMany(\App\Models\Transfer::class, 'from_account_id');
+    }
+
+    // Relaciones para transferencias recibidas
+    public function receivedTransfers()
+    {
+        return $this->hasMany(\App\Models\Transfer::class, 'to_account_id');
     }
 }

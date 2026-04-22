@@ -221,9 +221,10 @@ class EmployeePaymentController extends Controller
                 }
             }
 
-            // Debitar el monto de la cuenta seleccionada
-            $account->current_balance = $account->current_balance - $request->get('amount');
-            $account->save();
+            // Debitar el monto de la cuenta seleccionada con precisión decimal exacta
+            $account->update([
+                'current_balance' => $account->current_balance - $request->get('amount')
+            ]);
 
             \App\Models\AccountTransaction::create([
                 'account_id' => $account->id,

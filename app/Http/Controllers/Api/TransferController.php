@@ -11,11 +11,11 @@ class TransferController extends Controller
 {
     public function index()
     {
-        return response()->json(
-            Transfer::with(['fromAccount', 'toAccount'])
-                ->latest()
-                ->paginate(10),
-        );
+        $transfers = Transfer::with(['fromAccount', 'toAccount', 'user'])
+            ->latest()
+            ->paginate(10);
+
+        return response()->json($transfers);
     }
 
     /**
@@ -24,9 +24,19 @@ class TransferController extends Controller
     public function getAvailableAccounts()
     {
         $accounts = \App\Models\Account::where('state', 1) // Activas
-            ->select('id', 'name', 'current_balance', 'type')
+            ->select('id', 'name', 'current_balance', 'initial_balance', 'type')
             ->orderBy('name')
             ->get();
+
+        // Mapear para usar current_balance o initial_balance como fallback
+        $accounts = $accounts->map(function ($account) {
+            return [
+                'id' => $account->id,
+                'name' => $account->name,
+                'type' => $account->type,
+                'current_balance' => $account->current_balance ?? $account->initial_balance ?? 0,
+            ];
+        });
 
         return response()->json([
             'status' => 200,
@@ -53,42 +63,8 @@ class TransferController extends Controller
                 return response()->json(['message' => 'Saldo insuficiente'], 422);
             }
 
+            // Crear transferencia sin generar transacciones (el Observer lo hará)
             $transfer = Transfer::create($validated);
-
-            // egreso
-            $fromDescription = $validated['description'] ?? 'Transferencia enviada';
-            $toDescription = $validated['description'] ?? 'Transferencia recibida';
-
-            // Ajustar descripción para caja chica
-            if ($from->type === 'cash') {
-                $fromDescription = 'Transferencia desde ' . $from->name;
-            }
-            if ($to->type === 'cash') {
-                $toDescription = 'Transferencia a ' . $to->name;
-            }
-
-            \App\Models\AccountTransaction::create([
-                'account_id' => $from->id,
-                'type' => 'expense',
-                'category' => 'transfer',
-                'amount' => $validated['amount'],
-                'description' => $fromDescription,
-                'reference_id' => $transfer->id,
-                'reference_type' => 'transfer',
-                'transaction_date' => $validated['transfer_date'],
-            ]);
-
-            // ingreso
-            \App\Models\AccountTransaction::create([
-                'account_id' => $to->id,
-                'type' => 'income',
-                'category' => 'transfer',
-                'amount' => $validated['amount'],
-                'description' => $toDescription,
-                'reference_id' => $transfer->id,
-                'reference_type' => 'transfer',
-                'transaction_date' => $validated['transfer_date'],
-            ]);
 
             return response()->json($transfer, 201);
         });
@@ -120,42 +96,8 @@ class TransferController extends Controller
                 ->where('reference_id', $transfer->id)
                 ->delete();
 
-            // Actualizar transferencia
+            // Actualizar transferencia (el Observer creará nuevas transacciones)
             $transfer->update($validated);
-
-            // Crear nuevas transacciones
-            $fromDescription = $validated['description'] ?? 'Transferencia enviada';
-            $toDescription = $validated['description'] ?? 'Transferencia recibida';
-
-            // Ajustar descripción para caja chica
-            if ($from->type === 'cash') {
-                $fromDescription = 'Transferencia desde ' . $from->name;
-            }
-            if ($to->type === 'cash') {
-                $toDescription = 'Transferencia a ' . $to->name;
-            }
-
-            \App\Models\AccountTransaction::create([
-                'account_id' => $from->id,
-                'type' => 'expense',
-                'category' => 'transfer',
-                'amount' => $validated['amount'],
-                'description' => $fromDescription,
-                'reference_id' => $transfer->id,
-                'reference_type' => 'transfer',
-                'transaction_date' => $validated['transfer_date'],
-            ]);
-
-            \App\Models\AccountTransaction::create([
-                'account_id' => $to->id,
-                'type' => 'income',
-                'category' => 'transfer',
-                'amount' => $validated['amount'],
-                'description' => $toDescription,
-                'reference_id' => $transfer->id,
-                'reference_type' => 'transfer',
-                'transaction_date' => $validated['transfer_date'],
-            ]);
 
             return response()->json($transfer->fresh(['fromAccount', 'toAccount']));
         });
@@ -172,14 +114,18 @@ class TransferController extends Controller
                 ->where('reference_id', $transfer->id)
                 ->delete();
 
-            // Devolver el monto a la cuenta de origen
-            $fromAccount->increment('current_balance', $transfer->amount);
+            // Devolver el monto a la cuenta de origen con precisión decimal exacta
+            $fromAccount->update([
+                'current_balance' => $fromAccount->current_balance + $transfer->amount
+            ]);
 
             // Eliminar transferencia
             $transfer->delete();
 
             return response()->json([
-                'message' => 'Transferencia eliminada',
+                'status' => 200,
+                'message' => 'Transferencia eliminada correctamente',
+                'deleted_transfer_id' => $transfer->id,
                 'amount_returned' => $transfer->amount,
                 'account_name' => $fromAccount->name,
                 'new_balance' => $fromAccount->current_balance,

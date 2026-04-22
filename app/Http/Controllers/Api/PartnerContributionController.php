@@ -87,8 +87,10 @@ class PartnerContributionController extends Controller
                 'transaction_date' => $validated['contribution_date'],
             ]);
 
-            // 4️⃣ Actualizar saldo de la cuenta
-            $account->increment('current_balance', $validated['amount']);
+            // 4. Actualizar saldo de la cuenta con precisión decimal exacta
+            $account->update([
+                'current_balance' => $account->current_balance + $validated['amount']
+            ]);
 
             DB::commit();
 

@@ -25,5 +25,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, $ability) {
             return $user->hasRole('Super-Admin') ? true : null;
         });
+
+        // Registrar Observer para Transfer
+        \App\Models\Transfer::observe(\App\Observers\TransferObserver::class);
     }
 }

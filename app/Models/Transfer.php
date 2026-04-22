@@ -6,7 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transfer extends Model
 {
-    protected $fillable = ['from_account_id', 'to_account_id', 'amount', 'transfer_date', 'description'];
+    protected $fillable = [
+        'from_account_id',
+        'to_account_id',
+        'amount',
+        'description',
+        'transfer_date',
+        'user_id'
+    ];
 
     protected $casts = [
         'transfer_date' => 'date:Y-m-d',
@@ -46,5 +53,10 @@ class Transfer extends Model
     public function getTransferDateFormattedAttribute()
     {
         return $this->transfer_date ? $this->transfer_date->format('d/m/Y') : null;
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

@@ -138,10 +138,12 @@ class EmployeeAdvanceController extends Controller
                 'transaction_date' => $request->get('advance_date'),
             ]);
 
-            // Actualizar saldo de la cuenta
+            // Actualizar saldo de la cuenta con precisión decimal exacta
             $account = \App\Models\Account::find($request->get('account_id'));
             if ($account) {
-                $account->decrement('current_balance', $request->get('amount'));
+                $account->update([
+                    'current_balance' => $account->current_balance - $request->get('amount')
+                ]);
             }
 
             return response()->json([
