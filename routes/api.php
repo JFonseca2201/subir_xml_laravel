@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AccountTransferController;
+use App\Http\Controllers\Api\DailyCashFlowController;
 use App\Http\Controllers\Api\EmployeeAdvanceController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\EmployeePaymentController;
@@ -124,6 +125,11 @@ Route::group(
         Route::resource('account-transfers', AccountTransferController::class);
         Route::resource('transfers', TransferController::class);
         Route::get('transfer-accounts', [TransferController::class, 'getAvailableAccounts']);
+
+        // ============= RUTAS DE FLUJO DE CAJA DIARIO ==========
+        Route::resource('daily-cash-flows', DailyCashFlowController::class);
+        Route::get('daily-cash-flows/summary', [DailyCashFlowController::class, 'dailySummary']);
+        Route::get('daily-cash-flows/monthly', [DailyCashFlowController::class, 'monthlyTransactions']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);
