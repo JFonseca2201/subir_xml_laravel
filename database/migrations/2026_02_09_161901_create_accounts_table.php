@@ -14,18 +14,20 @@ return new class extends Migration
         Schema::create('accounts', function (Blueprint $table) {
             $table->id();
 
-            $table->string('code')->unique(); // 🔥 código interno del sistema
-
+            $table->string('code')->unique(); // código interno del sistema
             $table->string('name');
             $table->enum('type', ['cash', 'bank']);
             $table->string('bank_name')->nullable();
-
             $table->decimal('initial_balance', 15, 2)->default(0);
-
-            $table->integer('state')->default(1); // 1 es activo, 2 es inactivo
-            $table->boolean('is_system')->default(true); // 1 es verdadero, 2 es falso
+            $table->boolean('state')->default(true); // true = activo, false = inactivo
+            $table->boolean('is_system')->default(false); // false = creado por usuario, true = sistema
 
             $table->timestamps();
+
+            // Índices
+            $table->index('code');
+            $table->index('type');
+            $table->index('state');
         });
     }
 

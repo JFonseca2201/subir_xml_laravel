@@ -13,13 +13,15 @@ return new class extends Migration
     {
         Schema::create('partner_contributions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('partner_id')
-                ->constrained()
-                ->cascadeOnDelete();
+            $table->foreignId('partner_id')->constrained('partners')->onDelete('cascade');
             $table->decimal('amount', 15, 2);
             $table->date('contribution_date');
             $table->text('notes')->nullable();
             $table->timestamps();
+
+            // Índices
+            $table->index('partner_id');
+            $table->index('contribution_date');
         });
     }
 

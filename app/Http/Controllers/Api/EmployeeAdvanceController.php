@@ -126,25 +126,9 @@ class EmployeeAdvanceController extends Controller
                 'sucursale_id',
             ]));
 
-            // Crear transacción en AccountTransaction
-            AccountTransaction::create([
-                'account_id' => $request->get('account_id'),
-                'type' => 'expense',
-                'category' => 'salary_advance',
-                'amount' => $request->get('amount'),
-                'description' => $request->get('concept'),
-                'reference_id' => $advance->id,
-                'reference_type' => 'employee_advance',
-                'transaction_date' => $request->get('advance_date'),
-            ]);
-
-            // Actualizar saldo de la cuenta con precisión decimal exacta
-            $account = \App\Models\Account::find($request->get('account_id'));
-            if ($account) {
-                $account->update([
-                    'current_balance' => $account->current_balance - $request->get('amount')
-                ]);
-            }
+            // NOTA: Los adelantos NO generan transacción inmediata
+            // Solo se registra como deuda del empleado
+            // La transacción se genera cuando se descuenta del pago
 
             return response()->json([
                 'status' => 201,

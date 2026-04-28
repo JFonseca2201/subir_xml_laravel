@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Partner;
+use App\Models\PartnerContribution;
 use App\Models\Account;
 use App\Models\AccountTransaction;
-use App\Models\PartnerContribution;
+use App\Services\AccountService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PartnerContributionController extends Controller
 {
@@ -62,9 +66,15 @@ class PartnerContributionController extends Controller
         DB::beginTransaction();
 
         try {
-            // 1️⃣ Buscar Banco Guayaquil
-            // $account = Account::where('code', 'BGA')->lockForUpdate()->firstOrFail();
-            $account = Account::where('code', 'BGA')->lockForUpdate()->firstOrFail();
+            // 1️⃣ Obtener cuenta específica para aportes de socios (Banco Guayaquil)
+            $account = AccountService::getCuentaAportesSocios();
+            if (!$account) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'No se encontró cuenta bancaria para aportes de socios',
+                ], 404);
+            }
+            $account = $account->lockForUpdate();
 
             // 2️⃣ Crear aporte
             $contribution = PartnerContribution::create([

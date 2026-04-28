@@ -17,13 +17,19 @@ return new class extends Migration
             $table->foreignId('employee_id')->constrained('employees')->onDelete('cascade');
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->decimal('amount', 15, 2);
-            $table->date('payment_date');
-            $table->text('concept')->nullable();
-            $table->string('payment_type', 20)->default('cash')->comment('cash, transfer, check');
-            $table->tinyInteger('state')->default(1)->comment('1=Activo, 2=Inactivo');
-            $table->foreignId('sucursale_id')->nullable()->default(1)->constrained('sucursales')->onDelete('set null');
+            $table->date('payment_date')->comment('Fecha del pago');
+            $table->text('concept')->nullable()->comment('Concepto del pago');
+            $table->enum('payment_type', ['cash', 'transfer', 'check', 'deposit'])->default('cash')->comment('Tipo de pago');
+            $table->boolean('state')->default(true)->comment('true=Activo, false=Inactivo');
+            $table->foreignId('sucursale_id')->nullable()->constrained('sucursales')->onDelete('set null');
             $table->timestamps();
             $table->softDeletes();
+
+            // Índices
+            $table->index('employee_id');
+            $table->index('payment_date');
+            $table->index('payment_type');
+            $table->index('state');
         });
     }
 

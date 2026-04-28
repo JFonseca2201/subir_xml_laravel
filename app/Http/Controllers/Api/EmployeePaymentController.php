@@ -3,10 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Account;
+use App\Models\Employee;
 use App\Models\EmployeePayment;
+use App\Models\EmployeeAdvance;
+use App\Models\Account;
+use App\Models\AccountTransaction;
+use App\Services\AccountService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class EmployeePaymentController extends Controller
@@ -130,14 +136,24 @@ class EmployeePaymentController extends Controller
                 ], 404);
             }
 
-            // Validar que el monto del pago no exceda el sueldo del empleado
-            if ($paymentAmount > $employee->salary) {
+            // Validar pagos acumulados del mes para no exceder el sueldo
+            $currentMonthPayments = \App\Models\EmployeePayment::where('employee_id', $employeeId)
+                ->whereMonth('payment_date', now()->month)
+                ->whereYear('payment_date', now()->year)
+                ->where('state', 1)
+                ->sum('amount');
+
+            $totalAfterThisPayment = $currentMonthPayments + $paymentAmount;
+
+            if ($totalAfterThisPayment > $employee->salary) {
                 return response()->json([
                     'status' => 422,
-                    'message' => 'El monto del pago no puede exceder el sueldo del empleado',
+                    'message' => 'El pago acumulado del mes excede el sueldo del empleado',
                     'employee_salary' => $employee->salary,
-                    'payment_amount' => $paymentAmount,
-                    'difference' => $paymentAmount - $employee->salary,
+                    'current_month_payments' => $currentMonthPayments,
+                    'this_payment' => $paymentAmount,
+                    'total_after_payment' => $totalAfterThisPayment,
+                    'excess' => $totalAfterThisPayment - $employee->salary,
                 ], 422);
             }
 
@@ -166,22 +182,38 @@ class EmployeePaymentController extends Controller
                 }
             }
 
-            $account = Account::find($request->get('account_id'));
+            // Determinar cuenta según tipo de pago
+            $paymentType = $request->get('payment_type', 'transfer');
+            $account = null;
+
+            if ($paymentType === 'cash') {
+                // Pagos en efectivo van a Caja Chica
+                $account = AccountService::getCuentaEfectivo();
+            } else {
+                // Pagos por transferencia van a bancos
+                $account = AccountService::getCuentaTransferencia();
+            }
+
             if (!$account) {
                 return response()->json([
                     'status' => 404,
-                    'message' => 'Cuenta no encontrada',
+                    'message' => 'No se encontró cuenta para el tipo de pago especificado',
+                    'payment_type' => $paymentType,
                 ], 404);
             }
 
-            if ($account->current_balance < $request->get('amount')) {
+            $account = $account->lockForUpdate();
+
+            if (!AccountService::validarSaldoCuenta($account, $request->get('amount'))) {
                 return response()->json([
                     'status' => 422,
                     'message' => 'Saldo insuficiente en la cuenta seleccionada',
                     'account_name' => $account->name,
+                    'account_type' => AccountService::getDescripcionTipoCuenta($account),
                     'account_balance' => $account->current_balance,
                     'payment_amount' => $request->get('amount'),
                     'shortfall' => $request->get('amount') - $account->current_balance,
+                    'payment_type' => $paymentType,
                 ], 422);
             }
 

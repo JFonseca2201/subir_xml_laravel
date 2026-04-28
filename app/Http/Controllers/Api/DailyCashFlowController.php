@@ -4,7 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\DailyCashFlow;
+use App\Models\Account;
+use App\Models\AccountTransaction;
+use App\Services\AccountService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 class DailyCashFlowController extends Controller
@@ -98,7 +102,7 @@ class DailyCashFlowController extends Controller
     {
         $validated = $request->validate([
             'flow_type' => 'required|in:income,expense',
-            'flow_date' => 'required|date',
+            'flow_date' => 'nullable|date',
             'order_number' => 'nullable|string|max:50',
             'order_id' => 'nullable|integer',
             'total_amount' => 'required|numeric|min:0.01',
@@ -112,16 +116,42 @@ class DailyCashFlowController extends Controller
             'source_id' => 'nullable|integer',
         ]);
 
-        // Determinar método de pago automáticamente según account_id específico
-        if (!isset($validated['payment_method']) && isset($validated['account_id'])) {
-            if ($validated['account_id'] == 1) {
-                // account_id = 1 = efectivo
-                $validated['payment_method'] = 'cash';
-            } elseif (in_array($validated['account_id'], [2, 3])) {
-                // account_id = 2 o 3 = transferencia
-                $validated['payment_method'] = 'transfer';
-            } else {
-                $validated['payment_method'] = 'cash'; // default
+        // Si no se proporciona flow_date, no asignar fecha actual
+        if (!isset($validated['flow_date']) || empty($validated['flow_date'])) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El campo flow_date es requerido',
+                'field' => 'flow_date',
+            ], 422);
+        }
+
+        // Validar y obtener cuenta específica según tipo de pago
+        if (isset($validated['account_id'])) {
+            $account = Account::find($validated['account_id']);
+            if (!$account) {
+                return response()->json([
+                    'status' => 422,
+                    'message' => 'Cuenta no encontrada',
+                    'account_id' => $validated['account_id'],
+                ], 422);
+            }
+
+            // Validar que el tipo de pago coincida con el tipo de cuenta
+            $expectedPaymentMethod = $account->type === 'cash' ? 'cash' : 'transfer';
+
+            if (isset($validated['payment_method']) && $validated['payment_method'] !== $expectedPaymentMethod) {
+                return response()->json([
+                    'status' => 422,
+                    'message' => 'El método de pago no corresponde al tipo de cuenta',
+                    'account_type' => $account->type,
+                    'expected_payment_method' => $expectedPaymentMethod,
+                    'provided_payment_method' => $validated['payment_method'],
+                ], 422);
+            }
+
+            // Asignar método de pago automáticamente si no se proporciona
+            if (!isset($validated['payment_method'])) {
+                $validated['payment_method'] = $expectedPaymentMethod;
             }
         }
 
@@ -153,9 +183,9 @@ class DailyCashFlowController extends Controller
 
             $flow = DailyCashFlow::create($validated);
 
-            // Si es ingreso, actualizar saldo de la cuenta
+            // Si es ingreso, actualizar saldo de la cuenta específica
             if ($validated['flow_type'] === 'income' && isset($validated['account_id'])) {
-                $account = \App\Models\Account::find($validated['account_id']);
+                $account = Account::find($validated['account_id']);
                 if ($account) {
                     $account->update([
                         'current_balance' => $account->current_balance + $validated['total_amount']
@@ -163,9 +193,9 @@ class DailyCashFlowController extends Controller
                 }
             }
 
-            // Si es egreso, actualizar saldo de la cuenta
+            // Si es egreso, actualizar saldo de la cuenta específica
             if ($validated['flow_type'] === 'expense' && isset($validated['account_id'])) {
-                $account = \App\Models\Account::find($validated['account_id']);
+                $account = Account::find($validated['account_id']);
                 if ($account) {
                     $account->update([
                         'current_balance' => $account->current_balance - $validated['total_amount']
@@ -186,9 +216,42 @@ class DailyCashFlowController extends Controller
      */
     public function show(DailyCashFlow $dailyCashFlow)
     {
+        $flow = $dailyCashFlow->load(['account', 'user']);
+
         return response()->json([
             'status' => 200,
-            'flow' => $dailyCashFlow->load(['account', 'user']),
+            'flow' => [
+                'id' => $flow->id,
+                'flow_type' => $flow->flow_type,
+                'flow_date' => $flow->flow_date,
+                'flow_date_formatted' => $flow->flow_date_formatted,
+                'order_number' => $flow->order_number,
+                'order_id' => $flow->order_id,
+                'total_amount' => $flow->total_amount,
+                'formatted_amount' => $flow->formatted_amount,
+                'payment_status' => $flow->payment_status,
+                'payment_status_description' => $flow->payment_status_description,
+                'payment_method' => $flow->payment_method,
+                'payment_method_description' => $flow->payment_method_description,
+                'description' => $flow->description,
+                'account_type' => $flow->account_type,
+                'account_type_description' => $flow->account_type_description,
+                'account_id' => (int) $flow->account_id, // Asegurar que sea entero
+                'account' => $flow->account ? [
+                    'id' => $flow->account->id,
+                    'name' => $flow->account->name,
+                    'type' => $flow->account->type,
+                ] : null,
+                'source_type' => $flow->source_type,
+                'source_type_description' => $flow->source_type_description,
+                'source_id' => $flow->source_id,
+                'user' => $flow->user ? [
+                    'id' => $flow->user->id,
+                    'name' => $flow->user->name,
+                ] : null,
+                'created_at' => $flow->created_at->format('Y-m-d H:i:s'),
+                'updated_at' => $flow->updated_at->format('Y-m-d H:i:s'),
+            ],
         ]);
     }
 
@@ -211,6 +274,15 @@ class DailyCashFlowController extends Controller
             'source_id' => 'nullable|integer',
         ]);
 
+        // Validar que flow_date sea proporcionado explícitamente
+        if (!isset($validated['flow_date']) || empty($validated['flow_date'])) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El campo flow_date es requerido para actualizar',
+                'field' => 'flow_date',
+            ], 422);
+        }
+
         return DB::transaction(function () use ($validated, $dailyCashFlow) {
             // Obtener valores anteriores
             $oldAmount = $dailyCashFlow->total_amount;
@@ -219,66 +291,16 @@ class DailyCashFlowController extends Controller
             $oldOrderNumber = $dailyCashFlow->order_number;
 
             // Si es ingreso, convertir descripción a mayúsculas y mantener número de orden
-            if ($validated['flow_type'] === 'income') {
-                // Convertir descripción a mayúsculas
-                if (isset($validated['description'])) {
-                    $validated['description'] = strtoupper($validated['description']);
-                }
-
-                // Mantener el número de orden existente si no se proporciona uno nuevo
-                if (!isset($validated['order_number']) || empty($validated['order_number'])) {
-                    $validated['order_number'] = $oldOrderNumber;
-                }
-            }
-
-            // Actualizar el flujo
             $dailyCashFlow->update($validated);
 
-            // Revertir saldo anterior si hay cuenta asociada
-            if ($oldAccountId && $oldFlowType === 'income') {
-                $oldAccount = \App\Models\Account::find($oldAccountId);
-                if ($oldAccount) {
-                    $oldAccount->update([
-                        'current_balance' => $oldAccount->current_balance - $oldAmount
-                    ]);
-                }
-            }
-
-            if ($oldAccountId && $oldFlowType === 'expense') {
-                $oldAccount = \App\Models\Account::find($oldAccountId);
-                if ($oldAccount) {
-                    $oldAccount->update([
-                        'current_balance' => $oldAccount->current_balance + $oldAmount
-                    ]);
-                }
-            }
-
-            // Aplicar nuevo saldo si hay cuenta asociada
-            if (isset($validated['account_id'])) {
-                $newAccount = \App\Models\Account::find($validated['account_id']);
-                if ($newAccount) {
-                    if ($validated['flow_type'] === 'income') {
-                        $newAccount->update([
-                            'current_balance' => $newAccount->current_balance + $validated['total_amount']
-                        ]);
-                    } else {
-                        $newAccount->update([
-                            'current_balance' => $newAccount->current_balance - $validated['total_amount']
-                        ]);
-                    }
-                }
-            }
-
             return response()->json([
-                'status' => 200,
-                'message' => 'Flujo de caja actualizado correctamente',
                 'flow' => $dailyCashFlow->fresh(['account', 'user']),
             ]);
         });
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove the specified resource from storage.  
      */
     public function destroy(DailyCashFlow $dailyCashFlow)
     {
@@ -333,6 +355,33 @@ class DailyCashFlowController extends Controller
             'daily_balance' => $balance,
             'flows' => $flows,
             'flow_count' => $flows->count(),
+        ]);
+    }
+
+    /**
+     * Get options for daily cash flow form
+     */
+    public function getOptions()
+    {
+        return response()->json([
+            'flow_types' => [
+                ['label' => 'Ingreso', 'value' => 'income'],
+                ['label' => 'Egreso', 'value' => 'expense']
+            ],
+            'payment_methods' => [
+                ['label' => 'Efectivo', 'value' => 'cash'],
+                ['label' => 'Transferencia', 'value' => 'transfer']
+            ],
+            'payment_statuses' => [
+                ['label' => 'Completo', 'value' => 'complete'],
+                ['label' => 'Parcial', 'value' => 'partial'],
+                ['label' => 'Pendiente', 'value' => 'pending']
+            ],
+            'source_types' => [
+                ['label' => 'Venta', 'value' => 'sale'],
+                ['label' => 'Compra', 'value' => 'purchase'],
+                ['label' => 'Otro', 'value' => 'other']
+            ]
         ]);
     }
 

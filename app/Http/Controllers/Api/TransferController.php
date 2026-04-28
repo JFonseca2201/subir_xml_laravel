@@ -4,7 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transfer;
+use App\Models\Account;
+use App\Models\AccountTransaction;
+use App\Services\AccountService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 class TransferController extends Controller
@@ -23,8 +27,10 @@ class TransferController extends Controller
      */
     public function getAvailableAccounts()
     {
-        $accounts = \App\Models\Account::where('state', 1) // Activas
-            ->select('id', 'name', 'current_balance', 'initial_balance', 'type')
+        // Para transferencias, solo mostrar cuentas bancarias
+        $accounts = \App\Models\Account::where('state', true) // Activas
+            ->where('type', 'bank') // Solo cuentas bancarias
+            ->select('id', 'name', 'current_balance', 'initial_balance', 'type', 'bank_name')
             ->orderBy('name')
             ->get();
 
@@ -34,14 +40,15 @@ class TransferController extends Controller
                 'id' => $account->id,
                 'name' => $account->name,
                 'type' => $account->type,
+                'bank_name' => $account->bank_name,
                 'current_balance' => $account->current_balance ?? $account->initial_balance ?? 0,
+                'description' => AccountService::getDescripcionTipoCuenta($account),
             ];
         });
 
         return response()->json([
-            'status' => 200,
             'accounts' => $accounts,
-            'total_accounts' => $accounts->count(),
+            'message' => 'Cuentas bancarias disponibles para transferencias'
         ]);
     }
 
@@ -59,8 +66,29 @@ class TransferController extends Controller
             $from = \App\Models\Account::findOrFail($validated['from_account_id']);
             $to = \App\Models\Account::findOrFail($validated['to_account_id']);
 
+            // Validar que las transferencias sean entre cuentas del mismo tipo o compatibles
+            // Permitir transferencias bancarias y de caja chica
+            $validTransferTypes = [
+                'bank' => ['bank', 'cash'], // Desde bancos puede transferir a bancos o caja
+                'cash' => ['bank', 'cash']  // Desde caja puede transferir a bancos o caja
+            ];
+
+            if (!in_array($to->type, $validTransferTypes[$from->type])) {
+                return response()->json([
+                    'message' => 'Tipo de transferencia no permitida',
+                    'from_account_type' => $from->type,
+                    'to_account_type' => $to->type,
+                    'allowed_types' => $validTransferTypes[$from->type],
+                ], 422);
+            }
+
             if ($from->current_balance < $validated['amount']) {
-                return response()->json(['message' => 'Saldo insuficiente'], 422);
+                return response()->json([
+                    'message' => 'Saldo insuficiente',
+                    'from_account' => $from->name,
+                    'current_balance' => $from->current_balance,
+                    'required_amount' => $validated['amount'],
+                ], 422);
             }
 
             // Crear transferencia sin generar transacciones (el Observer lo hará)

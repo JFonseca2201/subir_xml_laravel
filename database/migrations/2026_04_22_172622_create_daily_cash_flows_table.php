@@ -16,15 +16,15 @@ return new class extends Migration
             $table->enum('flow_type', ['income', 'expense']);
             $table->date('flow_date');
             $table->string('order_number')->nullable();
-            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable()->comment('ID de orden relacionada');
             $table->decimal('total_amount', 15, 2);
             $table->enum('payment_status', ['complete', 'partial', 'pending'])->default('pending');
             $table->text('description')->nullable();
-            $table->enum('account_type', [1, 2, 3]); // 1=caja chica, 2=caja, 3=bancos
+            $table->tinyInteger('account_type')->comment('1=caja chica, 2=caja, 3=bancos');
             $table->foreignId('account_id')->nullable()->constrained('accounts')->onDelete('set null');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->enum('source_type', ['sale', 'purchase', 'other'])->default('other');
-            $table->unsignedBigInteger('source_id')->nullable(); // Para futura referencia a ventas/compras
+            $table->unsignedBigInteger('source_id')->nullable()->comment('ID de referencia a ventas/compras/otros');
             $table->timestamps();
 
             // Índices
@@ -32,6 +32,8 @@ return new class extends Migration
             $table->index('account_type');
             $table->index('user_id');
             $table->index(['source_type', 'source_id']);
+            $table->index('order_number');
+            $table->index('payment_status');
         });
     }
 

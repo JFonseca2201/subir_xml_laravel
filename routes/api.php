@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AccountTransferController;
+use App\Http\Controllers\Api\CashSessionController;
 use App\Http\Controllers\Api\DailyCashFlowController;
 use App\Http\Controllers\Api\EmployeeAdvanceController;
 use App\Http\Controllers\Api\EmployeeController;
@@ -127,9 +128,21 @@ Route::group(
         Route::get('transfer-accounts', [TransferController::class, 'getAvailableAccounts']);
 
         // ============= RUTAS DE FLUJO DE CAJA DIARIO ==========
-        Route::resource('daily-cash-flows', DailyCashFlowController::class);
+        Route::get('cash-flow-options', [DailyCashFlowController::class, 'getOptions']);
         Route::get('daily-cash-flows/summary', [DailyCashFlowController::class, 'dailySummary']);
         Route::get('daily-cash-flows/monthly', [DailyCashFlowController::class, 'monthlyTransactions']);
+        Route::resource('daily-cash-flows', DailyCashFlowController::class);
+
+        // ============= RUTAS DE CAJA DIARIA ==========
+        Route::resource('cash-sessions', CashSessionController::class);
+        Route::get('cash-sessions/open', [CashSessionController::class, 'checkOpen']);
+        Route::post('cash-sessions/open', [CashSessionController::class, 'open']);
+        Route::post('cash-sessions/{sessionId}/movements', [CashSessionController::class, 'addMovement']);
+        Route::get('cash-sessions/summary', [CashSessionController::class, 'getSummary']);
+        Route::post('cash-sessions/close', [CashSessionController::class, 'close']);
+        Route::get('cash-sessions/history', [CashSessionController::class, 'history']);
+        Route::get('cash-sessions/{sessionId}', [CashSessionController::class, 'show']);
+        Route::get('cash-sessions/open-sessions', [CashSessionController::class, 'openSessions']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);
