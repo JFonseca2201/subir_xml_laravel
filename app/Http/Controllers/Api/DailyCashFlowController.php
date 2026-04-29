@@ -348,6 +348,9 @@ class DailyCashFlowController extends Controller
         $expense = $flows->where('flow_type', 'expense')->sum('total_amount');
         $balance = $income - $expense;
 
+        // Obtener todas las cuentas con sus balances calculados
+        $accountBalances = $this->getAllAccountBalances();
+
         return response()->json([
             'date' => $date,
             'total_income' => $income,
@@ -355,7 +358,75 @@ class DailyCashFlowController extends Controller
             'daily_balance' => $balance,
             'flows' => $flows,
             'flow_count' => $flows->count(),
+            'account_balances' => $accountBalances,
+            'summary' => [
+                'total_income' => $income,
+                'total_expense' => $expense,
+                'opening_balance' => $this->getOpeningBalance($date),
+                'current_balance' => $balance
+            ]
         ]);
+    }
+
+    /**
+     * Get all account balances
+     */
+    private function getAllAccountBalances()
+    {
+        $accounts = Account::where('state', true)
+            ->select('id', 'name', 'type', 'bank_name')
+            ->orderBy('type')
+            ->orderBy('name')
+            ->get();
+
+        return $accounts->map(function ($account) {
+            return [
+                'id' => $account->id,
+                'name' => $account->name,
+                'type' => $account->type,
+                'bank_name' => $account->bank_name,
+                'balance' => $this->calculateAccountBalance($account->id)
+            ];
+        });
+    }
+
+    /**
+     * Calculate account balance
+     */
+    private function calculateAccountBalance($accountId)
+    {
+        $income = DailyCashFlow::where('account_id', $accountId)
+            ->where('flow_type', 'income')
+            ->sum('total_amount');
+
+        $expense = DailyCashFlow::where('account_id', $accountId)
+            ->where('flow_type', 'expense')
+            ->sum('total_amount');
+
+        // Incluir transferencias
+        $transferIn = \App\Models\Transfer::where('to_account_id', $accountId)->sum('amount');
+        $transferOut = \App\Models\Transfer::where('from_account_id', $accountId)->sum('amount');
+
+        return $income - $expense + $transferIn - $transferOut;
+    }
+
+    /**
+     * Get opening balance for a specific date
+     */
+    private function getOpeningBalance($date)
+    {
+        // Obtener balance acumulado hasta el día anterior
+        $previousDate = date('Y-m-d', strtotime($date . ' -1 day'));
+
+        $income = DailyCashFlow::whereDate('flow_date', '<=', $previousDate)
+            ->where('flow_type', 'income')
+            ->sum('total_amount');
+
+        $expense = DailyCashFlow::whereDate('flow_date', '<=', $previousDate)
+            ->where('flow_type', 'expense')
+            ->sum('total_amount');
+
+        return $income - $expense;
     }
 
     /**

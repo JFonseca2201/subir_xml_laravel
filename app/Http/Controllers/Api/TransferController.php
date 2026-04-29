@@ -27,20 +27,24 @@ class TransferController extends Controller
      */
     public function getAvailableAccounts()
     {
-        // Para transferencias, solo mostrar cuentas bancarias
+        // Obtener todas las cuentas activas (no solo bancarias)
         $accounts = \App\Models\Account::where('state', true) // Activas
-            ->where('type', 'bank') // Solo cuentas bancarias
             ->select('id', 'name', 'current_balance', 'initial_balance', 'type', 'bank_name')
+            ->orderBy('type')
             ->orderBy('name')
             ->get();
 
-        // Mapear para usar current_balance o initial_balance como fallback
+        // Calcular balances reales basados en todas las transacciones
         $accounts = $accounts->map(function ($account) {
+            // Calcular balance real basado en transacciones
+            $realBalance = $this->calculateAccountBalance($account->id);
+
             return [
                 'id' => $account->id,
                 'name' => $account->name,
                 'type' => $account->type,
                 'bank_name' => $account->bank_name,
+                'balance' => $realBalance, // Balance calculado real
                 'current_balance' => $account->current_balance ?? $account->initial_balance ?? 0,
                 'description' => AccountService::getDescripcionTipoCuenta($account),
             ];
@@ -48,8 +52,30 @@ class TransferController extends Controller
 
         return response()->json([
             'accounts' => $accounts,
-            'message' => 'Cuentas bancarias disponibles para transferencias'
+            'message' => 'Cuentas disponibles con balances calculados'
         ]);
+    }
+
+    /**
+     * Calculate real account balance based on all transactions
+     */
+    private function calculateAccountBalance($accountId)
+    {
+        // Obtener todos los movimientos que afectan esta cuenta
+        $income = \App\Models\DailyCashFlow::where('account_id', $accountId)
+            ->where('flow_type', 'income')
+            ->sum('total_amount');
+
+        $expense = \App\Models\DailyCashFlow::where('account_id', $accountId)
+            ->where('flow_type', 'expense')
+            ->sum('total_amount');
+
+        // Para transferencias, considerar solo las que afectan esta cuenta
+        $transferIn = \App\Models\Transfer::where('to_account_id', $accountId)->sum('amount');
+        $transferOut = \App\Models\Transfer::where('from_account_id', $accountId)->sum('amount');
+
+        // Balance = ingresos - egresos + transferencias entrantes - transferencias salientes
+        return $income - $expense + $transferIn - $transferOut;
     }
 
     public function store(Request $request)
