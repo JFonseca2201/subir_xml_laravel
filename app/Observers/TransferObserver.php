@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\AccountTransaction;
+use App\Models\DailyCashFlow;
 use Illuminate\Support\Facades\DB;
 
 class TransferObserver
@@ -15,41 +16,6 @@ class TransferObserver
         DB::transaction(function () use ($transfer) {
             $fromAccount = $transfer->fromAccount;
             $toAccount = $transfer->toAccount;
-
-            // Ajustar descripción para caja chica
-            $fromDescription = $transfer->description ?? 'Transferencia enviada';
-            $toDescription = $transfer->description ?? 'Transferencia recibida';
-
-            if ($fromAccount->type === 'cash') {
-                $fromDescription = 'Transferencia desde ' . $fromAccount->name;
-            }
-            if ($toAccount->type === 'cash') {
-                $toDescription = 'Transferencia a ' . $toAccount->name;
-            }
-
-            // Crear transacción de egreso en cuenta origen
-            AccountTransaction::create([
-                'account_id' => $fromAccount->id,
-                'type' => 'expense',
-                'category' => 'transfer',
-                'amount' => $transfer->amount,
-                'description' => $fromDescription,
-                'reference_id' => $transfer->id,
-                'reference_type' => 'transfer',
-                'transaction_date' => $transfer->transfer_date,
-            ]);
-
-            // Crear transacción de ingreso en cuenta destino
-            AccountTransaction::create([
-                'account_id' => $toAccount->id,
-                'type' => 'income',
-                'category' => 'transfer',
-                'amount' => $transfer->amount,
-                'description' => $toDescription,
-                'reference_id' => $transfer->id,
-                'reference_type' => 'transfer',
-                'transaction_date' => $transfer->transfer_date,
-            ]);
 
             // Actualizar saldos de las cuentas con precisión decimal exacta
             $fromAccount->update([
@@ -68,15 +34,26 @@ class TransferObserver
     {
         DB::transaction(function () use ($transfer) {
             $fromAccount = $transfer->fromAccount;
+            $toAccount = $transfer->toAccount;
+
+            // Eliminar registros de DailyCashFlow asociados
+            DailyCashFlow::where('source_type', 'transfer')
+                ->where('source_id', $transfer->id)
+                ->delete();
 
             // Eliminar transacciones asociadas
             AccountTransaction::where('reference_type', 'transfer')
                 ->where('reference_id', $transfer->id)
                 ->delete();
 
-            // Devolver el monto a la cuenta de origen con precisión decimal exacta
+            // Devolver el monto a la cuenta de origen
             $fromAccount->update([
                 'current_balance' => $fromAccount->current_balance + $transfer->amount
+            ]);
+
+            // Quitar el monto de la cuenta de destino
+            $toAccount->update([
+                'current_balance' => $toAccount->current_balance - $transfer->amount
             ]);
         });
     }

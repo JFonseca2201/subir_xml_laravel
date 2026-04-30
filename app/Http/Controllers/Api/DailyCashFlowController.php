@@ -403,11 +403,8 @@ class DailyCashFlowController extends Controller
             ->where('flow_type', 'expense')
             ->sum('total_amount');
 
-        // Incluir transferencias
-        $transferIn = \App\Models\Transfer::where('to_account_id', $accountId)->sum('amount');
-        $transferOut = \App\Models\Transfer::where('from_account_id', $accountId)->sum('amount');
-
-        return $income - $expense + $transferIn - $transferOut;
+        // Las transferencias ya están registradas en DailyCashFlow, no se cuentan por separado
+        return $income - $expense;
     }
 
     /**
