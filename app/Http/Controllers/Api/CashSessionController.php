@@ -214,8 +214,10 @@ class CashSessionController extends Controller
     /**
      * Obtener detalles de una sesión específica
      */
-    public function show(int $sessionId): JsonResponse
+    public function show($sessionId): JsonResponse
     {
+        // Convertir sessionId a int para asegurar compatibilidad
+        $sessionId = (int) $sessionId;
         $session = $this->repository->getSessionWithDenominations($sessionId);
         if (!$session) {
             return response()->json([
@@ -276,7 +278,7 @@ class CashSessionController extends Controller
      */
     public function checkOpen(Request $request): JsonResponse
     {
-        $userId = $request->get('user_id', auth()->id());
+        $userId = $request->get('user_id');
 
         if (!$userId) {
             return response()->json([
@@ -293,6 +295,15 @@ class CashSessionController extends Controller
                 'message' => 'No hay sesión de caja abierta',
                 'has_open_session' => false,
             ], 404);
+        }
+
+        // Additional validation to ensure we have a proper CashSession object
+        if (!($session instanceof \App\Models\CashSession)) {
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error: Tipo de sesión inválido',
+                'has_open_session' => false,
+            ], 500);
         }
 
         return response()->json([

@@ -46,11 +46,16 @@ Route::group(
     },
 );
 
+
 Route::group(
     [
         'middleware' => ['auth:api'],
     ],
     function () {
+        // ============= RUTAS DE CAJA DIARIA ==========
+        Route::get('cash-sessions/check-open', [CashSessionTestController::class, 'checkOpen']);
+        Route::get('cash-sessions/check-open', [CashSessionController::class, 'checkOpen'])->withoutMiddleware('auth:api');
+
         // ============= RUTAS DE ROLES ================
         Route::resource('role', RoleController::class);
 
@@ -134,15 +139,15 @@ Route::group(
         Route::resource('daily-cash-flows', DailyCashFlowController::class);
 
         // ============= RUTAS DE CAJA DIARIA ==========
+        Route::get('cash-sessions/check-open', [CashSessionController::class, 'checkOpen'])->name('cash-sessions.check-open');
+        Route::post('cash-sessions/open-session', [CashSessionController::class, 'open'])->name('cash-sessions.open-session');
+        Route::post('cash-sessions/close-session', [CashSessionController::class, 'close'])->name('cash-sessions.close-session');
+        Route::get('cash-sessions/get-summary', [CashSessionController::class, 'getSummary'])->name('cash-sessions.get-summary');
+        Route::get('cash-sessions/get-history', [CashSessionController::class, 'history'])->name('cash-sessions.get-history');
+        Route::get('cash-sessions/get-open-sessions', [CashSessionController::class, 'openSessions'])->name('cash-sessions.get-open-sessions');
+        Route::post('cash-sessions/{sessionId}/add-movement', [CashSessionController::class, 'addMovement'])->name('cash-sessions.add-movement');
+        Route::get('cash-sessions/{sessionId}/get-details', [CashSessionController::class, 'show'])->name('cash-sessions.get-details');
         Route::resource('cash-sessions', CashSessionController::class);
-        Route::get('cash-sessions/open', [CashSessionController::class, 'checkOpen']);
-        Route::post('cash-sessions/open', [CashSessionController::class, 'open']);
-        Route::post('cash-sessions/{sessionId}/movements', [CashSessionController::class, 'addMovement']);
-        Route::get('cash-sessions/summary', [CashSessionController::class, 'getSummary']);
-        Route::post('cash-sessions/close', [CashSessionController::class, 'close']);
-        Route::get('cash-sessions/history', [CashSessionController::class, 'history']);
-        Route::get('cash-sessions/{sessionId}', [CashSessionController::class, 'show']);
-        Route::get('cash-sessions/open-sessions', [CashSessionController::class, 'openSessions']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);
