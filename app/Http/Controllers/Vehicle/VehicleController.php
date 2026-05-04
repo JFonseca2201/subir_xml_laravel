@@ -84,7 +84,7 @@ class VehicleController extends Controller
             'color'        => 'required|string',
             'vehicle_type' => 'required|string',
             'description'  => 'nullable|string|max:1000',
-            'status'       => 'default_1',
+            'status'       => 'required|integer|in:1,2',
         ], [
             'license_plate.regex' => 'El formato de la placa es inválido para Ecuador.',
             'license_plate.unique' => 'Esta placa ya está registrada en el sistema.'
@@ -98,18 +98,14 @@ class VehicleController extends Controller
             ], 422);
         }
 
-        // 3. Creación limpia (El frontend ya envía los datos formateados)
-        $vehicle = Vehicle::create($request->only([
-            'license_plate',
-            'brand',
-            'model',
-            'year',
-            'color',
-            'vehicle_type',
-            'description',
-            'user_id',
-            'status'
-        ]));
+        // 3. Asegurar que el status sea válido (1 = activo, 2 = inactivo)
+        $requestData = $request->all();
+        if (!isset($requestData['status']) || !in_array($requestData['status'], [1, 2])) {
+            $requestData['status'] = 1; // Por defecto activo
+        }
+
+        // 4. Creación limpia (El frontend ya envía los datos formateados)
+        $vehicle = Vehicle::create($requestData);
 
         return response()->json([
             'status' => 201,
