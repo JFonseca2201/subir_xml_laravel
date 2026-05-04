@@ -13,6 +13,7 @@ use App\Http\Controllers\Config\SupplierController;
 use App\Http\Controllers\Config\UnitConversionController;
 use App\Http\Controllers\Config\UnitController;
 use App\Http\Controllers\Config\WarehouseController;
+use App\Http\Controllers\Employee\EmployeeController;
 use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Roles\RoleController;
@@ -103,6 +104,11 @@ Route::group(
 
         // ============= RUTAS DE CONTRIBUCIONES ==========
         Route::resource('contributions', PartnerContributionController::class);
+
+        // ============= RUTAS DE EMPLEADOS ==============
+        Route::resource('employees', EmployeeController::class);
+        Route::post('employees/{id}/restore', [EmployeeController::class, 'restore']);
+        Route::delete('employees/{id}/force-delete', [EmployeeController::class, 'forceDelete']);
 
         // ============= RUTAS DE PAGOS EMPLEADOS =========
         Route::resource('employee-payments', EmployeePaymentController::class);
