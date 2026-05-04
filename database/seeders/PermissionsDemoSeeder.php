@@ -125,6 +125,25 @@ class PermissionsDemoSeeder extends Seeder
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'manage_settings']);
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'approve_transactions']);
 
+        // ============= CREAR SUCURSAL POR DEFECTO ==============
+        $sucursal = \App\Models\Config\Sucursale::updateOrCreate(
+            ['ruc' => '1793192550001'],
+            [
+                'name' => 'Matriz Principal',
+                'address' => 'Av. Principal 123',
+                'ruc' => '1793192550001',
+                'trade_name' => 'Empresa Principal S.A.',
+                'secuencial_factura' => '000000001',
+                'serie_factura' => '001-001',
+                'establecimiento' => '001',
+                'punto_emision' => '001',
+                'ambiente' => 1, // Pruebas
+                'tipo_emision' => 1, // Normal
+                'obligado_contabilidad' => 'SI',
+                'status' => 'active',
+            ]
+        );
+
         // create roles and assign existing permissions
 
         $roleSuperAdmin = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Super-Admin']);
@@ -255,6 +274,7 @@ class PermissionsDemoSeeder extends Seeder
                 'email' => 'laravest@gmail.com',
                 'type_document' => 'CI',
                 'password' => bcrypt('12345678'),
+                'sucursale_id' => $sucursal->id,
             ]
         );
         $user->assignRole($roleSuperAdmin);

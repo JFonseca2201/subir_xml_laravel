@@ -280,7 +280,7 @@ class InvoiceXmlImportController extends Controller
     {
         $request->validate([
             'item_type' => 'required|int|max:55',
-            'categorie_id' => 'nullable|int|exists:product_categories,id',
+            'product_categorie_id' => 'nullable|int|exists:product_categories,id',
         ]);
         $invoiceItem = InvoiceItem::find($id);
         if (!$invoiceItem) {
@@ -289,14 +289,43 @@ class InvoiceXmlImportController extends Controller
         $invoiceItem->item_type = (int) $request->input('item_type');
 
         // Actualizar categoría si se proporciona
-        if ($request->has('categorie_id')) {
-            $invoiceItem->categorie_id = $request->input('categorie_id');
+        if ($request->has('product_categorie_id')) {
+            $invoiceItem->product_categorie_id = $request->input('product_categorie_id');
         }
 
         $invoiceItem->save();
 
         return response()->json([
             'invoiceItem' => $invoiceItem->fresh(['category']),
+            'status' => 200,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'access_key' => 'nullable|string',
+            'invoice_number' => 'required|string',
+            'issue_date' => 'required|date',
+            'subtotal' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0',
+            'total' => 'required|numeric|min:0',
+            'invoice_process' => 'nullable|integer',
+            'customer_id' => 'nullable|exists:users,id',
+            'sucursal_id' => 'nullable|exists:sucursales,id',
+        ]);
+
+        $invoice = Invoice::find($id);
+        if (!$invoice) {
+            return response()->json(['message' => 'Factura no encontrada'], 404);
+        }
+
+        $invoice->update($request->all());
+
+        return response()->json([
+            'invoice' => $invoice->fresh(['supplier', 'customer', 'sucursal']),
             'status' => 200,
         ]);
     }
@@ -334,8 +363,7 @@ class InvoiceXmlImportController extends Controller
             // Procesar cada ítem de la factura
             foreach ($invoiceItems as $invoiceItem) {
                 // Usar la categoría del request si se proporciona, sino la del ítem
-                $category = $validated['categorie_id'] ?? $invoiceItem->categorie_id;
-                $category = $category ?? 1; // Default a 1 si es null
+                $category = $validated['categorie_id'] ?? $invoiceItem->product_categorie_id;
 
                 $item_type = $invoiceItem->item_type;
                 $code = $invoiceItem->code;

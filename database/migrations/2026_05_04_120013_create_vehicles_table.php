@@ -11,15 +11,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('cars', function (Blueprint $table) {
+        Schema::create('vehicles', function (Blueprint $table) {
             $table->id();
+
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
+            $table->string('license_plate')->unique();
             $table->string('brand');
             $table->string('model');
             $table->year('year')->nullable();
             $table->string('color')->nullable();
-            $table->string('placa')->unique();
-            $table->timestamps();
+            $table->string('vehicle_type');
+            $table->text('description')->nullable();
+            $table->string('status')->default('active');
+
             $table->softDeletes();
+            $table->timestamps();
+
+            $table->index(['user_id']);
+            $table->index(['vehicle_type', 'status']);
+            $table->index(['brand', 'model']);
         });
     }
 
@@ -28,6 +38,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('cars');
+        Schema::dropIfExists('vehicles');
     }
 };

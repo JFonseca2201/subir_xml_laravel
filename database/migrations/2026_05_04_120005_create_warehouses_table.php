@@ -13,12 +13,17 @@ return new class extends Migration
     {
         Schema::create('warehouses', function (Blueprint $table) {
             $table->id();
+
             $table->string('name');
             $table->text('address')->nullable();
-            $table->foreignId('sucursale_id')->constrained('sucursales')->onDelete('cascade')->default(1);
-            $table->string('state')->default(1); // 1 = active, 0 = inactive
+            $table->foreignId('sucursale_id')->nullable()->constrained('sucursales')->onDelete('set null');
+            $table->integer('state')->default(1);
+
             $table->softDeletes();
             $table->timestamps();
+
+            $table->index(['sucursale_id']);
+            $table->index(['state']);
         });
     }
 

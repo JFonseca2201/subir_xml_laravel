@@ -11,11 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('unit_conversions', function (Blueprint $table) {
+        Schema::create('employee_payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('unit_id')->constrained('units')->onDelete('cascade');
-            $table->foreignId('unit_to_id')->constrained('units')->onDelete('cascade');
+            
+            $table->string('employee_name');
+            $table->decimal('amount', 15, 2);
+            $table->date('payment_date');
+            $table->string('concept')->nullable();
+            
             $table->timestamps();
+            
+            $table->index(['payment_date', 'employee_name']);
         });
     }
 
@@ -24,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('unit_conversions');
+        Schema::dropIfExists('employee_payments');
     }
 };

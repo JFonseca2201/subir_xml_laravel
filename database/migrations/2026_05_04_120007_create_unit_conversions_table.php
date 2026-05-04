@@ -11,13 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('units', function (Blueprint $table) {
+        Schema::create('unit_conversions', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();
-            $table->text('description')->nullable();
-            $table->integer('state')->default(1); //1 es activo 2 es inactivo;
-            $table->softDeletes();
+
+            $table->foreignId('unit_id')->constrained('units')->onDelete('cascade');
+            $table->foreignId('unit_to_id')->constrained('units')->onDelete('cascade');
+
             $table->timestamps();
+
+            $table->index(['unit_id']);
+            $table->index(['unit_to_id']);
         });
     }
 
@@ -26,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('units');
+        Schema::dropIfExists('unit_conversions');
     }
 };

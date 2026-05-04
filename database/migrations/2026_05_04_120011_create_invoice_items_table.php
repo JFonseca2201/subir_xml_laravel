@@ -14,10 +14,7 @@ return new class extends Migration
         Schema::create('invoice_items', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('invoice_id')
-                ->constrained('invoices')
-                ->cascadeOnDelete();
-
+            $table->foreignId('invoice_id')->constrained()->onDelete('cascade');
             $table->string('code')->nullable();
             $table->string('description');
             $table->decimal('quantity', 10, 2);
@@ -26,11 +23,14 @@ return new class extends Migration
             $table->decimal('subtotal', 12, 2);
             $table->decimal('tax', 12, 2)->default(0);
             $table->decimal('total', 12, 2);
-            $table->tinyInteger('item_type')
-                ->nullable();
-            $table->timestamps();
-        });
+            $table->integer('item_type')->default(1);
+            $table->foreignId('product_categorie_id')->nullable()->constrained('product_categories')->onDelete('set null');
 
+            $table->timestamps();
+
+            $table->index(['invoice_id']);
+            $table->index(['product_categorie_id']);
+        });
     }
 
     /**

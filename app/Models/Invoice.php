@@ -20,6 +20,9 @@ class Invoice extends Model
         'tax',
         'total',
         'invoice_process',
+        'customer_id',
+        'created_by',
+        'sucursal_id',
     ];
 
     protected $casts = [

@@ -11,26 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('transfers', function (Blueprint $table) {
+        Schema::create('units', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('from_account_id')
-                ->constrained('accounts')
-                ->cascadeOnDelete();
-
-            $table->foreignId('to_account_id')
-                ->constrained('accounts')
-                ->cascadeOnDelete();
-
-            $table->decimal('amount', 15, 2);
-
-            $table->date('transfer_date');
-
+            $table->string('name');
             $table->text('description')->nullable();
+            $table->integer('state')->default(1);
 
+            $table->softDeletes();
             $table->timestamps();
-        });
 
+            $table->index(['state']);
+        });
     }
 
     /**
@@ -38,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('transfers');
+        Schema::dropIfExists('units');
     }
 };

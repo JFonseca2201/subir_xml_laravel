@@ -74,7 +74,8 @@ Route::group(
         Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
         Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
         Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
-        Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'updateType']);
+        Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'update']);
+        Route::put('/invoice-items/{id}', [InvoiceXmlImportController::class, 'updateType']);
 
         // ============= RUTAS DE PARTNERS ==============
         Route::post('partners/index', [PartnerController::class, 'index']);

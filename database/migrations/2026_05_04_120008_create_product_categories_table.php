@@ -11,20 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('employee_payments', function (Blueprint $table) {
+        Schema::create('product_categories', function (Blueprint $table) {
             $table->id();
 
-            $table->string('employee_name');
+            $table->string('title');
+            $table->string('imagen')->nullable();
+            $table->integer('state')->default(1);
 
-            $table->decimal('amount', 15, 2);
-
-            $table->date('payment_date');
-
-            $table->text('concept')->nullable();
-
+            $table->softDeletes();
             $table->timestamps();
-        });
 
+            $table->index(['state']);
+        });
     }
 
     /**
@@ -32,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('employee_payments');
+        Schema::dropIfExists('product_categories');
     }
 };

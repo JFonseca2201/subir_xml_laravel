@@ -22,14 +22,18 @@ return new class extends Migration
             $table->string('status')->default(1); //1 es activo y 2 es inactivo
             $table->string('type_document');
             $table->string('identification')->unique();
-            $table->string('role_id')->default(1);
-            $table->string('sucursale_id')->default(1);
+            $table->unsignedBigInteger('role_id')->default(1);
+            $table->unsignedBigInteger('sucursale_id')->default(1);
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
             $table->softDeletes();
             $table->timestamps();
+
+            // Índices para foreign keys (se crearán las restricciones en migraciones separadas)
+            $table->index('role_id');
+            $table->index('sucursale_id');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

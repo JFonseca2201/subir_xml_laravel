@@ -13,11 +13,17 @@ return new class extends Migration
     {
         Schema::create('suppliers', function (Blueprint $table) {
             $table->id();
-            $table->string('tax_id', 13)->unique(); // RUC
-            $table->string('ruc', 13)->unique(); // RUC
+
+            $table->string('tax_id')->nullable();
+            $table->string('ruc')->nullable();
+            $table->string('supplier_id')->nullable();
             $table->string('name');
-            $table->string('address')->nullable();
+            $table->text('address')->nullable();
+
             $table->timestamps();
+
+            $table->index(['ruc']);
+            $table->index(['tax_id']);
         });
     }
 

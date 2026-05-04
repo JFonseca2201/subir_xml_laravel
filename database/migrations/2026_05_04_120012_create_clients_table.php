@@ -13,28 +13,34 @@ return new class extends Migration
     {
         Schema::create('clients', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->nullable();
+
+            $table->string('name');
             $table->string('surname')->nullable();
-            $table->string('full_name')->unique();
-            $table->string('phone');
+            $table->string('full_name')->nullable();
+            $table->string('phone')->nullable();
             $table->string('email')->nullable();
-            $table->string('type_client');
-            $table->string('type_document');
-            $table->string('n_document')->unique();
+            $table->string('type_client')->nullable();
+            $table->string('type_document')->nullable();
+            $table->string('n_document')->nullable();
             $table->date('birth_date')->nullable();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('sucursale_id')->default(1)->nullable()->constrained()->onDelete('set null');
-            $table->tinyInteger('state')->default(1); //1 es true, 2 es false
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('sucursale_id')->nullable()->constrained('sucursales')->onDelete('set null');
+            $table->integer('state')->default(1);
             $table->string('gender')->nullable();
             $table->string('ubigeo_region')->nullable();
             $table->string('ubigeo_provincia')->nullable();
-            $table->string('ubigeo_ciudad')->nullable();
+            $table->string('ubigeo_distrito')->nullable();
             $table->string('region')->nullable();
             $table->string('provincia')->nullable();
-            $table->string('ciudad')->nullable();
+            $table->string('distrito')->nullable();
             $table->text('address')->nullable();
-            $table->timestamps();
+
             $table->softDeletes();
+            $table->timestamps();
+
+            $table->index(['user_id']);
+            $table->index(['sucursale_id']);
+            $table->index(['state']);
         });
     }
 
