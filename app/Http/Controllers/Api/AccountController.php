@@ -16,10 +16,13 @@ class AccountController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'code' => 'required|string|unique:accounts,code',
             'name' => 'required|string',
             'type' => 'required|in:cash,bank',
             'bank_name' => 'nullable|string',
             'initial_balance' => 'nullable|numeric',
+            'is_active' => 'boolean',
+            'is_system' => 'boolean',
         ]);
 
         $account = Account::create($validated);
@@ -37,7 +40,17 @@ class AccountController extends Controller
 
     public function update(Request $request, Account $account)
     {
-        $account->update($request->all());
+        $validated = $request->validate([
+            'code' => 'required|string|unique:accounts,code,' . $account->id,
+            'name' => 'required|string',
+            'type' => 'required|in:cash,bank',
+            'bank_name' => 'nullable|string',
+            'initial_balance' => 'nullable|numeric',
+            'is_active' => 'boolean',
+            'is_system' => 'boolean',
+        ]);
+
+        $account->update($validated);
 
         return response()->json($account);
     }
