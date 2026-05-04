@@ -47,15 +47,14 @@ Route::group(
 );
 
 
+// ============= RUTAS DE CAJA DIARIA (SIN AUTENTICACIÓN) ==========
+Route::get('cash-sessions/check-open', [CashSessionController::class, 'checkOpen']);
+
 Route::group(
     [
         'middleware' => ['auth:api'],
     ],
     function () {
-        // ============= RUTAS DE CAJA DIARIA ==========
-        Route::get('cash-sessions/check-open', [CashSessionTestController::class, 'checkOpen']);
-        Route::get('cash-sessions/check-open', [CashSessionController::class, 'checkOpen'])->withoutMiddleware('auth:api');
-
         // ============= RUTAS DE ROLES ================
         Route::resource('role', RoleController::class);
 
