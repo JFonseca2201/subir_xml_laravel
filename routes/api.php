@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\AporteController;
 use App\Http\Controllers\Api\EmployeePaymentController;
 use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
@@ -115,6 +116,12 @@ Route::group(
 
         // ============= RUTAS DE TRANSFERENCIAS ==========
         Route::resource('transfers', TransferController::class);
+
+        // ============= RUTAS DE APORTES DE CAPITAL ==========
+        Route::get('aportes', [AporteController::class, 'index']);
+        Route::post('aportes', [AporteController::class, 'store']);
+        Route::put('aportes/{id}', [AporteController::class, 'update']);
+        Route::delete('aportes/{id}', [AporteController::class, 'destroy']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);
