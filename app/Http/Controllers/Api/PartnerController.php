@@ -72,6 +72,37 @@ class PartnerController extends Controller
         ]);
     }
 
+    public function workOrdersIndex()
+    {
+        // Simular datos de órdenes de trabajo para pruebas
+        $workOrders = [
+            [
+                'id' => 1,
+                'description' => 'Orden de Trabajo #001 - Mantenimiento General',
+                'status' => 'completed',
+                'created_at' => now()->subDays(5),
+            ],
+            [
+                'id' => 2,
+                'description' => 'Orden de Trabajo #002 - Cambio de Aceite',
+                'status' => 'pending',
+                'created_at' => now()->subDays(3),
+            ],
+            [
+                'id' => 3,
+                'description' => 'Orden de Trabajo #003 - Reparación de Frenos',
+                'status' => 'in_progress',
+                'created_at' => now()->subDays(1),
+            ],
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Órdenes de trabajo obtenidas exitosamente',
+            'data' => $workOrders
+        ]);
+    }
+
     public function destroy(int $id)
     {
         $partner = Partner::findOrFail($id);

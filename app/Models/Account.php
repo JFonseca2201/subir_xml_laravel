@@ -3,12 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Transaction;
 
 class Account extends Model
 {
     protected $fillable = ['code', 'name', 'type', 'bank_name', 'initial_balance', 'is_active', 'is_system'];
 
     protected $casts = [
+        'initial_balance' => 'decimal:2',
+        'is_active' => 'boolean',
+        'is_system' => 'boolean',
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
     ];
@@ -41,13 +45,12 @@ class Account extends Model
         return $this->hasMany(Transfer::class, 'to_account_id');
     }
 
-    // 🔥 Saldo dinámico
+    // Saldo dinámico
     public function getCurrentBalanceAttribute()
     {
-        $income = $this->transactions()->where('type', 'income')->sum('amount');
-
-        $expense = $this->transactions()->where('type', 'expense')->sum('amount');
-
+        $income = $this->transactions()->where('type', Transaction::TYPE_INCOME)->sum('amount');
+        $expense = $this->transactions()->where('type', Transaction::TYPE_EXPENSE)->sum('amount');
+        
         return $this->initial_balance + $income - $expense;
     }
 }

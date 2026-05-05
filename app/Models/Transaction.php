@@ -3,16 +3,34 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Account;
+use App\Models\User;
+use App\Models\Partner;
+use App\Models\Employee;
+use App\Models\WorkOrder;
 
 class Transaction extends Model
 {
-    protected $fillable = ['account_id', 'type', 'amount', 'concept', 'description', 'transaction_date', 'transactionable_type', 'transactionable_id'];
+    // Constantes para tipos de transacción
+    const TYPE_INCOME = 1;
+    const TYPE_EXPENSE = 2;
+    const TYPE_TRANSFER = 3;
+
+    protected $fillable = [
+        'account_id',
+        'type', 
+        'amount',
+        'concept',
+        'description',
+        'transactionable_type',
+        'transactionable_id',
+        'transaction_date'
+    ];
 
     protected $casts = [
-        'transaction_date' => 'datetime:Y-m-d H:i:s',
+        'amount' => 'decimal:2',
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
-        'amount' => 'decimal:2',
     ];
 
     protected static function boot()
@@ -28,38 +46,71 @@ class Transaction extends Model
         });
     }
 
+    // Relaciones
     public function account()
     {
         return $this->belongsTo(Account::class);
     }
 
-    public function transactionable()
+    public function user()
     {
-        return $this->morphTo();
+        return $this->belongsTo(User::class);
     }
 
+    public function partner()
+    {
+        return $this->belongsTo(Partner::class);
+    }
+
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    public function workOrder()
+    {
+        return $this->belongsTo(WorkOrder::class);
+    }
+
+    // Accessors
     public function getFormattedAmountAttribute()
     {
         return '$' . number_format($this->amount, 2);
     }
 
-    public function getTransactionDateFormattedAttribute()
+    public function getTypeLabelAttribute()
     {
-        return $this->transaction_date ? $this->transaction_date->format('d/m/Y H:i') : null;
+        return match($this->type) {
+            self::TYPE_INCOME => 'Ingreso',
+            self::TYPE_EXPENSE => 'Egreso',
+            self::TYPE_TRANSFER => 'Transferencia',
+            default => 'Desconocido'
+        };
     }
 
+    // Scopes
     public function scopeIncome($query)
     {
-        return $query->where('type', 'income');
+        return $query->where('type', self::TYPE_INCOME);
     }
 
     public function scopeExpense($query)
     {
-        return $query->where('type', 'expense');
+        return $query->where('type', self::TYPE_EXPENSE);
     }
 
     public function scopeTransfer($query)
     {
-        return $query->where('type', 'transfer');
+        return $query->where('type', self::TYPE_TRANSFER);
+    }
+
+    public function scopeByAccount($query, $accountId)
+    {
+        return $query->where('account_id', $accountId);
+    }
+
+    public function scopeByTransferGroup($query, $transferGroupId)
+    {
+        return $query->where('transfer_group_id', $transferGroupId);
     }
 }

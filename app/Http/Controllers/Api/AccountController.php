@@ -10,7 +10,32 @@ class AccountController extends Controller
 {
     public function index()
     {
-        return response()->json(Account::with('transactions')->get());
+        $accounts = Account::where('is_active', true)
+            ->get()
+            ->map(function ($account) {
+                // Forzar el cálculo del saldo actual
+                $currentBalance = $account->current_balance;
+                
+                return [
+                    'id' => $account->id,
+                    'code' => $account->code,
+                    'name' => $account->name,
+                    'type' => $account->type,
+                    'bank_name' => $account->bank_name,
+                    'initial_balance' => $account->initial_balance,
+                    'current_balance' => $currentBalance,
+                    'is_active' => $account->is_active,
+                    'is_system' => $account->is_system,
+                    'created_at' => $account->created_at,
+                    'updated_at' => $account->updated_at,
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cuentas obtenidas exitosamente',
+            'data' => $accounts
+        ]);
     }
 
     public function store(Request $request)

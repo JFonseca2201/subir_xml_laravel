@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\TransferController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\Client\ClientController;
 use App\Http\Controllers\Config\ProductCategorieController;
 use App\Http\Controllers\Config\SucursaleController;
@@ -115,6 +116,32 @@ Route::group(
 
         // ============= RUTAS DE TRANSFERENCIAS ==========
         Route::resource('transfers', TransferController::class);
+
+        // Rutas para transacciones (autenticadas)
+        Route::post('/transactions', [TransactionController::class, 'store']);
+        Route::get('/transactions', [TransactionController::class, 'index']);
+        
+        // Rutas para cuentas con saldos (autenticadas)
+        Route::get('/accounts', [AccountController::class, 'index']);
+        
+        // Rutas para socios (autenticadas)
+        Route::get('/partners', [PartnerController::class, 'index']);
+        
+        // Rutas para empleados (autenticadas)
+        Route::get('/employees', [EmployeeController::class, 'index']);
+        
+        // Rutas para órdenes de trabajo (autenticadas)
+        Route::get('/work-orders', [PartnerController::class, 'workOrdersIndex']);
     },
 );
+
+// ============= ENDPOINTS PÚBLICOS PARA LUXURY EVYS (SIN AUTENTICACIÓN) =============
+// Estos endpoints deben ir al final para tener prioridad sobre las rutas autenticadas
+Route::get('/accounts', [AccountController::class, 'index']);
+Route::get('/transactions', [TransactionController::class, 'index']);
+Route::post('/transactions', [TransactionController::class, 'store']);
+Route::get('/partners', [PartnerController::class, 'index']);
+Route::get('/employees', [EmployeeController::class, 'index']);
+Route::get('/work-orders', [PartnerController::class, 'workOrdersIndex']);
+
 Route::get('products-excel', [ProductController::class, 'download_excel']);
