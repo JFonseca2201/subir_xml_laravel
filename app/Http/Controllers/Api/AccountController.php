@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\MovimientoCuenta;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AccountController extends Controller
 {
@@ -57,8 +59,36 @@ class AccountController extends Controller
 
     public function destroy(Account $account)
     {
-        $account->delete();
+        return DB::transaction(function () use ($account) {
+            // Verificar si hay movimientos asociados
+            $movimientosCount = MovimientoCuenta::where('cuenta_id', $account->id)->count();
 
-        return response()->json(['message' => 'Cuenta eliminada']);
+            if ($movimientosCount > 0) {
+                return response()->json([
+                    'message' => 'No se puede eliminar la cuenta porque tiene movimientos asociados',
+                    'movimientos_count' => $movimientosCount
+                ], 422);
+            }
+
+            // Verificar si es una cuenta de sistema
+            if ($account->is_system) {
+                return response()->json([
+                    'message' => 'No se puede eliminar una cuenta del sistema'
+                ], 422);
+            }
+
+            // Verificar si tiene saldo diferente de cero
+            if ($account->saldo_actual != 0) {
+                return response()->json([
+                    'message' => 'No se puede eliminar una cuenta con saldo diferente de cero',
+                    'saldo_actual' => $account->saldo_actual
+                ], 422);
+            }
+
+            // Eliminar la cuenta
+            $account->delete();
+
+            return response()->json(['message' => 'Cuenta eliminada exitosamente']);
+        });
     }
 }

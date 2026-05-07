@@ -313,20 +313,20 @@ class EmployeeExpenseController extends Controller
 
             // Si cambió la cuenta o el monto, ajustar movimientos
             if ($cuentaAnterior != $request->account_id || $montoAnterior != $request->amount) {
-                // Revertir movimiento anterior
+                // Devolver saldo anterior a la cuenta original (porque el pago original ya lo había restado)
+                $cuentaAnt = Account::findOrFail($cuentaAnterior);
+                $cuentaAnt->increment('saldo_actual', $montoAnterior);
+
+                // Crear movimiento de reversión
                 MovimientoCuenta::create([
                     'cuenta_id' => $cuentaAnterior,
-                    'tipo' => 'EGRESO',
+                    'tipo' => 'INGRESO', // Es un ingreso porque estamos devolviendo el dinero
                     'monto' => $montoAnterior,
                     'descripcion' => "Reverso por edición de pago: {$expense->description}",
                     'referencia' => 'reverso_edicion_pago',
                     'referencia_id' => $expense->id,
                     'fecha' => now()->toDateString(),
                 ]);
-
-                // Restar saldo anterior
-                $cuentaAnt = Account::findOrFail($cuentaAnterior);
-                $cuentaAnt->decrement('saldo_actual', $montoAnterior);
 
                 // Validar saldo disponible en la nueva cuenta
                 $cuentaNueva = Account::findOrFail($request->account_id);
@@ -349,7 +349,7 @@ class EmployeeExpenseController extends Controller
                     'fecha' => $request->payment_date,
                 ]);
 
-                // Restar nuevo saldo
+                // Restar nuevo saldo de la cuenta nueva
                 $cuentaNueva->decrement('saldo_actual', $request->amount);
             }
 
@@ -455,7 +455,7 @@ class EmployeeExpenseController extends Controller
             // Crear movimiento reverso
             MovimientoCuenta::create([
                 'cuenta_id' => $expense->account_id,
-                'tipo' => 'EGRESO',
+                'tipo' => 'INGRESO', // Es un ingreso porque estamos devolviendo el dinero del pago
                 'monto' => $expense->amount,
                 'descripcion' => "Reverso por eliminación de pago: {$expense->description}",
                 'referencia' => 'reverso_eliminacion_pago',
