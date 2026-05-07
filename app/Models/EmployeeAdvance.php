@@ -6,34 +6,36 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class EmployeePayment extends Model
+class EmployeeAdvance extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'employee_payments';
+    protected $table = 'employee_advances';
 
     protected $fillable = [
         'employee_id',
         'account_id',
         'amount',
         'description',
-        'payment_date',
+        'advance_date',
         'payment_method',
-        'reference',
+        'reason',
         'type',
-        'created_by'
+        'created_by',
+        'is_deducted'
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'payment_date' => 'date',
+        'advance_date' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'is_deducted' => 'boolean',
     ];
 
     protected $dates = [
-        'payment_date'
+        'advance_date'
     ];
 
     // Relaciones
@@ -60,6 +62,11 @@ class EmployeePayment extends Model
 
     public function scopeByDateRange($query, $startDate, $endDate)
     {
-        return $query->whereBetween('payment_date', [$startDate, $endDate]);
+        return $query->whereBetween('advance_date', [$startDate, $endDate]);
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('is_deducted', false);
     }
 }

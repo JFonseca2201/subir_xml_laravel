@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AporteController;
+use App\Http\Controllers\Api\EmployeeExpenseController;
 use App\Http\Controllers\Api\EmployeePaymentController;
 use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
@@ -111,8 +112,18 @@ Route::group(
         Route::post('employees/{id}/restore', [EmployeeController::class, 'restore']);
         Route::delete('employees/{id}/force-delete', [EmployeeController::class, 'forceDelete']);
 
-        // ============= RUTAS DE PAGOS EMPLEADOS =========
-        Route::resource('employee-payments', EmployeePaymentController::class);
+        // ============= RUTAS DE GASTOS DE EMPLEADOS ==========
+        Route::get('employee-expenses', [EmployeeExpenseController::class, 'index']);
+        Route::post('employee-expenses', [EmployeeExpenseController::class, 'store']);
+        Route::put('employee-expenses/{id}', [EmployeeExpenseController::class, 'update']);
+        Route::delete('employee-expenses/{id}', [EmployeeExpenseController::class, 'destroy']);
+        Route::get('employee-earnings/{id}', [EmployeeExpenseController::class, 'getEmployeeEarnings']);
+        Route::get('employee-pending-advances/{id}', [EmployeeExpenseController::class, 'getEmployeePendingAdvances']);
+
+        // ============= RUTAS DE ADELANTOS ==========
+        Route::post('employee-expenses/advance', [EmployeeExpenseController::class, 'storeAdvance']);
+        Route::put('employee-expenses/{id}/advance', [EmployeeExpenseController::class, 'updateAdvance']);
+        Route::delete('employee-expenses/{id}/advance', [EmployeeExpenseController::class, 'destroyAdvance']);
 
         // ============= RUTAS DE TRANSFERENCIAS ==========
         Route::resource('transfers', TransferController::class);
