@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AporteController;
 use App\Http\Controllers\Api\EmployeeExpenseController;
 use App\Http\Controllers\Api\EmployeePaymentController;
+use App\Http\Controllers\Api\FinanceRecordController;
 use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\TransferController;
@@ -127,6 +128,15 @@ Route::group(
 
         // ============= RUTAS DE TRANSFERENCIAS ==========
         Route::resource('transfers', TransferController::class);
+
+        // ============= RUTAS DE FINANCE RECORDS ==========
+        Route::get('finance-records', [FinanceRecordController::class, 'index']);
+        Route::post('finance-records', [FinanceRecordController::class, 'store']);
+        Route::get('finance-records/{financeRecord}', [FinanceRecordController::class, 'show']);
+        Route::put('finance-records/{financeRecord}', [FinanceRecordController::class, 'update']);
+        Route::delete('finance-records/{financeRecord}', [FinanceRecordController::class, 'destroy']);
+        Route::get('finance-records/daily-summary', [FinanceRecordController::class, 'dailySummary']);
+        Route::get('finance-records/monthly-stats', [FinanceRecordController::class, 'monthlyStats']);
 
         // ============= RUTAS DE APORTES DE CAPITAL ==========
         Route::get('aportes', [AporteController::class, 'index']);

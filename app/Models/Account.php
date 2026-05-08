@@ -31,6 +31,11 @@ class Account extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    public function financeRecords()
+    {
+        return $this->hasMany(FinanceRecord::class, 'account_id');
+    }
+
     public function outgoingTransfers()
     {
         return $this->hasMany(Transfer::class, 'from_account_id');
@@ -41,13 +46,33 @@ class Account extends Model
         return $this->hasMany(Transfer::class, 'to_account_id');
     }
 
-    // 🔥 Saldo dinámico
+    // 🔥 Saldo dinámico con FinanceRecord
     public function getCurrentBalanceAttribute()
     {
-        $income = $this->transactions()->where('type', 'income')->sum('amount');
+        // Usar FinanceRecord para el cálculo de saldo
+        $income = $this->financeRecords()->where('type', 0)->sum('amount'); // 0 = Income
 
-        $expense = $this->transactions()->where('type', 'expense')->sum('amount');
+        $expense = $this->financeRecords()->where('type', 1)->sum('amount'); // 1 = Expense
 
         return $this->initial_balance + $income - $expense;
+    }
+
+    /**
+     * Update account balance based on transaction
+     */
+    public function updateBalance($amount, $type): void
+    {
+        $amount = (float) $amount;
+        $type = (int) $type;
+
+        if ($type === 0) {
+            // Income: add to balance
+            $this->saldo_actual += $amount;
+        } else {
+            // Expense: subtract from balance
+            $this->saldo_actual -= $amount;
+        }
+
+        $this->save();
     }
 }

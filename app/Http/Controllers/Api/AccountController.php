@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
-use App\Models\MovimientoCuenta;
+use App\Models\FinanceRecord;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -12,7 +12,14 @@ class AccountController extends Controller
 {
     public function index()
     {
-        return response()->json(Account::with('transactions')->get());
+        $accounts = Account::with('financeRecords')->get();
+
+        // Agregar balance actual a cada cuenta
+        $accounts->each(function ($account) {
+            $account->current_balance = $account->current_balance;
+        });
+
+        return response()->json($accounts);
     }
 
     public function store(Request $request)
@@ -61,7 +68,7 @@ class AccountController extends Controller
     {
         return DB::transaction(function () use ($account) {
             // Verificar si hay movimientos asociados
-            $movimientosCount = MovimientoCuenta::where('cuenta_id', $account->id)->count();
+            $movimientosCount = FinanceRecord::where('account_id', $account->id)->count();
 
             if ($movimientosCount > 0) {
                 return response()->json([
@@ -78,10 +85,10 @@ class AccountController extends Controller
             }
 
             // Verificar si tiene saldo diferente de cero
-            if ($account->saldo_actual != 0) {
+            if ($account->current_balance != 0) {
                 return response()->json([
                     'message' => 'No se puede eliminar una cuenta con saldo diferente de cero',
-                    'saldo_actual' => $account->saldo_actual
+                    'current_balance' => $account->current_balance
                 ], 422);
             }
 
