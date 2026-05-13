@@ -135,8 +135,10 @@ Route::group(
         Route::get('finance-records/{financeRecord}', [FinanceRecordController::class, 'show']);
         Route::put('finance-records/{financeRecord}', [FinanceRecordController::class, 'update']);
         Route::delete('finance-records/{financeRecord}', [FinanceRecordController::class, 'destroy']);
+        Route::delete('payment-distributions/{paymentDistribution}', [FinanceRecordController::class, 'destroyPaymentDistribution']);
         Route::get('finance-records/daily-summary', [FinanceRecordController::class, 'dailySummary']);
         Route::get('finance-records/monthly-stats', [FinanceRecordController::class, 'monthlyStats']);
+        Route::get('finance-records/grouped-by-work-order', [FinanceRecordController::class, 'groupedByWorkOrder']);
 
         // ============= RUTAS DE APORTES DE CAPITAL ==========
         Route::get('aportes', [AporteController::class, 'index']);

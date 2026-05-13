@@ -30,6 +30,20 @@ class FinanceRecordResource extends JsonResource
             'user_id' => $this->user_id,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'payment_distributions' => $this->whenLoaded('paymentDistributions', function () {
+                return $this->paymentDistributions->map(function ($distribution) {
+                    return [
+                        'id' => $distribution->id,
+                        'account_id' => $distribution->account_id,
+                        'amount' => (float) $distribution->amount,
+                        'payment_method' => $distribution->payment_method,
+                        'account' => $distribution->account ? [
+                            'id' => $distribution->account->id,
+                            'name' => $distribution->account->name,
+                        ] : null
+                    ];
+                });
+            }),
         ];
     }
 }

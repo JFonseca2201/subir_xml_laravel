@@ -66,6 +66,14 @@ class FinanceRecord extends Model
     }
 
     /**
+     * Get payment distributions for this finance record.
+     */
+    public function paymentDistributions()
+    {
+        return $this->hasMany(PaymentDistribution::class);
+    }
+
+    /**
      * Boot model.
      */
     protected static function boot()

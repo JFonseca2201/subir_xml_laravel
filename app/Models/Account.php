@@ -46,13 +46,21 @@ class Account extends Model
         return $this->hasMany(Transfer::class, 'to_account_id');
     }
 
-    // 🔥 Saldo dinámico con FinanceRecord
+    // 🔥 Saldo dinámico con PaymentDistribution
     public function getCurrentBalanceAttribute()
     {
-        // Usar FinanceRecord para el cálculo de saldo
-        $income = $this->financeRecords()->where('type', 0)->sum('amount'); // 0 = Income
+        // Usar PaymentDistribution para el cálculo de saldo
+        $income = PaymentDistribution::where('account_id', $this->id)
+            ->whereHas('financeRecord', function ($query) {
+                $query->where('type', 0); // 0 = Income
+            })
+            ->sum('amount');
 
-        $expense = $this->financeRecords()->where('type', 1)->sum('amount'); // 1 = Expense
+        $expense = PaymentDistribution::where('account_id', $this->id)
+            ->whereHas('financeRecord', function ($query) {
+                $query->where('type', 1); // 1 = Expense
+            })
+            ->sum('amount');
 
         return $this->initial_balance + $income - $expense;
     }
@@ -65,6 +73,15 @@ class Account extends Model
         $amount = (float) $amount;
         $type = (int) $type;
 
+        \Log::info('Account updateBalance called:', [
+            'account_id' => $this->id,
+            'account_name' => $this->name,
+            'amount' => $amount,
+            'type' => $type,
+            'current_saldo_actual' => $this->saldo_actual,
+            'current_dynamic_balance' => $this->current_balance
+        ]);
+
         if ($type === 0) {
             // Income: add to balance
             $this->saldo_actual += $amount;
@@ -73,6 +90,8 @@ class Account extends Model
             $this->saldo_actual -= $amount;
         }
 
+        \Log::info('Before save - new saldo_actual:', ['saldo_actual' => $this->saldo_actual]);
         $this->save();
+        \Log::info('After save - saldo_actual in DB:', ['saldo_actual' => $this->fresh()->saldo_actual]);
     }
 }
