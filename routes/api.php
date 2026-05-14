@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AporteController;
 use App\Http\Controllers\Api\EmployeeExpenseController;
 use App\Http\Controllers\Api\EmployeePaymentController;
 use App\Http\Controllers\Api\FinanceRecordController;
+use App\Http\Controllers\Api\FinanzasController;
 use App\Http\Controllers\Api\InternalTransferController;
 use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
@@ -147,6 +148,9 @@ Route::group(
         Route::post('aportes', [AporteController::class, 'store']);
         Route::put('aportes/{id}', [AporteController::class, 'update']);
         Route::delete('aportes/{id}', [AporteController::class, 'destroy']);
+
+        // ============= RUTAS DE DASHBOARD FINANCIERO ==========
+        Route::get('dashboard-financiero', [FinanzasController::class, 'getDashboardData']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);

@@ -210,6 +210,20 @@ class EmployeeExpenseController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
+            $payment->registerMovement(
+                $request->account_id,
+                'expense', // Tipo: Egreso
+                $finalPaymentAmount,
+                "Pago de nómina a: " . ($payment->employee->full_name ?? 'Empleado'),
+                $request->payment_date,
+                [
+                    'payment_method' => $request->payment_method,
+                    'reference' => $request->reference,
+                    'original_amount' => $request->amount,
+                    'deductions' => $totalPendingAdvances
+                ]
+            );
+
             // Crear movimiento contable
             MovimientoCuenta::create([
                 'cuenta_id' => $request->account_id,
@@ -272,6 +286,18 @@ class EmployeeExpenseController extends Controller
                 'type' => 'advance',
                 'created_by' => auth()->id(),
             ]);
+
+            $advance->registerMovement(
+                $request->account_id,
+                'expense', // Tipo: Egreso
+                $request->amount,
+                "Adelanto de sueldo: " . ($advance->employee->full_name ?? 'Empleado'),
+                $request->advance_date,
+                [
+                    'reason' => $request->reason,
+                    'payment_method' => $request->payment_method
+                ]
+            );
 
             // Crear movimiento contable (EGRESO porque es un adelanto)
             MovimientoCuenta::create([
@@ -363,6 +389,13 @@ class EmployeeExpenseController extends Controller
                 'payment_method' => $request->payment_method,
                 'reference' => $request->reference,
             ]);
+            $expense->registerMovement(
+                $request->account_id,
+                'expense',
+                $request->amount,
+                "Pago editado: " . $request->description,
+                $request->payment_date
+            );
 
             return response()->json($expense);
         });
@@ -440,6 +473,14 @@ class EmployeeExpenseController extends Controller
                 'reason' => $request->reason,
             ]);
 
+            $advance->registerMovement(
+                $request->account_id,
+                'expense',
+                $request->amount,
+                "Adelanto editado: " . $request->description,
+                $request->advance_date
+            );
+
             return response()->json($advance);
         });
     }
@@ -451,6 +492,7 @@ class EmployeeExpenseController extends Controller
         return DB::transaction(function () use ($expense) {
             // Eliminar pago
             $expense->delete();
+            $expense->financialMovement()->delete();
 
             // Crear movimiento reverso
             MovimientoCuenta::create([
@@ -478,6 +520,8 @@ class EmployeeExpenseController extends Controller
         return DB::transaction(function () use ($advance) {
             // Eliminar adelanto
             $advance->delete();
+            $advance->financialMovement()->delete();
+
 
             // Crear movimiento reverso (INGRESO porque se devuelve el adelanto)
             MovimientoCuenta::create([
@@ -560,7 +604,7 @@ class EmployeeExpenseController extends Controller
             $monthlyEarnings = $dailyRate * $daysWorkedThisMonth;
 
             // Ganancias disponibles para pago (restando adelantos)
-            $availableForPayment = $monthlyEarnings - $totalAdvances;
+            $availableForPayment = $monthlyEarnings /* - $totalAdvances */;
 
             return response()->json([
                 'employee_id' => $employeeId,

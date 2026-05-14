@@ -5,12 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Traits\RecordsFinancialMovements;
 use Carbon\Carbon;
 
 class FinanceRecord extends Model
 {
     use HasFactory;
+    use RecordsFinancialMovements;
 
+    protected $table = 'finance_records';
     // Constants
     const TYPE_INCOME = 0;
     const TYPE_EXPENSE = 1;

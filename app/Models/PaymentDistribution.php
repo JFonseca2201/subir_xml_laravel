@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\RecordsFinancialMovements;
 
 class PaymentDistribution extends Model
 {
+    use RecordsFinancialMovements;
+
     protected $fillable = [
         'finance_record_id',
         'account_id',

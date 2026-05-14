@@ -52,56 +52,69 @@ class FinanceRecordController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(StoreFinanceRecordRequest $request): JsonResponse
-    {
-        return DB::transaction(function () use ($request) {
-            $data = $request->validated();
+{
+    return DB::transaction(function () use ($request) {
+        $data = $request->validated();
 
-            // Configurar zona horaria de Ecuador
-            $entryDate = $data['entry_date'] ?? Carbon::now('America/Guayaquil')->format('Y-m-d');
+        $entryDate = $data['entry_date'] ?? Carbon::now('America/Guayaquil')->format('Y-m-d');
 
-            // Procesar pagos múltiples
-            $payments = $data['payments'] ?? [];
-            unset($data['payments']);
+        $payments = $data['payments'] ?? [];
+        unset($data['payments']);
 
-            // Crear el registro principal (único)
-            $financeRecord = FinanceRecord::create([
-                'entry_date' => $entryDate,
-                'type' => $data['type'],
-                'description' => $data['description'],
-                'amount' => array_sum(array_column($payments, 'amount')), // Total de todos los pagos
-                'user_id' => Auth::id(),
-                'work_order_number' => $data['work_order_number'] ?? null,
-                'invoice_number' => $data['invoice_number'] ?? null,
+        // 1. Crear el registro principal
+        $financeRecord = FinanceRecord::create([
+            'entry_date' => $entryDate,
+            'type' => $data['type'],
+            'description' => $data['description'],
+            'amount' => array_sum(array_column($payments, 'amount')),
+            'user_id' => Auth::id(),
+            'work_order_number' => $data['work_order_number'] ?? null,
+            'invoice_number' => $data['invoice_number'] ?? null,
+        ]);
+
+        $paymentDistributions = [];
+        foreach ($payments as $payment) {
+            // 2. Crear la distribución
+            $distribution = PaymentDistribution::create([
+                'finance_record_id' => $financeRecord->id,
+                'account_id' => $payment['account_id'],
+                'amount' => $payment['amount'],
+                'payment_method' => $this->getPaymentMethod($payment['account_id']),
             ]);
 
-            // Crear distribuciones de pago
-            $paymentDistributions = [];
-            foreach ($payments as $payment) {
-                $distribution = PaymentDistribution::create([
+            // --- IMPLEMENTACIÓN DEL TRAIT ---
+            // Registramos el movimiento vinculado a la distribución
+            $distribution->registerMovement(
+                $payment['account_id'],
+                (int)$data['type'] === 0 ? 'income' : 'expense', // Seguro estricto del tipo
+                $payment['amount'],
+                $data['description'], // Descripción general del registro
+                $entryDate,
+                [
                     'finance_record_id' => $financeRecord->id,
-                    'account_id' => $payment['account_id'],
-                    'amount' => $payment['amount'],
-                    'payment_method' => $this->getPaymentMethod($payment['account_id']),
-                ]);
+                    'record_type' => (int)$data['type'],
+                    'invoice' => $financeRecord->invoice_number,
+                    'work_order' => $financeRecord->work_order_number
+                ]
+            );
 
-                $paymentDistributions[] = $distribution;
+            $paymentDistributions[] = $distribution;
 
-                // Actualizar saldo de cada cuenta de pago
-                $account = Account::find($payment['account_id']);
-                if ($account) {
-                    $account->updateBalance($payment['amount'], $data['type']);
-                }
+            // 3. Actualizar saldo
+            $account = Account::find($payment['account_id']);
+            if ($account) {
+                $account->updateBalance($payment['amount'], $data['type']);
             }
+        }
 
-            // Cargar relaciones para la respuesta
-            $financeRecord->load('paymentDistributions.account');
+        $financeRecord->load('paymentDistributions.account');
 
-            return response()->json([
-                'message' => 'Finance record created successfully',
-                'data' => new FinanceRecordResource($financeRecord)
-            ], 201);
-        });
-    }
+        return response()->json([
+            'message' => 'Finance record created successfully',
+            'data' => new FinanceRecordResource($financeRecord)
+        ], 201);
+    });
+}
 
     /**
      * Determinar método de pago según account_id
@@ -128,176 +141,186 @@ class FinanceRecordController extends Controller
      * Update the specified resource in storage.
      */
     public function update(StoreFinanceRecordRequest $request, FinanceRecord $financeRecord): JsonResponse
-    {
-        return DB::transaction(function () use ($request, $financeRecord) {
-            $data = $request->validated();
-            $payments = $data['payments'];
+{
+    return DB::transaction(function () use ($request, $financeRecord) {
+        $data = $request->validated();
+        $payments = $data['payments'];
 
-            // Obtener distribuciones existentes para revertir saldos
-            $existingDistributions = $financeRecord->paymentDistributions;
-            foreach ($existingDistributions as $distribution) {
-                $account = Account::find($distribution->account_id);
-                if ($account) {
-                    // Revertir saldo original
-                    if ($financeRecord->type === 0) {
-                        // Era ingreso, restar del saldo
-                        $account->updateBalance($distribution->amount, 1);
-                    } else {
-                        // Era egreso, sumar al saldo
-                        $account->updateBalance($distribution->amount, 0);
-                    }
-                }
-            }
-
-            // Eliminar todas las distribuciones existentes
-            $financeRecord->paymentDistributions()->delete();
-
-            // Crear nuevas distribuciones y actualizar saldos
-            $totalAmount = 0;
-            foreach ($payments as $paymentData) {
-                \Log::info('Creating payment distribution:', [
-                    'account_id' => $paymentData['account_id'],
-                    'amount' => $paymentData['amount'],
-                    'type' => $financeRecord->type
-                ]);
-
-                PaymentDistribution::create([
-                    'finance_record_id' => $financeRecord->id,
-                    'account_id' => $paymentData['account_id'],
-                    'amount' => $paymentData['amount'],
-                    'payment_method' => $this->getPaymentMethod($paymentData['account_id'])
-                ]);
-
-                // Actualizar saldo de la cuenta
-                $account = Account::find($paymentData['account_id']);
-                if ($account) {
-                    \Log::info('Updating account balance:', [
-                        'account_id' => $account->id,
-                        'account_name' => $account->name,
-                        'old_balance' => $account->saldo_actual,
-                        'amount' => $paymentData['amount'],
-                        'type' => $financeRecord->type,
-                        'new_balance' => $account->saldo_actual + ($financeRecord->type === 0 ? $paymentData['amount'] : -$paymentData['amount'])
-                    ]);
-                    $account->updateBalance($paymentData['amount'], $financeRecord->type);
-                    \Log::info('Account balance updated to:', ['new_balance' => $account->fresh()->saldo_actual]);
+        // 1. Revertir saldos y limpiar movimientos financieros antiguos
+        $existingDistributions = $financeRecord->paymentDistributions;
+        foreach ($existingDistributions as $distribution) {
+            $account = Account::find($distribution->account_id);
+            if ($account) {
+                // Revertir saldo original (lógica existente)
+                if ($financeRecord->type === 0) {
+                    $account->updateBalance($distribution->amount, 1);
                 } else {
-                    \Log::error('Account not found:', ['account_id' => $paymentData['account_id']]);
+                    $account->updateBalance($distribution->amount, 0);
                 }
+            }
+            
+            // ELIMINAR el movimiento financiero asociado a la distribución antigua
+            // Esto evita que el Dashboard muestre datos duplicados tras la edición
+            $distribution->financialMovement()->delete();
+        }
 
-                $totalAmount += $paymentData['amount'];
+        // 2. Eliminar distribuciones existentes (Base de datos)
+        $financeRecord->paymentDistributions()->delete();
+
+        // 3. Crear nuevas distribuciones y registrar nuevos movimientos
+        $totalAmount = 0;
+        foreach ($payments as $paymentData) {
+            $newDistribution = PaymentDistribution::create([
+                'finance_record_id' => $financeRecord->id,
+                'account_id' => $paymentData['account_id'],
+                'amount' => $paymentData['amount'],
+                'payment_method' => $this->getPaymentMethod($paymentData['account_id'])
+            ]);
+
+            // --- IMPLEMENTACIÓN DEL TRAIT ---
+            // Registramos el nuevo movimiento para la distribución recién creada
+            $newDistribution->registerMovement(
+                $paymentData['account_id'],
+                (int)$data['type'] === 0 ? 'income' : 'expense', // Seguro estricto del tipo
+                $paymentData['amount'],
+                $data['description'],
+                $data['entry_date'],
+                [
+                    'finance_record_id' => $financeRecord->id,
+                    'record_type' => (int)$data['type'],
+                    'info' => 'Registro editado',
+                    'invoice' => $data['invoice_number'] ?? null
+                ]
+            );
+
+            // Actualizar saldo de la cuenta
+            $account = Account::find($paymentData['account_id']);
+            if ($account) {
+                $account->updateBalance($paymentData['amount'], $data['type']);
             }
 
-            // Actualizar el monto total del finance record
-            $financeRecord->update([
-                'type' => $data['type'],
-                'work_order_number' => $data['work_order_number'] ?? null,
-                'invoice_number' => $data['invoice_number'] ?? null,
-                'description' => $data['description'],
-                'entry_date' => $data['entry_date'],
-                'amount' => $totalAmount
-            ]);
+            $totalAmount += $paymentData['amount'];
+        }
 
-            $financeRecord->load(['user', 'paymentDistributions.account']);
+        // 4. Actualizar el registro principal
+        $financeRecord->update([
+            'type' => $data['type'],
+            'work_order_number' => $data['work_order_number'] ?? null,
+            'invoice_number' => $data['invoice_number'] ?? null,
+            'description' => $data['description'],
+            'entry_date' => $data['entry_date'],
+            'amount' => $totalAmount
+        ]);
 
-            return response()->json([
-                'message' => 'Finance record updated successfully',
-                'data' => new FinanceRecordResource($financeRecord)
-            ]);
-        });
-    }
+        $financeRecord->load(['user', 'paymentDistributions.account']);
+
+        return response()->json([
+            'message' => 'Finance record updated successfully',
+            'data' => new FinanceRecordResource($financeRecord)
+        ]);
+    });
+}
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(FinanceRecord $financeRecord): JsonResponse
-    {
-        return DB::transaction(function () use ($financeRecord) {
-            $type = $financeRecord->type;
+   public function destroy(FinanceRecord $financeRecord): JsonResponse
+{
+    return DB::transaction(function () use ($financeRecord) {
+        $type = $financeRecord->type;
 
-            // Verificar si tiene distribuciones de pago (nuevo sistema)
-            $paymentDistributions = $financeRecord->paymentDistributions;
+        // 1. Obtener distribuciones de pago
+        $paymentDistributions = $financeRecord->paymentDistributions;
 
-            if ($paymentDistributions->count() > 0) {
-                // Nuevo sistema: revertir saldos para cada distribución
-                foreach ($paymentDistributions as $distribution) {
-                    $account = Account::find($distribution->account_id);
-                    if ($account) {
-                        // Revertir el movimiento
-                        if ($type === 0) {
-                            // Eliminar ingreso: restar del saldo
-                            $account->updateBalance($distribution->amount, 1);
-                        } else {
-                            // Eliminar egreso: sumar al saldo
-                            $account->updateBalance($distribution->amount, 0);
-                        }
-                    }
-                }
-            } else {
-                // Sistema antiguo: revertir saldo para la cuenta principal
-                $account = Account::find($financeRecord->account_id);
+        if ($paymentDistributions->count() > 0) {
+            // --- NUEVO SISTEMA: DISTRIBUCIONES ---
+            foreach ($paymentDistributions as $distribution) {
+                // ELIMINAR el movimiento financiero del Dashboard primero
+                $distribution->financialMovement()->delete();
+
+                $account = Account::find($distribution->account_id);
                 if ($account) {
+                    // Revertir el saldo (lógica existente)
                     if ($type === 0) {
-                        // Eliminar ingreso: restar del saldo
-                        $account->updateBalance($financeRecord->amount, 1);
+                        $account->updateBalance($distribution->amount, 1);
                     } else {
-                        // Eliminar egreso: sumar al saldo
-                        $account->updateBalance($financeRecord->amount, 0);
+                        $account->updateBalance($distribution->amount, 0);
                     }
                 }
             }
+        } else {
+            // --- SISTEMA ANTIGUO: CUENTA PRINCIPAL ---
+            // Nota: Si el sistema antiguo no usaba el Trait, esta línea no hará nada (lo cual está bien)
+            // Pero si lo usaba, lo limpiamos también.
+            if (method_exists($financeRecord, 'financialMovement')) {
+                $financeRecord->financialMovement()->delete();
+            }
 
-            // Eliminar el movimiento (las distribuciones se eliminarán en cascada)
-            $financeRecord->delete();
+            $account = Account::find($financeRecord->account_id);
+            if ($account) {
+                if ($type === 0) {
+                    $account->updateBalance($financeRecord->amount, 1);
+                } else {
+                    $account->updateBalance($financeRecord->amount, 0);
+                }
+            }
+        }
 
-            return response()->json([
-                'message' => 'Finance record deleted successfully'
-            ]);
-        });
-    }
+        // 2. Eliminar el registro (las distribuciones se eliminan por cascada en BD o manualmente)
+        $financeRecord->delete();
+
+        return response()->json([
+            'message' => 'Finance record deleted successfully'
+        ]);
+    });
+}
 
     /**
      * Remove the specified payment distribution from storage.
      */
     public function destroyPaymentDistribution(PaymentDistribution $paymentDistribution): JsonResponse
-    {
-        return DB::transaction(function () use ($paymentDistribution) {
-            // Obtener datos antes de eliminar
-            $financeRecord = $paymentDistribution->financeRecord;
-            $accountId = $paymentDistribution->account_id;
-            $amount = $paymentDistribution->amount;
-            $type = $financeRecord->type;
+{
+    return DB::transaction(function () use ($paymentDistribution) {
+        // 1. Obtener datos antes de eliminar
+        $financeRecord = $paymentDistribution->financeRecord;
+        $accountId = $paymentDistribution->account_id;
+        $amount = $paymentDistribution->amount;
+        $type = $financeRecord->type;
 
-            // Actualizar saldo de la cuenta (revertir el movimiento)
-            $account = Account::find($accountId);
-            if ($account) {
-                // Si era ingreso (type=0), restar del saldo (se revierte una entrada)
-                // Si era egreso (type=1), sumar al saldo (se revierte una salida)
-                if ($type === 0) {
-                    // Eliminar ingreso: restar del saldo (usar type=1 para que reste)
-                    $account->updateBalance($amount, 1);
-                } else {
-                    // Eliminar egreso: sumar al saldo (usar type=0 para que sume)
-                    $account->updateBalance($amount, 0);
-                }
+        // --- IMPLEMENTACIÓN DEL TRAIT ---
+        // Eliminamos el movimiento financiero asociado a esta distribución específica
+        // Esto limpia el historial financiero/dashboard inmediatamente
+        $paymentDistribution->financialMovement()->delete();
+
+        // 2. Actualizar saldo de la cuenta (revertir el movimiento)
+        $account = Account::find($accountId);
+        if ($account) {
+            // Si era ingreso (type=0), restar del saldo
+            // Si era egreso (type=1), sumar al saldo
+            if ($type === 0) {
+                $account->updateBalance($amount, 1);
+            } else {
+                $account->updateBalance($amount, 0);
             }
+        }
 
-            // Eliminar la distribución de pago
-            $paymentDistribution->delete();
+        // 3. Eliminar la distribución de pago
+        $paymentDistribution->delete();
 
-            // Actualizar el monto total del finance_record
-            $remainingTotal = $financeRecord->paymentDistributions()->sum('amount');
-            $financeRecord->update(['amount' => $remainingTotal]);
+        // 4. Actualizar el monto total del finance_record principal
+        // Es importante hacer el sum() después del delete() para obtener el total real
+        $remainingTotal = $financeRecord->paymentDistributions()->sum('amount');
+        $financeRecord->update(['amount' => $remainingTotal]);
 
-            return response()->json([
-                'message' => 'Payment distribution deleted successfully',
-                'data' => [
-                    'remaining_amount' => $remainingTotal,
-                    'deleted_amount' => $amount
-                ]
-            ]);
-        });
-    }
+        return response()->json([
+            'message' => 'Payment distribution deleted successfully',
+            'data' => [
+                'remaining_amount' => (float) $remainingTotal,
+                'deleted_amount' => (float) $amount
+            ]
+        ]);
+    });
+}
 
     /**
      * Get daily summary grouped by entry_date.

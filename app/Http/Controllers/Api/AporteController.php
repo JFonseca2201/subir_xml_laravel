@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+
 class AporteController extends Controller
 {
     /**
@@ -137,6 +138,15 @@ class AporteController extends Controller
                 'fecha' => $request->fecha_aporte,
             ]);
 
+            $aporte->registerMovement(
+            $request->cuenta_id,
+            'income',
+            $request->monto,
+            "Aporte de socio: {$aporte->partner->nombre_completo}", // O el nombre del socio
+            $request->fecha_aporte,
+            ['metodo' => $request->metodo_pago] // Metadata opcional
+            );
+
             // Actualizar saldo de la cuenta
             $cuenta = Account::findOrFail($request->cuenta_id);
             $cuenta->increment('saldo_actual', $request->monto);
@@ -165,12 +175,10 @@ class AporteController extends Controller
         try {
             DB::beginTransaction();
 
+            // 1. Buscamos el aporte
             $aporte = AporteCapital::findOrFail($id);
 
-            // Soft delete del aporte
-            $aporte->delete();
-
-            // Crear movimiento inverso
+            // 2. Crear movimiento inverso en MovimientoCuenta (USAR DATOS ANTES DE BORRAR)
             MovimientoCuenta::create([
                 'cuenta_id' => $aporte->cuenta_id,
                 'tipo' => 'EGRESO',
@@ -181,9 +189,19 @@ class AporteController extends Controller
                 'fecha' => now()->toDateString(),
             ]);
 
-            // Restar monto del saldo
+            // 3. Restar monto del saldo de la cuenta
             $cuenta = Account::findOrFail($aporte->cuenta_id);
             $cuenta->decrement('saldo_actual', $aporte->monto);
+
+            // 4. ELIMINAR DEL DASHBOARD DE OPERACIONES
+            // Usamos la relación del Trait para quitarlo de la vista unificada
+            if ($aporte->financialMovement()) {
+                $aporte->financialMovement()->delete();
+            }
+
+            // 5. Soft delete del aporte (AL FINAL)
+            // Lo hacemos al final para asegurar que todas las referencias anteriores funcionen
+            $aporte->delete();
 
             DB::commit();
 
@@ -265,6 +283,14 @@ class AporteController extends Controller
                 'fecha_aporte' => $request->fecha_aporte,
                 'hora_aporte' => $request->hora_aporte,
             ]);
+            $aporte->registerMovement(
+            $request->cuenta_id,
+            'income',
+            $request->monto,
+            "Aporte de capital (editado): {$request->descripcion}",
+            $request->fecha_aporte,
+            ['metodo' => $request->metodo_pago, 'edit_log' => 'editado_manualmente']
+        );
 
             DB::commit();
 
