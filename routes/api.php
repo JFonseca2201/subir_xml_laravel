@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AporteController;
 use App\Http\Controllers\Api\EmployeeExpenseController;
 use App\Http\Controllers\Api\EmployeePaymentController;
 use App\Http\Controllers\Api\FinanceRecordController;
+use App\Http\Controllers\Api\InternalTransferController;
 use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\TransferController;
@@ -127,7 +128,8 @@ Route::group(
         Route::delete('employee-expenses/{id}/advance', [EmployeeExpenseController::class, 'destroyAdvance']);
 
         // ============= RUTAS DE TRANSFERENCIAS ==========
-        Route::resource('transfers', TransferController::class);
+        //Route::resource('transfers', TransferController::class);
+        Route::resource('transfers', InternalTransferController::class);
 
         // ============= RUTAS DE FINANCE RECORDS ==========
         Route::get('finance-records', [FinanceRecordController::class, 'index']);
