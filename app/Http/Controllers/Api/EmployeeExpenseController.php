@@ -624,11 +624,16 @@ class EmployeeExpenseController extends Controller
 
     private function formatDateLabel($date)
     {
-        $carbonDate = Carbon::parse($date);
+        $timezone = 'America/Guayaquil';
+        $carbonDate = Carbon::parse($date, $timezone);
+        
+        $hoy = Carbon::now($timezone)->format('Y-m-d');
+        $ayer = Carbon::now($timezone)->subDay()->format('Y-m-d');
+        $fechaFormat = $carbonDate->format('Y-m-d');
 
-        if ($carbonDate->isToday()) {
+        if ($fechaFormat === $hoy) {
             return 'Hoy';
-        } elseif ($carbonDate->isYesterday()) {
+        } elseif ($fechaFormat === $ayer) {
             return 'Ayer';
         } else {
             return $carbonDate->locale('es')->translatedFormat('l d F');

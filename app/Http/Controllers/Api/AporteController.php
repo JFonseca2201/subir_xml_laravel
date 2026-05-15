@@ -26,14 +26,17 @@ class AporteController extends Controller
 
         // Agrupar por fecha
         $agrupados = $aportes->groupBy(function ($aporte) {
-            $fecha = Carbon::parse($aporte->fecha_aporte);
+            $timezone = 'America/Guayaquil';
+            $fechaFormat = Carbon::parse($aporte->fecha_aporte)->format('Y-m-d');
+            $fecha = Carbon::parse($fechaFormat, $timezone);
 
-            if ($fecha->isToday()) {
+            $hoy = Carbon::now($timezone)->format('Y-m-d');
+            $ayer = Carbon::now($timezone)->subDay()->format('Y-m-d');
+
+            if ($fechaFormat === $hoy) {
                 return 'Hoy';
-            } elseif ($fecha->isYesterday()) {
+            } elseif ($fechaFormat === $ayer) {
                 return 'Ayer';
-            } elseif ($fecha->year === now()->year && $fecha->month === now()->month && $fecha->day === now()->subDay(2)->day) {
-                return $fecha->locale('es')->translatedFormat('l d F');
             } else {
                 return $fecha->locale('es')->translatedFormat('l d F');
             }

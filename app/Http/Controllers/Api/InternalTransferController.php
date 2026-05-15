@@ -43,8 +43,41 @@ class InternalTransferController extends Controller
             'total_general' => (float) $transfers->sum('amount'),
         ];
 
+        // Agrupar por fecha
+        $agrupados = $transfers->groupBy(function ($transfer) {
+            $timezone = 'America/Guayaquil';
+            
+            if ($transfer->transfer_date) {
+                // Extraer Y-m-d estrictamente para ignorar el desfase de la hora UTC
+                $fechaFormat = Carbon::parse($transfer->transfer_date)->format('Y-m-d');
+                $fecha = Carbon::parse($fechaFormat, $timezone);
+            } else {
+                $fecha = Carbon::parse($transfer->created_at)->setTimezone($timezone);
+                $fechaFormat = $fecha->format('Y-m-d');
+            }
+
+            $hoy = Carbon::now($timezone)->format('Y-m-d');
+            $ayer = Carbon::now($timezone)->subDay()->format('Y-m-d');
+
+            if ($fechaFormat === $hoy) {
+                return 'Hoy';
+            } elseif ($fechaFormat === $ayer) {
+                return 'Ayer';
+            } else {
+                return ucfirst($fecha->locale('es')->translatedFormat('l, d F Y'));
+            }
+        });
+
+        $data = [];
+        foreach ($agrupados as $label => $transfersDia) {
+            $data[] = [
+                'label' => $label,
+                'transfers' => $transfersDia->values()
+            ];
+        }
+
         return response()->json([
-            'data' => $transfers,
+            'data' => $data,
             'resumen' => $resumen
         ]);
     }
@@ -96,14 +129,6 @@ class InternalTransferController extends Controller
                 // 3. Actualizar saldos
                 $fromAccount->updateBalance($validated['amount'], 1); // 1 = Egreso
                 $toAccount->updateBalance($validated['amount'], 0);   // 0 = Ingreso
-
-            // --- ACTUALIZACIÓN DE SALDOS ---
-            
-            // Tipo 1 = Egreso (resta de la cuenta de origen)
-            $fromAccount->updateBalance($validated['amount'], 1);
-            
-            // Tipo 0 = Ingreso (suma a la cuenta de destino)
-            $toAccount->updateBalance($validated['amount'], 0);
 
             return response()->json([
                 'message' => 'Transferencia realizada con éxito y movimientos registrados.',
