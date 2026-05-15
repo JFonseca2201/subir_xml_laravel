@@ -29,12 +29,16 @@ class InternalTransferController extends Controller
 
         $resumen = [
             'total_hoy' => (float) $transfers->filter(function ($transfer) use ($today) {
-                $date = $transfer->transfer_date ?? $transfer->created_at;
-                return Carbon::parse($date)->toDateString() === $today;
+                $date = $transfer->transfer_date
+                    ? Carbon::parse($transfer->transfer_date)->format('Y-m-d')
+                    : Carbon::parse($transfer->created_at)->setTimezone('America/Guayaquil')->format('Y-m-d');
+                return $date === $today;
             })->sum('amount'),
             'total_mes' => (float) $transfers->filter(function ($transfer) use ($currentMonth) {
-                $date = $transfer->transfer_date ?? $transfer->created_at;
-                return Carbon::parse($date)->format('Y-m') === $currentMonth;
+                $date = $transfer->transfer_date
+                    ? Carbon::parse($transfer->transfer_date)->format('Y-m')
+                    : Carbon::parse($transfer->created_at)->setTimezone('America/Guayaquil')->format('Y-m');
+                return $date === $currentMonth;
             })->sum('amount'),
             'total_general' => (float) $transfers->sum('amount'),
         ];
@@ -56,15 +60,15 @@ class InternalTransferController extends Controller
             'to_account_id'   => 'required|exists:accounts,id|different:from_account_id',
             'amount'          => 'required|numeric|min:0.01',
             'description'     => 'nullable|string|max:1000',
-            'reference_number'=> 'nullable|string|max:255',
+            'reference_number' => 'nullable|string|max:255',
             'transfer_date'   => 'nullable|date',
         ], [
             'to_account_id.different' => 'La cuenta de destino debe ser diferente a la cuenta de origen.',
         ]);
 
-        // 2. Ejecutar todo dentro de una transacción para mantener integridad financiera
+        // 2. Ejecutar dentro de una transacción
         return DB::transaction(function () use ($validated) {
-            
+
             // Obtener las cuentas involucradas
             $fromAccount = Account::findOrFail($validated['from_account_id']);
             $toAccount = Account::findOrFail($validated['to_account_id']);
@@ -72,12 +76,27 @@ class InternalTransferController extends Controller
             // Crear el registro de la transferencia
             $transfer = InternalTransfer::create($validated);
 
-            // Actualizar saldos usando el método del modelo Account
-            // Tipo 1 = Egreso (resta de la cuenta de origen)
-            $fromAccount->updateBalance($validated['amount'], 1);
-            
-            // Tipo 0 = Ingreso (suma a la cuenta de destino)
-            $toAccount->updateBalance($validated['amount'], 0);
+            // --- REGISTRO DE MOVIMIENTOS FINANCIEROS (TRAIT) ---
+
+            $entryDate = $validated['transfer_date'] ?? now();
+
+            // Registrar un único movimiento de tipo 'transfer'
+            $transfer->registerMovement(
+                $fromAccount->id,
+                'transfer',
+                $validated['amount'],
+                "Transferencia interna: " . ($validated['description'] ?? 'Sin descripción'),
+                $entryDate,
+                [
+                    'type' => 'internal_transfer', 
+                    'from_account' => $fromAccount->id, 
+                    'to_account' => $toAccount->id
+                ]
+            );
+
+            // 3. Actualizar saldos
+            $fromAccount->updateBalance($validated['amount'], 1); // 1 = Egreso
+            $toAccount->updateBalance($validated['amount'], 0);   // 0 = Ingreso
 
             return response()->json([
                 'message' => 'Transferencia realizada con éxito',
@@ -96,7 +115,7 @@ class InternalTransferController extends Controller
             'to_account_id'   => 'required|exists:accounts,id|different:from_account_id',
             'amount'          => 'required|numeric|min:0.01',
             'description'     => 'nullable|string|max:1000',
-            'reference_number'=> 'nullable|string|max:255',
+            'reference_number' => 'nullable|string|max:255',
             'transfer_date'   => 'nullable|date',
         ], [
             'to_account_id.different' => 'La cuenta de destino debe ser diferente a la cuenta de origen.',
@@ -105,21 +124,42 @@ class InternalTransferController extends Controller
         return DB::transaction(function () use ($validated, $id) {
             $transfer = InternalTransfer::findOrFail($id);
 
-            // 1. Revertir saldos anteriores
+            // 1. Revertir saldos anteriores (Lógica contable pura)
             $oldFromAccount = Account::findOrFail($transfer->from_account_id);
             $oldToAccount = Account::findOrFail($transfer->to_account_id);
 
-            $oldFromAccount->updateBalance($transfer->amount, 0); // Devolver el dinero al origen
-            $oldToAccount->updateBalance($transfer->amount, 1);   // Restar el dinero del destino
+            $oldFromAccount->updateBalance($transfer->amount, 0); // Devuelve el dinero al origen
+            $oldToAccount->updateBalance($transfer->amount, 1);   // Resta el dinero del destino
 
             // 2. Actualizar el registro de la transferencia
             $transfer->update($validated);
+
+            // --- ACTUALIZACIÓN DE MOVIMIENTOS (TRAIT) ---
+            // Al usar updateOrCreate, el Trait buscará el movimiento previo de esta transferencia 
+            // y actualizará los montos, cuentas y fechas.
+
+            $entryDate = $validated['transfer_date'] ?? $transfer->created_at;
+
+            // Actualizar a un único movimiento de tipo 'transfer'
+            $transfer->registerMovement(
+                $validated['from_account_id'],
+                'transfer',
+                $validated['amount'],
+                "Transferencia interna (Actualizada): " . ($validated['description'] ?? 'Sin descripción'),
+                $entryDate,
+                [
+                    'type' => 'internal_transfer_updated', 
+                    'from_account' => $validated['from_account_id'], 
+                    'to_account' => $validated['to_account_id'], 
+                    'reference' => $validated['reference_number'] ?? null
+                ]
+            );
 
             // 3. Aplicar nuevos saldos
             $newFromAccount = Account::findOrFail($validated['from_account_id']);
             $newToAccount = Account::findOrFail($validated['to_account_id']);
 
-            $newFromAccount->updateBalance($validated['amount'], 1); // Restar del nuevo origen
+            $newFromAccount->updateBalance($validated['amount'], 1); // Resta del nuevo origen
             $newToAccount->updateBalance($validated['amount'], 0);   // Sumar al nuevo destino
 
             return response()->json([
@@ -128,22 +168,31 @@ class InternalTransferController extends Controller
             ]);
         });
     }
-
     /**
      * Remove the specified transfer from storage (Revertir).
      */
-    public function destroy($id): JsonResponse
+    public function destroy(int $id): JsonResponse
 {
     return DB::transaction(function () use ($id) {
-        
+
         $internalTransfer = InternalTransfer::findOrFail($id);
-        
+
+        // 1. Identificar las cuentas para revertir saldos
         $fromAccount = Account::findOrFail($internalTransfer->from_account_id);
         $toAccount = Account::findOrFail($internalTransfer->to_account_id);
 
+        // 2. Revertir saldos
+        // Tipo 0 = Ingreso (devolvemos el dinero al origen)
         $fromAccount->updateBalance($internalTransfer->amount, 0);
+        // Tipo 1 = Egreso (quitamos el dinero que llegó al destino)
         $toAccount->updateBalance($internalTransfer->amount, 1);
 
+        // --- INTEGRACIÓN CON EL TRAIT / MOVIMIENTOS ---
+        // Eliminamos los movimientos financieros relacionados antes de borrar la transferencia.
+        // Asumiendo que la relación en tu modelo se llama financialMovement()
+        $internalTransfer->financialMovement()->delete();
+
+        // 3. Eliminar el registro de la transferencia
         $internalTransfer->delete();
 
         return response()->json([
