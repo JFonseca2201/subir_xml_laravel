@@ -11,19 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('payment_distributions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('finance_record_id')->constrained()->onDelete('cascade');
-            $table->foreignId('account_id')->constrained()->onDelete('cascade');
-            $table->decimal('amount', 12, 2);
-            $table->string('payment_method', 20); // cash, transfer, etc.
-            $table->timestamps();
-            
-            // Indexes for performance
-            $table->index(['finance_record_id']);
-            $table->index(['account_id']);
-            $table->index(['finance_record_id', 'account_id']);
-        });
+        if (!Schema::hasTable('payment_distributions')) {
+            Schema::create('payment_distributions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('finance_record_id')->constrained()->onDelete('cascade');
+                $table->foreignId('account_id')->constrained()->onDelete('cascade');
+                $table->decimal('amount', 12, 2);
+                $table->string('payment_method', 20); // cash, transfer, etc.
+                $table->timestamps();
+                
+                // Indexes for performance
+                $table->index(['finance_record_id']);
+                $table->index(['account_id']);
+                $table->index(['finance_record_id', 'account_id']);
+            });
+        }
     }
 
     /**

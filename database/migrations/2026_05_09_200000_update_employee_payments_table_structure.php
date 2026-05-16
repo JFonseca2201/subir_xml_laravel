@@ -11,25 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop old column if it exists
+        if (Schema::hasColumn('employee_payments', 'concept')) {
+            Schema::table('employee_payments', function (Blueprint $table) {
+                $table->dropColumn('concept');
+            });
+        }
+
         Schema::table('employee_payments', function (Blueprint $table) {
-            // Drop old column
-            $table->dropColumn('concept');
-            
             // Add new columns
-            $table->foreignId('employee_id')->constrained('employees')->onDelete('cascade')->after('id');
-            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade')->after('employee_id');
-            $table->text('description')->nullable()->after('amount');
-            $table->enum('payment_method', ['EFECTIVO', 'TRANSFERENCIA'])->after('payment_date');
-            $table->string('reference')->nullable()->after('payment_method');
-            $table->enum('type', ['payment'])->default('payment')->after('reference');
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null')->after('type');
+            if (!Schema::hasColumn('employee_payments', 'description')) {
+                $table->text('description')->nullable()->after('amount');
+            }
             
             // Update amount column to match controller expectations
             $table->decimal('amount', 10, 2)->change();
             
             // Add indexes
-            $table->index('employee_id');
-            $table->index('account_id');
             $table->index('payment_date');
             $table->index('type');
             $table->index(['payment_date', 'type']);
@@ -43,13 +41,9 @@ return new class extends Migration
     {
         Schema::table('employee_payments', function (Blueprint $table) {
             // Drop new columns
-            $table->dropForeign(['employee_id']);
-            $table->dropForeign(['account_id']);
-            $table->dropForeign(['created_by']);
-            $table->dropColumn(['employee_id', 'account_id', 'description', 'payment_method', 'reference', 'type', 'created_by']);
-            
-            // Add old column back
-            $table->string('concept')->nullable()->after('amount');
+            if (Schema::hasColumn('employee_payments', 'description')) {
+                $table->dropColumn('description');
+            }
             
             // Revert amount column
             $table->decimal('amount', 15, 2)->change();
@@ -58,8 +52,13 @@ return new class extends Migration
             $table->dropIndex(['payment_date', 'type']);
             $table->dropIndex(['payment_date']);
             $table->dropIndex(['type']);
-            $table->dropIndex(['account_id']);
-            $table->dropIndex(['employee_id']);
         });
+
+        // Add old column back if it doesn't exist
+        if (!Schema::hasColumn('employee_payments', 'concept')) {
+            Schema::table('employee_payments', function (Blueprint $table) {
+                $table->string('concept')->nullable()->after('amount');
+            });
+        }
     }
 };

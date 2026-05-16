@@ -22,6 +22,7 @@ use App\Http\Controllers\Employee\EmployeeController;
 use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Roles\RoleController;
+use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
 use Illuminate\Support\Facades\Route;
@@ -151,6 +152,9 @@ Route::group(
 
         // ============= RUTAS DE DASHBOARD FINANCIERO ==========
         Route::get('dashboard-financiero', [FinanzasController::class, 'getDashboardData']);
+
+        // ============= RUTAS DE SALES ==========
+        Route::resource('sales', SaleController::class);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);
