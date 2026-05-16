@@ -237,7 +237,7 @@ class FinanceRecordController extends Controller
             foreach ($paymentDistributions as $distribution) {
                 // ELIMINAR el movimiento financiero del Dashboard primero
                 $distribution->financialMovement()->delete();
-
+                //corregir este error
                 $account = Account::find($distribution->account_id);
                 if ($account) {
                     // Revertir el saldo (lógica existente)
@@ -249,9 +249,7 @@ class FinanceRecordController extends Controller
                 }
             }
         } else {
-            // --- SISTEMA ANTIGUO: CUENTA PRINCIPAL ---
-            // Nota: Si el sistema antiguo no usaba el Trait, esta línea no hará nada (lo cual está bien)
-            // Pero si lo usaba, lo limpiamos también.
+            // --- ANTIGUO SISTEMA: MOVIMIENTOS FINANCIEROS ---
             if (method_exists($financeRecord, 'financialMovement')) {
                 $financeRecord->financialMovement()->delete();
             }
@@ -288,15 +286,11 @@ class FinanceRecordController extends Controller
         $type = $financeRecord->type;
 
         // --- IMPLEMENTACIÓN DEL TRAIT ---
-        // Eliminamos el movimiento financiero asociado a esta distribución específica
-        // Esto limpia el historial financiero/dashboard inmediatamente
         $paymentDistribution->financialMovement()->delete();
 
         // 2. Actualizar saldo de la cuenta (revertir el movimiento)
         $account = Account::find($accountId);
-        if ($account) {
-            // Si era ingreso (type=0), restar del saldo
-            // Si era egreso (type=1), sumar al saldo
+        if ($account) {        
             if ($type === 0) {
                 $account->updateBalance($amount, 1);
             } else {
