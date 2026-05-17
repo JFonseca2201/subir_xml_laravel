@@ -155,6 +155,8 @@ Route::group(
 
         // ============= RUTAS DE SALES ==========
         Route::resource('sales', SaleController::class);
+        Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
+        Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);

@@ -4,47 +4,75 @@ namespace App\Models\Sales;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Client\Client;
-use App\Models\Vehicles\Vehicle;
-use App\Models\User;
+use App\Models\Sales\SaleDetail;
+use App\Traits\RecordsFinancialMovements;
 
 class Sale extends Model
 {
-    use HasFactory;
+    use HasFactory, RecordsFinancialMovements;
 
     protected $fillable = [
-        'document_type', 'document_number', 'client_id', 'vehicle_id', 'user_id',
-        'mileage', 'service_date', 'subtotal', 'tax_amount', 'total',
-        'status', 'payment_status', 'is_credited', 'payment_method', 'observations'
+        'document_type',
+        'document_number',
+        'client_id',
+        'vehicle_id',
+        'mileage',
+        'service_date',
+        'subtotal',
+        'tax_amount',
+        'total',
+        'payment_status',
+        'is_credited',
+        'payment_method',
+        'observations',
+        'user_id'
     ];
 
     protected $casts = [
         'service_date' => 'date',
+        'is_credited' => 'boolean',
+        'subtotal' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'total' => 'decimal:2',
     ];
 
     /**
-     * Una venta tiene muchos detalles.
+     * Una venta tiene muchos detalles (items).
      */
-    public function details(): HasMany
+    public function details()
     {
-        // Apuntamos al modelo hermano dentro de la misma carpeta sales
-        return $this->hasMany(SaleDetail::class, 'sale_id');
+        return $this->hasMany(SaleDetail::class);
     }
 
-    public function client(): BelongsTo
+    /**
+     * Una venta pertenece a un cliente.
+     */
+    public function client()
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(\App\Models\Client\Client::class);
     }
 
-    public function vehicle(): BelongsTo
+    /**
+     * Una venta pertenece a un vehículo (opcional).
+     */
+    public function vehicle()
     {
-        return $this->belongsTo(Vehicle::class);
+        return $this->belongsTo(\App\Models\Vehicles\Vehicle::class);
     }
 
-    public function user(): BelongsTo
+    /**
+     * Una venta pertenece a un usuario.
+     */
+    public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(\App\Models\User::class);
+    }
+
+    /**
+     * Una venta puede tener un registro financiero asociado.
+     */
+    public function financeRecord()
+    {
+        return $this->hasOne(\App\Models\FinanceRecord::class, 'invoice_number', 'document_number');
     }
 }

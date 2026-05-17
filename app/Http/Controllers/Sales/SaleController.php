@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Models\Sales\Sale;
+use App\Models\FinanceRecord;
+use App\Models\PaymentDistribution;
+use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
 
 class SaleController extends Controller
@@ -23,22 +27,31 @@ class SaleController extends Controller
             // Esto evita el problema de consultas N+1 y hace que la API vuele
             $query = Sale::with(['client', 'vehicle', 'user']);
 
-            // 1. Filtro por tipo de documento (quote, sale_note, invoice)
+            // 1. Filtro por búsqueda (nombre o cédula del cliente)
+            if ($request->has('search') && $request->search != '') {
+                $searchTerm = $request->search;
+                $query->whereHas('client', function($q) use ($searchTerm) {
+                    $q->where('full_name', 'like', "%{$searchTerm}%")
+                      ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                });
+            }
+
+            // 2. Filtro por tipo de documento (quote, sale_note, invoice)
             if ($request->has('document_type') && $request->document_type != '') {
                 $query->where('document_type', $request->document_type);
             }
 
-            // 2. Filtro por cliente específico
+            // 3. Filtro por cliente específico
             if ($request->has('client_id') && $request->client_id != '') {
                 $query->where('client_id', $request->client_id);
             }
 
-            // 3. Filtro por rango de fechas de atención (Muy útil para cierres de caja)
+            // 4. Filtro por rango de fechas de atención (Muy útil para cierres de caja)
             if ($request->has('start_date') && $request->has('end_date')) {
                 $query->whereBetween('service_date', [$request->start_date, $request->end_date]);
             }
 
-            // 4. Filtro por estado de pago (paid, partial, pending)
+            // 5. Filtro por estado de pago (paid, partial, pending)
             if ($request->has('payment_status') && $request->payment_status != '') {
                 $query->where('payment_status', $request->payment_status);
             }
@@ -88,6 +101,10 @@ class SaleController extends Controller
             'items.*.quantity'    => 'required|integer|min:1',
             'items.*.price'       => 'required|numeric',
             'items.*.discount'    => 'required|numeric',
+            'payment_distributions' => 'nullable|array', // Pagos distribuidos entre diferentes cuentas
+            'payment_distributions.*.account_id' => 'required|exists:accounts,id',
+            'payment_distributions.*.amount' => 'required|numeric|min:0',
+            'payment_distributions.*.payment_method' => 'required|string',
         ]);
 
         try {
@@ -131,10 +148,11 @@ class SaleController extends Controller
                     // Si $request->document_type !== 'quote', aquí disparamos la resta de Stock
                 }
 
-                // 💰 ESPACIO RESERVADO LUNES: ESCALABILIDAD FINANCIERA
+                // 💰 ESCALABILIDAD FINANCIERA: Actualizar cuentas según métodos de pago
                 // Si $request->document_type !== 'quote' (Es Nota de Venta o Factura)
-                // Aquí llamamos al modelo/servicio de INGRESOS para registrar la entrada de caja automática.
-                // Si es crédito ('is_credited' => true), registramos solo el abono inicial si lo hay.
+                if ($request->document_type !== 'quote') {
+                    $this->processFinancialRecord($sale, $request);
+                }
 
                 return $sale;
             });
@@ -145,7 +163,6 @@ class SaleController extends Controller
                 'message' => 'El registro se procesó correctamente.',
                 'data'    => $sale->load('details')
             ], 201);
-
         } catch (Exception $e) {
             // Si algo truena dentro del bloque, el DB::transaction hace rollback automático
             return response()->json([
@@ -155,6 +172,189 @@ class SaleController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Process financial record for sale and update accounts
+     */
+    private function processFinancialRecord($sale, $request)
+    {
+        $userId = auth()->id() ?? 1;
+
+        // Crear el registro financiero principal
+        $financeRecord = FinanceRecord::create([
+            'entry_date' => $sale->service_date ?? now()->format('Y-m-d'),
+            'type' => FinanceRecord::TYPE_INCOME,
+            'account_id' => 1, // Default, se sobrescribe con payment_distributions
+            'payment_method' => $request->payment_method,
+            'amount' => $request->total,
+            'work_order_number' => $request->document_number,
+            'invoice_number' => $request->document_number,
+            'description' => 'Venta: ' . $request->document_type . ' - ' . $request->document_number,
+            'user_id' => $userId,
+        ]);
+
+        // Procesar pagos distribuidos si existen
+        if ($request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0) {
+            foreach ($request->payment_distributions as $distribution) {
+                // Crear la distribución de pago
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $distribution['account_id'],
+                    'amount' => $distribution['amount'],
+                    'payment_method' => $distribution['payment_method'],
+                ]);
+
+                // Actualizar el saldo de la cuenta correspondiente
+                $account = Account::find($distribution['account_id']);
+                if ($account) {
+                    $account->updateBalance($distribution['amount'], FinanceRecord::TYPE_INCOME);
+                }
+
+                // Registrar movimiento financiero en financial_movements
+                $sale->registerMovement(
+                    $distribution['account_id'],
+                    'income',
+                    $distribution['amount'],
+                    'Venta: ' . $request->document_type . ' - ' . $request->document_number . ' - ' . $distribution['payment_method'],
+                    $sale->service_date ?? now()->format('Y-m-d'),
+                    [
+                        'document_type' => $request->document_type,
+                        'document_number' => $request->document_number,
+                        'payment_method' => $distribution['payment_method'],
+                        'finance_record_id' => $financeRecord->id,
+                    ]
+                );
+            }
+        } else {
+            // Si no hay pagos distribuidos, usar el método de pago único
+            // Determinar la cuenta según el método de pago
+            $accountId = 1; // Default: Caja chica (Efectivo)
+            if (strtolower($request->payment_method) === 'transferencia' || strtolower($request->payment_method) === 'transfer') {
+                $accountId = 2; // Banco Pichincha (default para transferencias)
+            }
+
+            // Crear distribución de pago única
+            PaymentDistribution::create([
+                'finance_record_id' => $financeRecord->id,
+                'account_id' => $accountId,
+                'amount' => $request->total,
+                'payment_method' => $request->payment_method,
+            ]);
+
+            // Actualizar el saldo de la cuenta
+            $account = Account::find($accountId);
+            if ($account) {
+                $account->updateBalance($request->total, FinanceRecord::TYPE_INCOME);
+            }
+
+            // Registrar movimiento financiero en financial_movements
+            $sale->registerMovement(
+                $accountId,
+                'income',
+                $request->total,
+                'Venta: ' . $request->document_type . ' - ' . $request->document_number . ' - ' . $request->payment_method,
+                $sale->service_date ?? now()->format('Y-m-d'),
+                [
+                    'document_type' => $request->document_type,
+                    'document_number' => $request->document_number,
+                    'payment_method' => $request->payment_method,
+                    'finance_record_id' => $financeRecord->id,
+                ]
+            );
+        }
+
+        // Si es crédito ('is_credited' => true), registramos solo el abono inicial si lo hay
+        // La lógica de pagos parciales se maneja con payment_status = 'partial'
+    }
+
+    /**
+     * Generate PDF report for sales
+     */
+    public function generatePDF(Request $request)
+    {
+        try {
+            // Aplicar los mismos filtros que en index
+            $query = Sale::with(['client', 'vehicle', 'user', 'details']);
+
+            // Filtro por búsqueda (nombre o cédula del cliente)
+            if ($request->has('search') && $request->search != '') {
+                $searchTerm = $request->search;
+                $query->whereHas('client', function($q) use ($searchTerm) {
+                    $q->where('full_name', 'like', "%{$searchTerm}%")
+                      ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                });
+            }
+
+            // Filtro por tipo de documento
+            if ($request->has('document_type') && $request->document_type != '') {
+                $query->where('document_type', $request->document_type);
+            }
+
+            // Filtro por cliente específico
+            if ($request->has('client_id') && $request->client_id != '') {
+                $query->where('client_id', $request->client_id);
+            }
+
+            // Filtro por rango de fechas
+            if ($request->has('start_date') && $request->has('end_date')) {
+                $query->whereBetween('service_date', [$request->start_date, $request->end_date]);
+            }
+
+            // Filtro por estado de pago
+            if ($request->has('payment_status') && $request->payment_status != '') {
+                $query->where('payment_status', $request->payment_status);
+            }
+
+            // Obtener todos los resultados sin paginación para el PDF
+            $sales = $query->orderBy('service_date', 'desc')
+                           ->orderBy('id', 'desc')
+                           ->get();
+
+            // Generar PDF usando DOMPDF o similar
+            // Por ahora, retornamos una respuesta simple indicando que se necesita instalar la librería
+            return response()->json([
+                'success' => false,
+                'message' => 'Para generar PDF, necesita instalar dompdf: composer require dompdf/dompdf'
+            ], 501);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al generar el reporte PDF.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate PDF for a single sale
+     */
+    public function generateSinglePDF($id)
+    {
+        try {
+            $sale = Sale::with(['client', 'vehicle', 'user', 'details'])->find($id);
+
+            if (!$sale) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Venta no encontrada'
+                ], 404);
+            }
+
+            // Generar PDF usando DOMPDF
+            $pdf = Pdf::loadView('sales.pdf', compact('sale'));
+
+            return $pdf->download($sale->document_type . '_' . $sale->document_number . '.pdf');
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al generar el PDF.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     /**
      * Display the specified resource.
      */
@@ -277,7 +477,25 @@ class SaleController extends Controller
                     'status' => 'canceled'
                 ]);
 
-                // 💥 ESPACIO RESERVADO LUNES: ESCALABILIDAD
+                // � ESCALABILIDAD FINANCIERA: Reversar movimientos de cuentas
+                // Si la venta tiene un registro financiero, revertimos los pagos distribuidos
+                if ($sale->financeRecord) {
+                    $financeRecord = $sale->financeRecord;
+                    
+                    // Revertir cada distribución de pago
+                    foreach ($financeRecord->paymentDistributions as $distribution) {
+                        // Actualizar el saldo de la cuenta (restando el ingreso)
+                        $account = Account::find($distribution->account_id);
+                        if ($account) {
+                            $account->updateBalance($distribution->amount, FinanceRecord::TYPE_EXPENSE); // Usar expense para restar
+                        }
+                    }
+
+                    // Opcional: Eliminar o marcar el registro financiero como anulado
+                    // $financeRecord->delete();
+                }
+
+                // �� ESPACIO RESERVADO LUNES: ESCALABILIDAD
                 // Aquí disparamos la reversa de Stock para cada producto/servicio del detalle
                 // $sale->details()->each(function($detail) {
                 //     // Lógica para sumar nuevamente el stock del producto
