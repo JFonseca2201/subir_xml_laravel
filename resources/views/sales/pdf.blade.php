@@ -502,7 +502,7 @@
 
 <body>
 
-    <div class="web-container page-break">
+    <div class="web-container" style="padding-bottom: 90px;">
 
         <!-- See invoice.html! It is injected here... -->
         <div class="page-container">
@@ -517,14 +517,14 @@
                 <tbody>
                     <tr>
                         <td style="padding: 0 !important;border-bottom:none;">
-                            <img style="height: 175px;background:black;"
-                                src="{{ public_path('assets/img/brand/logo.png') }}">
+                            <img style="height: 125px;background:black;"
+                                src="{{ public_path('assets/img/brand/logo.jpeg') }}">
                         </td>
 
                         <td style="padding: 0 !important;border-bottom:none;">
                             <strong>{{ $sale->document_number }}</strong>
                             <br>
-                            <img style="width:130px;background:black;"
+                            <img style="width:100px;background:black;"
                                 src="{{ public_path('assets/img/brand/qr.png') }}">
                             <br>
                             <small>RUC: 1793192550001</small>
@@ -680,16 +680,19 @@
                 <tr>
                     <th class="heading-item">#</th>
                     <th class="heading-description">Descripción</th>
-                    <th class="heading-quantity">Cant.</th>
+                    <th class="heading-quantity">Cantidad</th>
                     <th class="heading-price">Precio</th>
                     <th class="heading-price">Descuento</th>
                     <th class="heading-subtotal">Total</th>
                 </tr>
             </thead>
             <tbody>
+                @php
+                    $cont = 0;
+                @endphp
                 @foreach ($sale->details as $detail)
                     <tr>
-                        <td class="center">{{ $detail->id }}</td>
+                        <td class="center">{{ $cont = $cont + 1 }}</td>
                         <td>
 
                             {{ $detail->description }}
@@ -704,94 +707,321 @@
         </table>
 
 
-        <table class="line-items-container has-bottom-border">
-            <thead>
-                <tr>
-                    <th>Metodo de Pago</th>
-                    <th>Fecha Entrega</th>
-                    <th>Información de Pago</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if ($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
-                    @foreach ($sale->financeRecord->paymentDistributions as $distribution)
-                        <tr>
-                            <td class="payment-info">
-                                <div>
-                                    METODO DE PAGO: <strong>{{ strtoupper($distribution->payment_method) }}</strong>
-                                    @if ($distribution->account)
-                                        <br>
-                                        CUENTA: {{ $distribution->account->name ?? '' }}
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="payment-info">
-                                {{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}</td>
+        <hr>
+        @php
+            $payments = collect();
 
-                            <td class="payment-info">
-                                <div class="large total">
-                                    {{ number_format($distribution->amount, 2) }}
-                                </div>
+            // Los pagos distribuidos le pertenecen a FinanceRecord, no directamente a Sale.
+            // Esta relación ya viene cargada desde SaleController::generateSinglePDF
+            if (isset($sale->financeRecord) && $sale->financeRecord->paymentDistributions->count() > 0) {
+                $payments = $sale->financeRecord->paymentDistributions;
+            } elseif (isset($sale->payments) && $sale->payments->count() > 0) {
+                $payments = $sale->payments;
+            }
+
+            if ($payments->isEmpty() && $sale->document_type !== 'quote') {
+                $payments->push(
+                    (object) [
+                        'created_at' => $sale->created_at,
+                        'payment_method' => $sale->payment_method ?? 'Efectivo',
+                        'amount' => $sale->total,
+                    ],
+                );
+            }
+            $totalDiscount = $sale->details->sum('discount') ?? 0;
+            $grossSubtotal = $sale->details->sum(function ($item) {
+                return $item->quantity * $item->price;
+            });
+        @endphp
+
+        @if ($sale->document_type == 'sale_note' || $sale->document_type == 'invoice')
+            <table class="line-items-container has-bottom-border" style="border:none; page-break-inside: avoid;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Fecha Pago</th>
+                        <th style="text-align:left;">Método de Pago</th>
+                        <th style="text-align:left;">Monto</th>
+                        <th style="text-align:left;">Información de Pago</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @if ($payments->isEmpty())
+                        <tr style="border:none; vertical-align: top;">
+                            <td colspan="3" style="text-align:center; padding:10px 0; vertical-align: top;">No hay
+                                pagos registrados</td>
+                            <td style="text-align:left; border:none; padding:0; vertical-align: top;">
+                                <table style="width:100%; border:none; border-collapse:collapse;">
+
+                                    <tr style="border:none;">
+                                        <td class=""
+                                            style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181;">
+                                            SUBTOTAL:
+                                        </td>
+                                        <td class=""
+                                            style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
+                                            ${{ number_format($grossSubtotal, 2) }}
+                                        </td>
+                                    </tr>
+
+                                    @if ($totalDiscount > 0)
+                                        <tr style="border:none;">
+                                            <td class=""
+                                                style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none; color:#d38181;">
+                                                DESCUENTO:
+                                            </td>
+                                            <td class=""
+                                                style="padding:4px 0; text-align:left; white-space:nowrap; border:none;">
+                                                -${{ number_format($totalDiscount, 2) }}
+                                            </td>
+                                        </tr>
+                                    @endif
+
+                                    {{--   <tr style="border:none;">
+                                        <td class="large"
+                                            style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
+                                            BASE IMPONIBLE:
+                                        </td>
+                                        <td class="large"
+                                            style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
+                                            ${{ number_format($sale->subtotal, 2) }}
+                                        </td>
+                                    </tr> --}}
+
+                                    @if ($sale->tax_amount > 0)
+                                        <tr style="border:none;">
+                                            <td class="large"
+                                                style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
+                                                IVA (15%):
+                                            </td>
+                                            <td class="large"
+                                                style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
+                                                ${{ number_format($sale->tax_amount, 2) }}
+                                            </td>
+                                        </tr>
+                                    @endif
+
+                                    <tr style="border:none;">
+                                        <td colspan="1"
+                                            style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
+                                            <span class="total_cancelar">TOTAL:</span>
+                                        </td>
+                                        <td colspan="1"
+                                            style="padding-top:10px; text-align:left; white-space:nowrap; border:none;">
+                                            <span class="total_cancelar">${{ number_format($sale->total, 2) }}</span>
+                                        </td>
+                                    </tr>
+
+                                </table>
                             </td>
                         </tr>
-                    @endforeach
-                @else
-                    <tr>
-                        <td class="payment-info">
-                            <div>
-                                METODO DE PAGO: <strong>{{ strtoupper($sale->payment_method) }}</strong>
-                            </div>
-                            <div>
-                                ESTADO PAGO: <strong>{{ strtoupper($sale->payment_status) }}</strong>
-                            </div>
-                        </td>
-                        <td class="payment-info">{{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}
-                        </td>
+                    @else
+                        @foreach ($payments as $index => $payment)
+                            <tr style="border:none; vertical-align: top;">
 
-                        <td class="payment-info">
-                            <div class="large total">
-                                SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
-                                <br>
-                                IGV: ${{ number_format($sale->tax_amount, 2) }}
-                            </div>
-                            <div class="large total">
-                                TOTAL: ${{ number_format($sale->total, 2) }}
-                            </div>
-                            @if ($sale->is_credited)
-                                <div>
-                                    A CRÉDITO: <strong>SI</strong>
-                                </div>
-                            @endif
+                                {{-- FECHA --}}
+                                <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
+                                    {{ Carbon\Carbon::parse($payment->created_at)->format('Y/m/d') }}
+                                </td>
+
+                                {{-- MÉTODO --}}
+                                <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
+                                    @php
+                                        $metodo = 'Efectivo';
+                                        if (isset($payment->paymentMethod->name)) {
+                                            $metodo = $payment->paymentMethod->name;
+                                        } elseif (isset($payment->method_payment)) {
+                                            $metodo = $payment->method_payment;
+                                        } elseif (isset($payment->payment_method)) {
+                                            $metodo = $payment->payment_method;
+                                        } elseif (isset($payment->payment_method_id)) {
+                                            $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
+                                                ->where('id', $payment->payment_method_id)
+                                                ->first();
+                                            if ($pm) {
+                                                $metodo = $pm->name;
+                                            }
+                                        }
+                                    @endphp
+                                    {{ $metodo }}
+                                </td>
+
+                                {{-- MONTO --}}
+                                <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
+                                    ${{ number_format($payment->amount, 2) }}
+                                </td>
+
+                                {{-- INFORMACIÓN DE PAGO SOLO EN LA PRIMERA FILA --}}
+                                @if ($index === 0)
+                                    <td style="text-align:left; border:none; padding:0; vertical-align: top;"
+                                        rowspan="{{ count($payments) }}">
+                                        <table style="width:100%; border:none; border-collapse:collapse;">
+
+                                            <tr style="border:none;">
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181;">
+                                                    SUBTOTAL:
+                                                </td>
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
+                                                    ${{ number_format($grossSubtotal, 2) }}
+                                                </td>
+                                            </tr>
+
+                                            @if ($totalDiscount > 0)
+                                                <tr style="border:none;">
+                                                    <td class=""
+                                                        style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none; color:#d38181;">
+                                                        DESCUENTO:
+                                                    </td>
+                                                    <td class=""
+                                                        style="padding:4px 0; text-align:left; white-space:nowrap; border:none;">
+                                                        -${{ number_format($totalDiscount, 2) }}
+                                                    </td>
+                                                </tr>
+                                            @endif
+
+                                            {{-- <tr style="border:none;">
+                                                <td class="large"
+                                                    style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
+                                                    BASE IMPONIBLE:
+                                                </td>
+                                                <td class="large"
+                                                    style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
+                                                    ${{ number_format($sale->subtotal, 2) }}
+                                                </td>
+                                            </tr> --}}
+
+                                            @if ($sale->tax_amount > 0)
+                                                <tr style="border:none;">
+                                                    <td class="large"
+                                                        style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
+                                                        IVA (15%):
+                                                    </td>
+                                                    <td class="large"
+                                                        style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
+                                                        ${{ number_format($sale->tax_amount, 2) }}
+                                                    </td>
+                                                </tr>
+                                            @endif
+
+                                            <tr style="border:none;">
+                                                <td class="large"
+                                                    style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
+                                                    PAGO TOTAL:
+                                                </td>
+                                                <td class="large"
+                                                    style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
+                                                    ${{ number_format($sale->paid_out ?? $payments->sum('amount'), 2) }}
+                                                </td>
+                                            </tr>
+
+                                            <tr style="border:none;">
+                                                <td class="large"
+                                                    style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
+                                                    SALDO:
+                                                </td>
+                                                <td class="large"
+                                                    style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
+                                                    ${{ number_format($sale->debt ?? $sale->total - $payments->sum('amount'), 2) }}
+                                                </td>
+                                            </tr>
+
+                                            <tr style="border:none;">
+                                                <td colspan="1"
+                                                    style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
+                                                    <span class="total_cancelar">TOTAL:</span>
+                                                </td>
+                                                <td colspan="1"
+                                                    style="padding-top:10px; text-align:left; white-space:nowrap; border:none;">
+                                                    <span
+                                                        class="total_cancelar">${{ number_format($sale->total, 2) }}</span>
+                                                </td>
+                                            </tr>
+
+                                        </table>
+                                    </td>
+                                @endif
+
+                            </tr>
+                        @endforeach
+                    @endif
+                </tbody>
+            </table>
+        @elseif ($sale->document_type == 'quote')
+            <table class="line-items-container has-bottom-border"
+                style="border-collapse: collapse; border:none; page-break-inside: avoid;">
+                <thead>
+                    <tr style="border:none;">
+                        <th style="text-align:right; border:none;">Información de Pago</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr style="border:none;">
+                        <td style="text-align:left; border:none;">
+
+                            <table style="width: 100%; border-collapse: collapse; border:none;">
+
+                                <tr style="border:none;">
+                                    <td class=""
+                                        style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
+                                        SUBTOTAL:
+                                    </td>
+                                    <td class=""
+                                        style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
+                                        ${{ number_format($grossSubtotal, 2) }}
+                                    </td>
+                                </tr>
+
+                                @if ($totalDiscount > 0)
+                                    <tr style="border:none;">
+                                        <td class=""
+                                            style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
+                                            DESCUENTO:
+                                        </td>
+                                        <td class=""
+                                            style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
+                                            -${{ number_format($totalDiscount, 2) }}
+                                        </td>
+                                    </tr>
+                                @endif
+
+                                @if ($sale->tax_amount > 0)
+                                    <tr style="border:none;">
+                                        <td class="large"
+                                            style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none;">
+                                            IVA (15%):
+                                        </td>
+                                        <td class="large"
+                                            style="padding:4px 0; text-align:left; width:16.66%; font-weight:bold; white-space:nowrap; border:none;">
+                                            ${{ number_format($sale->tax_amount, 2) }}
+                                        </td>
+                                    </tr>
+                                @endif
+
+                                <tr style="border:none;">
+                                    <td colspan="1"
+                                        style="padding-top:10px; text-align:right; width:83.33%; white-space:nowrap; border:none;">
+                                        <span class="total_cancelar">
+                                            TOTAL:
+                                        </span>
+                                    </td>
+                                    <td colspan="1"
+                                        style="padding-top:10px; text-align:left; width:16.66%; white-space:nowrap; border:none;">
+                                        <span class="total_cancelar">
+                                            ${{ number_format($sale->total, 2) }}
+                                        </span>
+                                    </td>
+                                </tr>
+
+                            </table>
+
                         </td>
                     </tr>
-                @endif
-
-                @if ($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td class="payment-info">
-                            <div class="large total">
-                                SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
-                                <br>
-                                IGV: ${{ number_format($sale->tax_amount, 2) }}
-                            </div>
-                            <div class="large total">
-                                TOTAL: ${{ number_format($sale->total, 2) }}
-                            </div>
-                            <div>
-                                PAGADO:
-                                <strong>${{ number_format($sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
-                            </div>
-                            <div>
-                                SALDO:
-                                <strong>${{ number_format($sale->total - $sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
-                            </div>
-                        </td>
-                    </tr>
-                @endif
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        @endif
         <div class="footer">
             <div class="footer-info">
                 <span> ANOTACIONES FINALES: {{ $sale->observations ?? 'Sin observaciones' }} </span>
@@ -801,7 +1031,7 @@
 
     <footer class="footer_page"
         style="
-        position: fixed;
+        position: absolute;
         bottom: 0;
         left: 0;
         width: 100%;
