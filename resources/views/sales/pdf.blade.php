@@ -517,17 +517,15 @@
                 <tbody>
                     <tr>
                         <td style="padding: 0 !important;border-bottom:none;">
-                            <img
-                                style="height: 75px;background:black;"
-                                src="{{ public_path('logo.png') }}">
+                            <img style="height: 175px;background:black;"
+                                src="{{ public_path('assets/img/brand/logo.png') }}">
                         </td>
 
                         <td style="padding: 0 !important;border-bottom:none;">
                             <strong>{{ $sale->document_number }}</strong>
                             <br>
-                            <img
-                                style="width:130px;background:black;"
-                                src="{{ public_path('logo.png') }}">
+                            <img style="width:130px;background:black;"
+                                src="{{ public_path('assets/img/brand/qr.png') }}">
                             <br>
                             <small>RUC: 1793192550001</small>
                             <br>
@@ -537,7 +535,7 @@
                             <br>
                             <small>Telf: 0999179988 / 0963089601</small>
                             <br>
-                           
+
                         </td>
                     </tr>
                 </tbody>
@@ -564,7 +562,8 @@
                     <br>
                     <br>
                     <b style="display: inline-block;">EMAIL:</b>
-                    <span style="display: inline-block;text-transform: lowercase;vertical-align: middle;">{{ $sale->client->email ?? 'Sin información' }}</span>
+                    <span
+                        style="display: inline-block;text-transform: lowercase;vertical-align: middle;">{{ $sale->client->email ?? 'Sin información' }}</span>
                     <br>
                     <br>
                     <b>DIRECCIÓN:</b> {{ $sale->client->address ?? 'Sin información' }}
@@ -575,10 +574,10 @@
                         <tr>
                             <td style="border:none;padding:0;">
                                 <strong>
-                                    @if($sale->client->type_document == 1)
-                                    CI #:
+                                    @if ($sale->client->type_document == 1)
+                                        CI #:
                                     @elseif($sale->client->type_document == 2)
-                                    RUC #:
+                                        RUC #:
                                     @endif
                                 </strong>
                             </td>
@@ -587,10 +586,10 @@
                         <tr>
                             <td><b>CIUDAD/PROVINCIA:</b></td>
                             <td style="text-align: left;">
-                                @if($sale->client->ubigeo_provincia || $sale->client->ubigeo_distrito)
-                                <strong>{{ $sale->client->ubigeo_provincia ?? 'Sin información'}}/{{ $sale->client->ubigeo_distrito ?? 'Sin información' }}</strong>
+                                @if ($sale->client->ubigeo_provincia || $sale->client->ubigeo_distrito)
+                                    <strong>{{ $sale->client->ubigeo_provincia ?? 'Sin información' }}/{{ $sale->client->ubigeo_distrito ?? 'Sin información' }}</strong>
                                 @else
-                                Sin información
+                                    Sin información
                                 @endif
                             </td>
                         </tr>
@@ -600,7 +599,8 @@
                         </tr>
                         <tr>
                             <td><b>TIPO CLIENTE:</b></td>
-                            <td style="text-align: left;">{{ $sale->client->type_client == 1 ? 'NATURAL' : 'JURIDICO' }}</td>
+                            <td style="text-align: left;">
+                                {{ $sale->client->type_client == 1 ? 'NATURAL' : 'JURIDICO' }}</td>
                         </tr>
 
                     </table>
@@ -619,56 +619,57 @@
                 <td></td>
             </tr>
             <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
-            @if($sale->vehicle)
-            <tr>
-                <td class="" style="text-transform: uppercase;">
-                    <h3 style="margin:0;">DATOS DEL VEHÍCULO: </h3>
-                    <br>
-                    <br>
-                    <b>PLACA:</b> {{ $sale->vehicle->license_plate ?? 'Sin información' }}
-                    <br>
-                    <br>
-                    <b>MARCA:</b> {{ $sale->vehicle->brand ?? 'Sin información' }}
-                    <br>
-                    <br>
-                    <b>MODELO:</b> {{ $sale->vehicle->model ?? 'Sin información' }}
-                    <br>
-                    <br>
-                    <b>AÑO:</b> {{ $sale->vehicle->year ?? 'Sin información' }}
-                    <br>
-                </td>
-                <td>
-                    <table style="width:100%; text-transform: uppercase;">
+            @if ($sale->vehicle)
+                <tr>
+                    <td class="" style="text-transform: uppercase;">
+                        <h3 style="margin:0;">DATOS DEL VEHÍCULO: </h3>
+                        <br>
+                        <br>
+                        <b>PLACA:</b> {{ $sale->vehicle->license_plate ?? 'Sin información' }}
+                        <br>
+                        <br>
+                        <b>MARCA:</b> {{ $sale->vehicle->brand ?? 'Sin información' }}
+                        <br>
+                        <br>
+                        <b>MODELO:</b> {{ $sale->vehicle->model ?? 'Sin información' }}
+                        <br>
+                        <br>
+                        <b>AÑO:</b> {{ $sale->vehicle->year ?? 'Sin información' }}
+                        <br>
+                    </td>
+                    <td>
+                        <table style="width:100%; text-transform: uppercase;">
 
-                        <tr>
-                            <td style="border:none;padding:0;">
-                                <strong>
-                                    <b>TIPO:</b>
-                                </strong>
-                            </td>
-                            <td style="text-align: left;"> {{ $sale->vehicle->vehicle_type ?? 'Sin información' }}</td>
-                        </tr>
+                            <tr>
+                                <td style="border:none;padding:0;">
+                                    <strong>
+                                        <b>TIPO:</b>
+                                    </strong>
+                                </td>
+                                <td style="text-align: left;"> {{ $sale->vehicle->vehicle_type ?? 'Sin información' }}
+                                </td>
+                            </tr>
 
-                        <tr>
-                            <td><b>KILOMETRAJE:</b></td>
-                            <td style="text-align: left;">{{ $sale->vehicle->mileage ?? 'Sin información' }}</td>
-                        </tr>
-                        <tr>
-                            <td><b>COLOR:</b></td>
-                            <td style="text-align: left;">{{ $sale->vehicle->color ?? 'Sin información' }}</td>
-                        </tr>
+                            <tr>
+                                <td><b>KILOMETRAJE:</b></td>
+                                <td style="text-align: left;">{{ $sale->vehicle->mileage ?? 'Sin información' }}</td>
+                            </tr>
+                            <tr>
+                                <td><b>COLOR:</b></td>
+                                <td style="text-align: left;">{{ $sale->vehicle->color ?? 'Sin información' }}</td>
+                            </tr>
 
-                    </table>
-                </td>
-            </tr>
-            <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
+                        </table>
+                    </td>
+                </tr>
+                <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
             @endif
             <tr>
                 <td>
                     VENDEDOR: <strong>{{ $sale->user->name }}</strong>
                 </td>
                 <td>
-                    TELÉFONO: {{ $sale->user->phone?? '022698134' }}
+                    TELÉFONO: {{ $sale->user->phone ?? '022698134' }}
                 </td>
             </tr>
 
@@ -686,18 +687,18 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($sale->details as $detail)
-                <tr>
-                    <td class="center">{{ $detail->id }}</td>
-                    <td>
+                @foreach ($sale->details as $detail)
+                    <tr>
+                        <td class="center">{{ $detail->id }}</td>
+                        <td>
 
-                        {{ $detail->description }}
-                    </td>
-                    <td class="right">{{ $detail->quantity }}</td>
-                    <td class="right">${{ $detail->price }}</td>
-                    <td class="right">${{ $detail->discount ?? 0.00 }}</td>
-                    <td class="bold">${{ $detail->total }}</td>
-                </tr>
+                            {{ $detail->description }}
+                        </td>
+                        <td class="right">{{ $detail->quantity }}</td>
+                        <td class="right">${{ $detail->price }}</td>
+                        <td class="right">${{ $detail->discount ?? 0.0 }}</td>
+                        <td class="bold">${{ $detail->total }}</td>
+                    </tr>
                 @endforeach
             </tbody>
         </table>
@@ -712,78 +713,82 @@
                 </tr>
             </thead>
             <tbody>
-                @if($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
-                @foreach($sale->financeRecord->paymentDistributions as $distribution)
-                <tr>
-                    <td class="payment-info">
-                        <div>
-                            METODO DE PAGO: <strong>{{ strtoupper($distribution->payment_method) }}</strong>
-                            @if($distribution->account)
-                            <br>
-                            CUENTA: {{ $distribution->account->name ?? '' }}
-                            @endif
-                        </div>
-                    </td>
-                    <td class="payment-info">{{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}</td>
+                @if ($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
+                    @foreach ($sale->financeRecord->paymentDistributions as $distribution)
+                        <tr>
+                            <td class="payment-info">
+                                <div>
+                                    METODO DE PAGO: <strong>{{ strtoupper($distribution->payment_method) }}</strong>
+                                    @if ($distribution->account)
+                                        <br>
+                                        CUENTA: {{ $distribution->account->name ?? '' }}
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="payment-info">
+                                {{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}</td>
 
-                    <td class="payment-info">
-                        <div class="large total">
-                            {{ number_format($distribution->amount, 2) }}
-                        </div>
-                    </td>
-                </tr>
-                @endforeach
+                            <td class="payment-info">
+                                <div class="large total">
+                                    {{ number_format($distribution->amount, 2) }}
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
                 @else
-                <tr>
-                    <td class="payment-info">
-                        <div>
-                            METODO DE PAGO: <strong>{{ strtoupper($sale->payment_method) }}</strong>
-                        </div>
-                        <div>
-                            ESTADO PAGO: <strong>{{ strtoupper($sale->payment_status) }}</strong>
-                        </div>
-                    </td>
-                    <td class="payment-info">{{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}</td>
+                    <tr>
+                        <td class="payment-info">
+                            <div>
+                                METODO DE PAGO: <strong>{{ strtoupper($sale->payment_method) }}</strong>
+                            </div>
+                            <div>
+                                ESTADO PAGO: <strong>{{ strtoupper($sale->payment_status) }}</strong>
+                            </div>
+                        </td>
+                        <td class="payment-info">{{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}
+                        </td>
 
-                    <td class="payment-info">
-                        <div class="large total">
-                            SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
-                            <br>
-                            IGV: ${{ number_format($sale->tax_amount, 2) }}
-                        </div>
-                        <div class="large total">
-                            TOTAL: ${{ number_format($sale->total, 2) }}
-                        </div>
-                        @if($sale->is_credited)
-                        <div>
-                            A CRÉDITO: <strong>SI</strong>
-                        </div>
-                        @endif
-                    </td>
-                </tr>
+                        <td class="payment-info">
+                            <div class="large total">
+                                SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
+                                <br>
+                                IGV: ${{ number_format($sale->tax_amount, 2) }}
+                            </div>
+                            <div class="large total">
+                                TOTAL: ${{ number_format($sale->total, 2) }}
+                            </div>
+                            @if ($sale->is_credited)
+                                <div>
+                                    A CRÉDITO: <strong>SI</strong>
+                                </div>
+                            @endif
+                        </td>
+                    </tr>
                 @endif
 
-                @if($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
-                <tr>
-                    <td></td>
-                    <td></td>
-                    <td class="payment-info">
-                        <div class="large total">
-                            SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
-                            <br>
-                            IGV: ${{ number_format($sale->tax_amount, 2) }}
-                        </div>
-                        <div class="large total">
-                            TOTAL: ${{ number_format($sale->total, 2) }}
-                        </div>
-                        <div>
-                            PAGADO: <strong>${{ number_format($sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
-                        </div>
-                        <div>
-                            SALDO: <strong>${{ number_format($sale->total - $sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
-                        </div>
-                    </td>
-                </tr>
+                @if ($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td class="payment-info">
+                            <div class="large total">
+                                SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
+                                <br>
+                                IGV: ${{ number_format($sale->tax_amount, 2) }}
+                            </div>
+                            <div class="large total">
+                                TOTAL: ${{ number_format($sale->total, 2) }}
+                            </div>
+                            <div>
+                                PAGADO:
+                                <strong>${{ number_format($sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
+                            </div>
+                            <div>
+                                SALDO:
+                                <strong>${{ number_format($sale->total - $sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
+                            </div>
+                        </td>
+                    </tr>
                 @endif
             </tbody>
         </table>
@@ -793,5 +798,35 @@
             </div>
         </div>
     </div>
+
+    <footer class="footer_page"
+        style="
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        padding: 20px 12px;
+        text-align: center;
+        background: #363635; 
+        color: #ffffff; 
+        font-size: 12.5px;
+        border-top: 2px solid #444;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.28);
+        letter-spacing: 0.3px;
+    ">
+
+        <p style="margin: 4px 0; font-weight:700; font-size:13px; color:#ffffff;">
+            CONTACTOS: <span style="color:#ffffff;">0999179988 / 0963089601</span>
+        </p>
+
+        <p style="margin: 4px 0; color:#f5f5f5; font-weight:500;">
+            UBICACIÓN: SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C
+        </p>
+
+        <p style="margin: 8px 0 0 0; font-size:11.5px; color:#e0e0e0;">
+            © 2026 <strong>Luxury Evys</strong>. Todos los derechos reservados.
+        </p>
+    </footer>
 </body>
+
 </html>
