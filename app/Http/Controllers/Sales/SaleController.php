@@ -30,9 +30,9 @@ class SaleController extends Controller
             // 1. Filtro por búsqueda (nombre o cédula del cliente)
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = $request->search;
-                $query->whereHas('client', function($q) use ($searchTerm) {
+                $query->whereHas('client', function ($q) use ($searchTerm) {
                     $q->where('full_name', 'like', "%{$searchTerm}%")
-                      ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                        ->orWhere('n_document', 'like', "%{$searchTerm}%");
                 });
             }
 
@@ -59,14 +59,13 @@ class SaleController extends Controller
             // Ordenamos para que las más recientes salgan primerito
             // Paginamos de 15 en 15 para que la pantalla del frente cargue al instante
             $sales = $query->orderBy('service_date', 'desc')
-                           ->orderBy('id', 'desc')
-                           ->paginate(15);
+                ->orderBy('id', 'desc')
+                ->paginate(15);
 
             return response()->json([
                 'success' => true,
                 'data'    => $sales
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -110,7 +109,7 @@ class SaleController extends Controller
         try {
             // 2. Iniciamos la transacción para asegurar consistencia atómica
             $sale = DB::transaction(function () use ($request) {
-                
+
                 // Extraemos el ID del usuario autenticado que está atendiendo en Luxury Evys
                 $userId = auth()->id() ?? 1; // Ajustar según tu middleware de auth
 
@@ -279,9 +278,9 @@ class SaleController extends Controller
             // Filtro por búsqueda (nombre o cédula del cliente)
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = $request->search;
-                $query->whereHas('client', function($q) use ($searchTerm) {
+                $query->whereHas('client', function ($q) use ($searchTerm) {
                     $q->where('full_name', 'like', "%{$searchTerm}%")
-                      ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                        ->orWhere('n_document', 'like', "%{$searchTerm}%");
                 });
             }
 
@@ -307,8 +306,8 @@ class SaleController extends Controller
 
             // Obtener todos los resultados sin paginación para el PDF
             $sales = $query->orderBy('service_date', 'desc')
-                           ->orderBy('id', 'desc')
-                           ->get();
+                ->orderBy('id', 'desc')
+                ->get();
 
             // Generar PDF usando DOMPDF o similar
             // Por ahora, retornamos una respuesta simple indicando que se necesita instalar la librería
@@ -316,7 +315,6 @@ class SaleController extends Controller
                 'success' => false,
                 'message' => 'Para generar PDF, necesita instalar dompdf: composer require dompdf/dompdf'
             ], 501);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -332,7 +330,7 @@ class SaleController extends Controller
     public function generateSinglePDF($id)
     {
         try {
-            $sale = Sale::with(['client', 'vehicle', 'user', 'details'])->find($id);
+            $sale = Sale::with(['client', 'vehicle', 'user', 'details', 'financeRecord.paymentDistributions.account'])->find($id);
 
             if (!$sale) {
                 return response()->json([
@@ -341,13 +339,11 @@ class SaleController extends Controller
                 ], 404);
             }
 
-            // Generar PDF usando DOMPDF
             $pdf = Pdf::loadView('sales.pdf', compact('sale'));
-
-            return $pdf->download($sale->document_type . '_' . $sale->document_number . '.pdf');
-
+            return $pdf->stream($sale->document_type . '_' . $sale->document_number . '.pdf');
         } catch (Exception $e) {
             return response()->json([
+
                 'success' => false,
                 'message' => 'Error al generar el PDF.',
                 'error' => $e->getMessage()
@@ -378,7 +374,6 @@ class SaleController extends Controller
                 'success' => true,
                 'data'    => $sale
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -437,7 +432,6 @@ class SaleController extends Controller
                 'message' => 'El registro fue actualizado correctamente.',
                 'data'    => $sale->load('details')
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -481,7 +475,7 @@ class SaleController extends Controller
                 // Si la venta tiene un registro financiero, revertimos los pagos distribuidos
                 if ($sale->financeRecord) {
                     $financeRecord = $sale->financeRecord;
-                    
+
                     // Revertir cada distribución de pago
                     foreach ($financeRecord->paymentDistributions as $distribution) {
                         // Actualizar el saldo de la cuenta (restando el ingreso)
@@ -506,7 +500,6 @@ class SaleController extends Controller
                 'success' => true,
                 'message' => 'La venta ha sido anulada correctamente y el estado fue actualizado.'
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,

@@ -2,11 +2,11 @@
 <html class="no-js" lang="">
 
 <head>
-  <meta charset="utf-8">
-  <title>Nota de Venta #{{ str_pad($sale->id, 8, '0', STR_PAD_LEFT) }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <title> {{ $sale->document_number }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
+    <style>
         *,
         *::before,
         *::after {
@@ -28,8 +28,10 @@
         */
 
         html {
-            line-height: 1.15; /* 1 */
-            -webkit-text-size-adjust: 100%; /* 2 */
+            line-height: 1.15;
+            /* 1 */
+            -webkit-text-size-adjust: 100%;
+            /* 2 */
         }
 
         /*
@@ -52,7 +54,8 @@
         body {
             font-family:
                 system-ui,
-                -apple-system, /* Firefox supports this but not yet `system-ui` */
+                -apple-system,
+                /* Firefox supports this but not yet `system-ui` */
                 'Segoe UI',
                 Roboto,
                 Helvetica,
@@ -73,8 +76,10 @@
         */
 
         hr {
-            height: 0; /* 1 */
-            color: inherit; /* 2 */
+            height: 0;
+            /* 1 */
+            color: inherit;
+            /* 2 */
         }
 
         /*
@@ -114,8 +119,10 @@
                 Consolas,
                 'Liberation Mono',
                 Menlo,
-                monospace; /* 1 */
-            font-size: 1em; /* 2 */
+                monospace;
+            /* 1 */
+            font-size: 1em;
+            /* 2 */
         }
 
         /**
@@ -157,8 +164,10 @@
         */
 
         table {
-            text-indent: 0; /* 1 */
-            border-color: inherit; /* 2 */
+            text-indent: 0;
+            /* 1 */
+            border-color: inherit;
+            /* 2 */
         }
 
         /*
@@ -176,10 +185,14 @@
         optgroup,
         select,
         textarea {
-            font-family: inherit; /* 1 */
-            font-size: 100%; /* 1 */
-            line-height: 1.15; /* 1 */
-            margin: 0; /* 2 */
+            font-family: inherit;
+            /* 1 */
+            font-size: 100%;
+            /* 1 */
+            line-height: 1.15;
+            /* 1 */
+            margin: 0;
+            /* 2 */
         }
 
         /**
@@ -188,7 +201,8 @@
         */
 
         button,
-        select { /* 1 */
+        select {
+            /* 1 */
             text-transform: none;
         }
 
@@ -260,8 +274,10 @@
         */
 
         [type='search'] {
-            -webkit-appearance: textfield; /* 1 */
-            outline-offset: -2px; /* 2 */
+            -webkit-appearance: textfield;
+            /* 1 */
+            outline-offset: -2px;
+            /* 2 */
         }
 
         /**
@@ -278,8 +294,10 @@
         */
 
         ::-webkit-file-upload-button {
-            -webkit-appearance: button; /* 1 */
-            font: inherit; /* 2 */
+            -webkit-appearance: button;
+            /* 1 */
+            font: inherit;
+            /* 2 */
         }
 
         /*
@@ -294,331 +312,486 @@
         summary {
             display: list-item;
         }
-            </style>
-        <style>
-            body {
-        font-size: 13px;
+    </style>
+    <style>
+        body {
+            font-size: 13px;
         }
 
         table {
-        width: 100%;
-        border-collapse: collapse;
+            width: 100%;
+            border-collapse: collapse;
         }
 
         table tr td {
-        padding: 0;
+            padding: 0;
         }
 
         table tr td:last-child {
-        text-align: right;
+            text-align: right;
         }
 
         .bold {
-        font-weight: bold;
+            font-weight: bold;
         }
 
         .right {
-        text-align: right;
+            text-align: right;
         }
 
         .large {
-        font-size: 1.2em;
+            font-size: 1.2em;
         }
 
         .total {
-        font-weight: bold;
-        color: #fb7578;
+            font-weight: bold;
+            color: #fb7578;
         }
 
         .logo-container {
-        margin: 20px 0 30px 0;
+            margin: 20px 0 30px 0;
         }
 
         .invoice-info-container {
-        font-size: 0.875em;
+            font-size: 0.875em;
         }
+
         .invoice-info-container td {
-        padding: 4px 0;
+            padding: 4px 0;
         }
 
         .client-name {
-        font-size: 1.5em;
-        vertical-align: top;
+            font-size: 1.5em;
+            vertical-align: top;
         }
 
         .line-items-container {
-        margin: 15px 0;
-        font-size: 0.875em;
+            margin: 15px 0;
+            font-size: 0.875em;
         }
 
         .line-items-container th {
-        text-align: left;
-        color: #999;
-        border-bottom: 2px solid #ddd;
-        padding: 10px 0 15px 0;
-        font-size: 0.75em;
-        text-transform: uppercase;
+            text-align: left;
+            color: #999;
+            border-bottom: 2px solid #ddd;
+            padding: 10px 0 15px 0;
+            font-size: 0.75em;
+            text-transform: uppercase;
         }
 
         .line-items-container th:last-child {
-        text-align: right;
+            text-align: right;
         }
 
         .line-items-container td {
-        padding: 5px 0;
+            padding: 5px 0;
         }
 
-        /* .line-items-container tbody tr:first-child td {
-        padding-top: 10px;
-        } */
+        .line-items-container tbody tr:first-child td {
+            padding-top: 10px;
+        }
 
         .line-items-container.has-bottom-border tbody tr:last-child td {
-        padding-bottom: 25px;
-        border-bottom: 2px solid #ddd;
+            padding-bottom: 25px;
+            border-bottom: 2px solid #ddd;
         }
 
         .line-items-container.has-bottom-border {
-        margin-bottom: 0;
+            margin-bottom: 0;
         }
 
         .line-items-container th.heading-quantity {
-        width: 50px;
+            width: 50px;
         }
+
+        .line-items-container th.heading-item {
+            width: 50px;
+        }
+
         .line-items-container th.heading-price {
-        text-align: right;
-        width: 100px;
+            text-align: right;
+            width: 100px;
         }
+
         .line-items-container th.heading-subtotal {
-        width: 100px;
+            width: 100px;
         }
 
         .payment-info {
-        width: 38%;
-        font-size: 0.75em;
-        line-height: 1.5;
+            width: 38%;
+            font-size: 0.75em;
+            line-height: 1.5;
         }
 
         .footer {
-        margin-top: 30px;
+            margin-top: 30px;
         }
 
         .footer-thanks {
-        font-size: 1.125em;
+            font-size: 1.125em;
         }
 
         .footer-thanks img {
-        display: inline-block;
-        position: relative;
-        top: 1px;
-        width: 16px;
-        margin-right: 4px;
+            display: inline-block;
+            position: relative;
+            top: 1px;
+            width: 16px;
+            margin-right: 4px;
         }
 
         .footer-info {
-        float: right;
-        margin-top: 5px;
-        font-size: 0.75em;
-        color: #ccc;
+            float: right;
+            margin-top: 5px;
+            font-size: 0.75em;
+            color: #ccc;
         }
 
         .footer-info span {
-        padding: 0 5px;
-        color: black;
+            padding: 0 5px;
+            color: black;
         }
 
         .footer-info span:last-child {
-        padding-right: 0;
+            padding-right: 0;
         }
 
         .page-container {
-        display: none;
+            display: none;
         }
+
         .page-break {
             page-break-after: always;
         }
 
-        .number-clausulas{
+        .number-clausulas {
             /* display: -webkit-inline-box;
             display: -webkit-box; */
         }
-        .number-clausulas p{
+
+        .number-clausulas p {
             margin: 0;
             text-align: justify;
-            font-size: 0.76rem; /*0.68rem*/;
+            font-size: 0.76rem;
+            /*0.68rem*/
+            ;
         }
-        .number-clausulas strong{
+
+        .number-clausulas strong {
             float: left;
-            font-size: 0.76rem; /*0.68rem*/;
+            font-size: 0.76rem;
+            /*0.68rem*/
+            ;
         }
-        .number-clausulas ul li{
-            font-size: 0.76rem; /*0.68rem*/;
+
+        .number-clausulas ul li {
+            font-size: 0.76rem;
+            /*0.68rem*/
+            ;
         }
-        .place-date{
+
+        .place-date {
             text-align: right;
         }
-        .place-date p{
+
+        .place-date p {
             /* font-size: small; */
             font-size: 0.6rem;
         }
-  </style>
+    </style>
 </head>
+
 <body>
 
-<div class="web-container page-break">
+    <div class="web-container page-break">
 
-  <!-- See invoice.html! It is injected here... -->
-  <div class="page-container">
-    Page
-    <span class="page"></span>
-    of
-    <span class="pages"></span>
-  </div>
+        <!-- See invoice.html! It is injected here... -->
+        <div class="page-container">
+            Page
+            <span class="page"></span>
+            of
+            <span class="pages"></span>
+        </div>
 
-  <div class="logo-container">
-    <table>
-        <tbody>
+        <div class="logo-container">
+            <table>
+                <tbody>
+                    <tr>
+                        <td style="padding: 0 !important;border-bottom:none;">
+                            <img
+                                style="height: 75px;background:black;"
+                                src="{{ public_path('logo.png') }}">
+                        </td>
+
+                        <td style="padding: 0 !important;border-bottom:none;">
+                            <strong>{{ $sale->document_number }}</strong>
+                            <br>
+                            <img
+                                style="width:130px;background:black;"
+                                src="{{ public_path('logo.png') }}">
+                            <br>
+                            <small>RUC: 1793192550001</small>
+                            <br>
+                            <small>https://www.luxuryevys.com</small>
+                            <br>
+                            <small>comp.luxuryevys@gmail.com</small>
+                            <br>
+                            <small>Telf: 0999179988 / 0963089601</small>
+                            <br>
+                           
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="clear:both;"></div>
+        <table class="invoice-info-container">
             <tr>
-                <td style="padding: 0 !important;border-bottom:none;">
-                    <div style="width: 100px; height: 75px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; text-align: center;">
-                        LUXURY<br>EVYS
-                    </div>
+                <td>
+                    <strong>{{ $sale->document_number }}-{{ $sale->id }}</strong>
                 </td>
 
-                <td style="padding: 0 !important;border-bottom:none;">
-                    N° SERIE: <strong>#{{ str_pad($sale->id, 8, '0', STR_PAD_LEFT) }}</strong>
-                    <br>
-                    <small>www.luxuryevys.net</small>
-                    <br>
-                    <small>info@luxuryevys.net</small>
-                    <br>
-                    <small>+593 2 123-4567</small>
+                <td>
+                    FECHA: {{ $sale->service_date->format('d/m/Y') }}
                 </td>
             </tr>
-        </tbody>
-    </table>
-  </div>
-  <div style="clear:both;"></div>
-  <table class="invoice-info-container">
-    <tr>
-        <td>
-          N° VENTA: <strong>#{{ str_pad($sale->id, 8, '0', STR_PAD_LEFT) }}</strong>
-        </td>
+            <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
+            <tr>
+                <td class="">
+                    <h3 style="margin:0;">DATOS DEL CLIENTE: </h3>
+                    <br>
+                    <br>
+                    <b>NOMBRE:</b> {{ $sale->client->full_name }}
+                    <br>
+                    <br>
+                    <b style="display: inline-block;">EMAIL:</b>
+                    <span style="display: inline-block;text-transform: lowercase;vertical-align: middle;">{{ $sale->client->email ?? 'Sin información' }}</span>
+                    <br>
+                    <br>
+                    <b>DIRECCIÓN:</b> {{ $sale->client->address ?? 'Sin información' }}
+                </td>
+                <td>
+                    <table style="width:100%;">
+                        <br><br>
+                        <tr>
+                            <td style="border:none;padding:0;">
+                                <strong>
+                                    @if($sale->client->type_document == 1)
+                                    CI #:
+                                    @elseif($sale->client->type_document == 2)
+                                    RUC #:
+                                    @endif
+                                </strong>
+                            </td>
+                            <td style="text-align: left;"> {{ $sale->client->n_document }}</td>
+                        </tr>
+                        <tr>
+                            <td><b>CIUDAD/PROVINCIA:</b></td>
+                            <td style="text-align: left;">
+                                @if($sale->client->ubigeo_provincia || $sale->client->ubigeo_distrito)
+                                <strong>{{ $sale->client->ubigeo_provincia ?? 'Sin información'}}/{{ $sale->client->ubigeo_distrito ?? 'Sin información' }}</strong>
+                                @else
+                                Sin información
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b>TELÉFONO:</b></td>
+                            <td style="text-align: left;">{{ $sale->client->phone ?? 'Sin información' }}</td>
+                        </tr>
+                        <tr>
+                            <td><b>TIPO CLIENTE:</b></td>
+                            <td style="text-align: left;">{{ $sale->client->type_client == 1 ? 'NATURAL' : 'JURIDICO' }}</td>
+                        </tr>
 
-        <td>
-          FECHA VENTA: {{ date('d/m/Y', strtotime($sale->service_date ?? $sale->created_at)) }}
-        </td>
-    </tr>
-    <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
-    <tr>
-      <td class="">
-        <b>Datos del cliente: </b>
-        <br>
-        <br>
-        CLIENTE: {{ $sale->client ? $sale->client->full_name : '' }}
-            <br>
-            DEPART./PROVINCIA CLIENTE: <strong>{{ $sale->client ? ($sale->client->region ?? '') . '/' . ($sale->client->provincia ?? '') . '/' . ($sale->client->distrito ?? '') : '' }}</strong>
-      </td>
-      <td>
-        DOC.  {{ $sale->client ? $sale->client->n_document : '' }}
-      </td>
-    </tr>
-    <tr>
-        <td>TIPO CLIENTE: {{ $sale->client ? ($sale->client->type_client ?? '') : '' }}</td>
-        <td>TELÉFONO: {{ $sale->client ? $sale->client->phone : '' }}</td>
-    </tr>
-    <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
-    <tr>
-        <td>
-            DIRECCIÓN: <strong>{{ $sale->client ? $sale->client->address : '' }}</strong>
-            <br>
-            SUCURSAL DE ATENCION: <strong>{{ $sale->client && $sale->client->sucursal ? $sale->client->sucursal->name : '' }}</strong>
-        </td>
-        <td></td>
-    </tr>
-    <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
-    <tr>
-        <td>
-         VENDEDOR: <strong>{{ $sale->user ? $sale->user->name . ' ' . $sale->user->surname : '' }}</strong>
-        </td>
-        <td>
-            TELÉFONO: {{ $sale->user ? $sale->user->phone : '' }}
-        </td>
-    </tr>
+                    </table>
+                </td>
+            </tr>
 
-  </table>
+            <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
+            <tr>
+                <td>
 
-  <table class="line-items-container">
-    <thead>
-      <tr>
-        <th class="heading-quantity">Qty</th>
-        <th class="heading-description">Descripción</th>
-        <th class="heading-price">Subtotal</th>
-        <th class="heading-subtotal">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-        @foreach($sale->details as $detail)
-        <tr>
-            <td>{{ $detail->quantity }}</td>
-            <td>
-                {{ $detail->description }}
-                @if($detail->product_id)
-                <br>ID Producto: {{ $detail->product_id }}
-                @endif
-            </td>
-            <td class="right">{{ number_format($detail->price, 2) }} PEN</td>
-            <td class="bold">{{ number_format($detail->total, 2) }} PEN</td>
-        </tr>
-        @endforeach
-    </tbody>
-  </table>
+                    <br>
+                    SUCURSAL DE ATENCION: <strong>LUXURY EVYS CIA. LTDA.</strong>
+                    <br>DIRECCIÓN: <strong>SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C</strong>
+                    <br>
+                </td>
+                <td></td>
+            </tr>
+            <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
+            @if($sale->vehicle)
+            <tr>
+                <td class="" style="text-transform: uppercase;">
+                    <h3 style="margin:0;">DATOS DEL VEHÍCULO: </h3>
+                    <br>
+                    <br>
+                    <b>PLACA:</b> {{ $sale->vehicle->license_plate ?? 'Sin información' }}
+                    <br>
+                    <br>
+                    <b>MARCA:</b> {{ $sale->vehicle->brand ?? 'Sin información' }}
+                    <br>
+                    <br>
+                    <b>MODELO:</b> {{ $sale->vehicle->model ?? 'Sin información' }}
+                    <br>
+                    <br>
+                    <b>AÑO:</b> {{ $sale->vehicle->year ?? 'Sin información' }}
+                    <br>
+                </td>
+                <td>
+                    <table style="width:100%; text-transform: uppercase;">
 
+                        <tr>
+                            <td style="border:none;padding:0;">
+                                <strong>
+                                    <b>TIPO:</b>
+                                </strong>
+                            </td>
+                            <td style="text-align: left;"> {{ $sale->vehicle->vehicle_type ?? 'Sin información' }}</td>
+                        </tr>
 
-  <table class="line-items-container has-bottom-border">
-    <thead>
-      <tr>
-        <th>Metodo de Pago</th>
-        <th>Fecha Entrega</th>
-        <th>Información de Pago</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td class="payment-info">
-            <div>
-                METODO DE PAGO: <strong>{{ strtoupper($sale->payment_method) }}</strong>
-            </div>
-            <div>
-                ESTADO PAGO: <strong>{{ strtoupper($sale->payment_status) }}</strong>
-            </div>
-        </td>
-        <td class="large">{{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}</td>
+                        <tr>
+                            <td><b>KILOMETRAJE:</b></td>
+                            <td style="text-align: left;">{{ $sale->vehicle->mileage ?? 'Sin información' }}</td>
+                        </tr>
+                        <tr>
+                            <td><b>COLOR:</b></td>
+                            <td style="text-align: left;">{{ $sale->vehicle->color ?? 'Sin información' }}</td>
+                        </tr>
 
-        <td class="payment-info">
-            <div class="large total">
-                SUBTOTAL: {{ number_format($sale->subtotal, 2) }} PEN
-                <br>
-                IGV: {{ number_format($sale->tax_amount, 2) }} PEN
-            </div>
-            <div class="large total">
-                TOTAL: {{ number_format($sale->total, 2) }} PEN
-            </div>
-            @if($sale->is_credited)
-            <div>
-              A CRÉDITO: <strong>SI</strong>
-            </div>
+                    </table>
+                </td>
+            </tr>
+            <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
             @endif
-        </td>
-    </tbody>
-  </table>
+            <tr>
+                <td>
+                    VENDEDOR: <strong>{{ $sale->user->name }}</strong>
+                </td>
+                <td>
+                    TELÉFONO: {{ $sale->user->phone?? '022698134' }}
+                </td>
+            </tr>
 
-    <div class="footer">
-        <div class="footer-info">
-            <span> ANOTACIONES FINALES: {{ $sale->observations ?? '' }}</span>
+        </table>
+
+        <table class="line-items-container">
+            <thead>
+                <tr>
+                    <th class="heading-item">#</th>
+                    <th class="heading-description">Descripción</th>
+                    <th class="heading-quantity">Cant.</th>
+                    <th class="heading-price">Precio</th>
+                    <th class="heading-price">Descuento</th>
+                    <th class="heading-subtotal">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($sale->details as $detail)
+                <tr>
+                    <td class="center">{{ $detail->id }}</td>
+                    <td>
+
+                        {{ $detail->description }}
+                    </td>
+                    <td class="right">{{ $detail->quantity }}</td>
+                    <td class="right">${{ $detail->price }}</td>
+                    <td class="right">${{ $detail->discount ?? 0.00 }}</td>
+                    <td class="bold">${{ $detail->total }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+
+        <table class="line-items-container has-bottom-border">
+            <thead>
+                <tr>
+                    <th>Metodo de Pago</th>
+                    <th>Fecha Entrega</th>
+                    <th>Información de Pago</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
+                @foreach($sale->financeRecord->paymentDistributions as $distribution)
+                <tr>
+                    <td class="payment-info">
+                        <div>
+                            METODO DE PAGO: <strong>{{ strtoupper($distribution->payment_method) }}</strong>
+                            @if($distribution->account)
+                            <br>
+                            CUENTA: {{ $distribution->account->name ?? '' }}
+                            @endif
+                        </div>
+                    </td>
+                    <td class="payment-info">{{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}</td>
+
+                    <td class="payment-info">
+                        <div class="large total">
+                            {{ number_format($distribution->amount, 2) }}
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+                @else
+                <tr>
+                    <td class="payment-info">
+                        <div>
+                            METODO DE PAGO: <strong>{{ strtoupper($sale->payment_method) }}</strong>
+                        </div>
+                        <div>
+                            ESTADO PAGO: <strong>{{ strtoupper($sale->payment_status) }}</strong>
+                        </div>
+                    </td>
+                    <td class="payment-info">{{ $sale->service_date ? $sale->service_date->format('Y/m/d') : '' }}</td>
+
+                    <td class="payment-info">
+                        <div class="large total">
+                            SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
+                            <br>
+                            IGV: ${{ number_format($sale->tax_amount, 2) }}
+                        </div>
+                        <div class="large total">
+                            TOTAL: ${{ number_format($sale->total, 2) }}
+                        </div>
+                        @if($sale->is_credited)
+                        <div>
+                            A CRÉDITO: <strong>SI</strong>
+                        </div>
+                        @endif
+                    </td>
+                </tr>
+                @endif
+
+                @if($sale->financeRecord && $sale->financeRecord->paymentDistributions->count() > 0)
+                <tr>
+                    <td></td>
+                    <td></td>
+                    <td class="payment-info">
+                        <div class="large total">
+                            SUBTOTAL: ${{ number_format($sale->subtotal, 2) }}
+                            <br>
+                            IGV: ${{ number_format($sale->tax_amount, 2) }}
+                        </div>
+                        <div class="large total">
+                            TOTAL: ${{ number_format($sale->total, 2) }}
+                        </div>
+                        <div>
+                            PAGADO: <strong>${{ number_format($sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
+                        </div>
+                        <div>
+                            SALDO: <strong>${{ number_format($sale->total - $sale->financeRecord->paymentDistributions->sum('amount'), 2) }}</strong>
+                        </div>
+                    </td>
+                </tr>
+                @endif
+            </tbody>
+        </table>
+        <div class="footer">
+            <div class="footer-info">
+                <span> ANOTACIONES FINALES: {{ $sale->observations ?? 'Sin observaciones' }} </span>
+            </div>
         </div>
     </div>
-
-</div>
-
-
-</body></html>
+</body>
+</html>

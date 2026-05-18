@@ -15,7 +15,13 @@ class SaleDetail extends Model
     protected $table = 'sale_details';
 
     protected $fillable = [
-        'sale_id', 'product_id', 'description', 'quantity', 'price', 'discount', 'total'
+        'sale_id', 
+        'product_id', 
+        'description', 
+        'quantity', 
+        'price', 
+        'discount', 
+        'total'
     ];
 
     /**
