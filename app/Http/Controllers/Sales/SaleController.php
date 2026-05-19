@@ -37,9 +37,9 @@ class SaleController extends Controller
                         $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
                             ->orWhere('n_document', 'like', "%{$searchTerm}%");
                     })
-                    ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
-                        $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
-                    });
+                        ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
+                            $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
+                        });
                 });
             }
 
@@ -248,7 +248,8 @@ class SaleController extends Controller
             ]);
 
             // Actualizar el saldo de la cuenta
-            $account = Account::find($accountId);
+
+            $account = Account::where($accountId)->first();
             if ($account) {
                 $account->updateBalance($request->total, FinanceRecord::TYPE_INCOME);
             }
@@ -290,9 +291,9 @@ class SaleController extends Controller
                         $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
                             ->orWhere('n_document', 'like', "%{$searchTerm}%");
                     })
-                    ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
-                        $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
-                    });
+                        ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
+                            $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
+                        });
                 });
             }
 
@@ -325,7 +326,7 @@ class SaleController extends Controller
             // Por ahora, retornamos una respuesta simple indicando que se necesita instalar la librería
             return response()->json([
                 'success' => false,
-                'message' => 'Para generar PDF, necesita instalar dompdf: composer require dompdf/dompdf'
+                'message' => 'Para generar PDF'
             ], 501);
         } catch (Exception $e) {
             return response()->json([
