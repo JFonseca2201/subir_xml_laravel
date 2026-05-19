@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Models\Sales\Sale;
+use App\Models\Product;
 use App\Models\FinanceRecord;
 use App\Models\PaymentDistribution;
 use App\Models\Account;
+use App\Models\Product\Product as ModelsProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -27,12 +29,17 @@ class SaleController extends Controller
             // Esto evita el problema de consultas N+1 y hace que la API vuele
             $query = Sale::with(['client', 'vehicle', 'user']);
 
-            // 1. Filtro por búsqueda (nombre o cédula del cliente)
+            // 1. Filtro por búsqueda (nombre, cédula del cliente o placa de vehículo)
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = $request->search;
-                $query->whereHas('client', function ($q) use ($searchTerm) {
-                    $q->where('full_name', 'like', "%{$searchTerm}%")
-                        ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereHas('client', function ($clientQuery) use ($searchTerm) {
+                        $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
+                            ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
+                        $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
+                    });
                 });
             }
 
@@ -60,7 +67,7 @@ class SaleController extends Controller
             // Paginamos de 15 en 15 para que la pantalla del frente cargue al instante
             $sales = $query->orderBy('service_date', 'desc')
                 ->orderBy('id', 'desc')
-                ->paginate(15);
+                ->paginate(10);
 
             return response()->json([
                 'success' => true,
@@ -111,7 +118,7 @@ class SaleController extends Controller
             $sale = DB::transaction(function () use ($request) {
 
                 // Extraemos el ID del usuario autenticado que está atendiendo en Luxury Evys
-                $userId = auth()->id() ?? 1; // Ajustar según tu middleware de auth
+                //$userId = auth()->id() ?? 1; // Ajustar según tu middleware de auth
 
                 // A. Crear la cabecera de la venta
                 $sale = Sale::create([
@@ -119,7 +126,7 @@ class SaleController extends Controller
                     'document_number' => $request->document_number,
                     'client_id'       => $request->client_id,
                     'vehicle_id'      => $request->vehicle_id,
-                    'user_id'         => $userId,
+                    'user_id'         => $request->user_id,
                     'mileage'         => $request->mileage,
                     'service_date'    => $request->service_date ?? now()->format('Y-m-d'),
                     'subtotal'        => $request->subtotal,
@@ -175,9 +182,9 @@ class SaleController extends Controller
     /**
      * Process financial record for sale and update accounts
      */
-    private function processFinancialRecord($sale, $request)
+    private function processFinancialRecord($sale, Request $request)
     {
-        $userId = auth()->id() ?? 1;
+        //$userId = auth()->id() ?? 1;
 
         // Crear el registro financiero principal
         $financeRecord = FinanceRecord::create([
@@ -189,7 +196,7 @@ class SaleController extends Controller
             'work_order_number' => $request->document_number,
             'invoice_number' => $request->document_number,
             'description' => 'Venta: ' . $request->document_type . ' - ' . $request->document_number,
-            'user_id' => $userId,
+            'user_id' => $request->user_id,
         ]);
 
         // Procesar pagos distribuidos si existen
@@ -275,12 +282,17 @@ class SaleController extends Controller
             // Aplicar los mismos filtros que en index
             $query = Sale::with(['client', 'vehicle', 'user', 'details']);
 
-            // Filtro por búsqueda (nombre o cédula del cliente)
+            // Filtro por búsqueda (nombre, cédula del cliente o placa de vehículo)
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = $request->search;
-                $query->whereHas('client', function ($q) use ($searchTerm) {
-                    $q->where('full_name', 'like', "%{$searchTerm}%")
-                        ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereHas('client', function ($clientQuery) use ($searchTerm) {
+                        $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
+                            ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
+                        $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
+                    });
                 });
             }
 
@@ -327,7 +339,7 @@ class SaleController extends Controller
     /**
      * Generate PDF for a single sale
      */
-    public function generateSinglePDF($id)
+    public function generateSinglePDF(int $id)
     {
         try {
             $sale = Sale::with(['client', 'vehicle', 'user', 'details', 'financeRecord.paymentDistributions.account'])->find($id);
@@ -357,11 +369,11 @@ class SaleController extends Controller
     /**
      * Ver el detalle completo de una sola venta o cotización (Para cargar en el frente).
      */
-    public function show($id)
+    public function show(int $id)
     {
         try {
-            // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente y el vehículo
-            $sale = Sale::with(['details', 'client', 'vehicle'])->find($id);
+            // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente, el vehículo y los registros financieros con pagos distribuidos y cuentas
+            $sale = Sale::with(['details', 'client', 'vehicle', 'financeRecord.paymentDistributions.account'])->find($id);
 
             if (!$sale) {
                 return response()->json([
@@ -389,19 +401,33 @@ class SaleController extends Controller
     /**
      * Actualizar datos permitidos de una venta o cotización (El procesamiento del Edit).
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
-        // 1. Validamos solo los campos que es seguro editar en caliente
+        // 1. Validamos los campos que se pueden editar
         $request->validate([
             'vehicle_id'   => 'nullable|exists:vehicles,id',
             'mileage'      => 'nullable|integer',
             'service_date' => 'nullable|date',
             'observations' => 'nullable|string',
             'payment_method' => 'nullable|string',
+            'document_type' => 'nullable|in:quote,sale_note,invoice',
+            'payment_status' => 'nullable|in:paid,partial,pending',
+            'is_credited' => 'nullable|boolean',
+            'items' => 'nullable|array',
+            'items.*.id' => 'nullable|exists:sale_details,id',
+            'items.*.product_id' => 'nullable|exists:products,id',
+            'items.*.description' => 'required|string',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.price' => 'required|numeric',
+            'items.*.discount' => 'required|numeric',
+            'payment_distributions' => 'nullable|array',
+            'payment_distributions.*.account_id' => 'required|exists:accounts,id',
+            'payment_distributions.*.amount' => 'required|numeric|min:0',
+            'payment_distributions.*.payment_method' => 'required|string',
         ]);
 
         try {
-            $sale = Sale::find($id);
+            $sale = Sale::with(['details', 'financeRecord.paymentDistributions'])->find($id);
 
             if (!$sale) {
                 return response()->json([
@@ -410,7 +436,7 @@ class SaleController extends Controller
                 ], 404);
             }
 
-            // Regla de seguridad: Si la venta ya está facturada o anulada, no debería editarse a la ligera
+            // Regla de seguridad: Si la venta ya está anulada, no debería editarse
             if ($sale->status === 'canceled') {
                 return response()->json([
                     'success' => false,
@@ -418,14 +444,100 @@ class SaleController extends Controller
                 ], 400);
             }
 
-            // 2. Actualizamos de forma segura los campos operativos del taller
+            // Regla: Solo se puede convertir de cotización a venta, no al revés
+            if ($request->has('document_type') && $request->document_type !== $sale->document_type) {
+                if ($sale->document_type !== 'quote') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No se puede cambiar el tipo de documento de una venta o factura. Solo las cotizaciones pueden convertirse en ventas.'
+                    ], 400);
+                }
+            }
+
+            // Verificar si se está convirtiendo de cotización a venta
+            $wasQuote = $sale->document_type === 'quote';
+            $isNowSale = $request->has('document_type') && $request->document_type !== 'quote';
+
+            // Actualizar campos operativos básicos
             $sale->update($request->only([
                 'vehicle_id',
                 'mileage',
                 'service_date',
                 'observations',
-                'payment_method'
+                'payment_method',
+                'document_type',
+                'payment_status',
+                'is_credited'
             ]));
+
+            // Si se proporcionan items, actualizar el detalle
+            if ($request->has('items')) {
+                DB::transaction(function () use ($sale, $request, $wasQuote, $isNowSale) {
+                    // Obtener IDs de los items enviados
+                    $itemIds = array_filter(array_column($request->items, 'id'));
+
+                    // Eliminar items que no están en la solicitud
+                    $sale->details()->whereNotIn('id', $itemIds)->delete();
+
+                    // Actualizar o crear items
+                    foreach ($request->items as $item) {
+                        $itemTotal = ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
+
+                        if (isset($item['id'])) {
+                            // Actualizar item existente
+                            $sale->details()->where('id', $item['id'])->update([
+                                'product_id' => $item['product_id'] ?? null,
+                                'description' => $item['description'],
+                                'quantity' => $item['quantity'],
+                                'price' => $item['price'],
+                                'discount' => $item['discount'] ?? 0,
+                                'total' => $itemTotal,
+                            ]);
+                        } else {
+                            // Crear nuevo item
+                            $sale->details()->create([
+                                'product_id' => $item['product_id'] ?? null,
+                                'description' => $item['description'],
+                                'quantity' => $item['quantity'],
+                                'price' => $item['price'],
+                                'discount' => $item['discount'] ?? 0,
+                                'total' => $itemTotal,
+                            ]);
+                        }
+                    }
+
+                    // Recalcular totales
+                    $subtotal = $sale->details()->sum('total');
+                    $taxAmount = $sale->document_type === 'invoice' ? $subtotal * 0.15 : 0;
+                    $total = $subtotal + $taxAmount;
+
+                    $sale->update([
+                        'subtotal' => $subtotal,
+                        'tax_amount' => $taxAmount,
+                        'total' => $total,
+                    ]);
+
+                    // Si se convierte de cotización a venta, procesar el stock y finanzas
+                    if ($wasQuote && $isNowSale) {
+                        $sale->status = 'completed';
+                        $sale->save();
+
+                        // Restar stock de los productos
+                        foreach ($sale->details as $detail) {
+                            if ($detail->product_id) {
+                                $product = ModelsProduct::find($detail->product_id);
+                                if ($product) {
+                                    $product->stock -= $detail->quantity;
+                                    $product->save();
+                                }
+                            }
+                        }
+
+                        // Procesar registro financiero
+                        $this->processFinancialRecord($sale, $request);
+                    }
+                });
+            }
 
             return response()->json([
                 'success' => true,
@@ -444,7 +556,7 @@ class SaleController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+    public function destroy(int $id)
     {
         try {
             // Buscamos la venta maestra
