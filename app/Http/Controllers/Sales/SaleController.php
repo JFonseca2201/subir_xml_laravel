@@ -557,7 +557,6 @@ class SaleController extends Controller
     public function destroy(int $id)
     {
         try {
-            // Buscamos la venta maestra
             $sale = Sale::find($id);
 
             if (!$sale) {
@@ -567,22 +566,8 @@ class SaleController extends Controller
                 ], 404);
             }
 
-            // Si ya está anulada, no hacemos nada
-            if ($sale->status === 'canceled') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Esta venta ya se encuentra anulada.'
-                ], 400);
-            }
-
             DB::transaction(function () use ($sale) {
-                // A. Cambiamos el estado a cancelado
-                $sale->update([
-                    'status' => 'canceled'
-                ]);
-
-                // � ESCALABILIDAD FINANCIERA: Reversar movimientos de cuentas
-                // Si la venta tiene un registro financiero, revertimos los pagos distribuidos
+                // 1. Reversar movimientos de cuentas y registros financieros
                 if ($sale->financeRecord) {
                     $financeRecord = $sale->financeRecord;
 
@@ -595,25 +580,42 @@ class SaleController extends Controller
                         }
                     }
 
-                    // Opcional: Eliminar o marcar el registro financiero como anulado
-                    // $financeRecord->delete();
+                    // Eliminar las distribuciones y el registro financiero
+                    $financeRecord->paymentDistributions()->delete();
+                    $financeRecord->delete();
                 }
 
-                // �� ESPACIO RESERVADO LUNES: ESCALABILIDAD
-                // Aquí disparamos la reversa de Stock para cada producto/servicio del detalle
-                // $sale->details()->each(function($detail) {
-                //     // Lógica para sumar nuevamente el stock del producto
-                // });
+                // 2. Eliminar movimientos financieros asociados a la venta
+                if (method_exists($sale, 'financialMovement')) {
+                    $sale->financialMovement()->delete();
+                }
+
+                // 3. Revertir el Stock de los productos (si era una venta completada)
+                if ($sale->document_type !== 'quote' && $sale->status !== 'canceled') {
+                    foreach ($sale->details as $detail) {
+                        if ($detail->product_id) {
+                            $product = ModelsProduct::find($detail->product_id);
+                            if ($product) {
+                                $product->stock += $detail->quantity;
+                                $product->save();
+                            }
+                        }
+                    }
+                }
+
+                // 4. Eliminar los detalles y finalmente la venta
+                $sale->details()->delete();
+                $sale->delete();
             });
 
             return response()->json([
                 'success' => true,
-                'message' => 'La venta ha sido anulada correctamente y el estado fue actualizado.'
+                'message' => 'La venta ha sido eliminada correctamente de la base de datos.'
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error al anular la venta.',
+                'message' => 'Error al eliminar la venta.',
                 'error'   => $e->getMessage()
             ], 500);
         }
