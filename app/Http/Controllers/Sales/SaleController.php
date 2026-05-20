@@ -117,9 +117,6 @@ class SaleController extends Controller
             // 2. Iniciamos la transacción para asegurar consistencia atómica
             $sale = DB::transaction(function () use ($request) {
 
-                // Extraemos el ID del usuario autenticado que está atendiendo en Luxury Evys
-                //$userId = auth()->id() ?? 1; // Ajustar según tu middleware de auth
-
                 // A. Crear la cabecera de la venta
                 $sale = Sale::create([
                     'document_type'   => $request->document_type,
@@ -370,11 +367,11 @@ class SaleController extends Controller
     /**
      * Ver el detalle completo de una sola venta o cotización (Para cargar en el frente).
      */
-    public function show(int $id)
+    public function show($id)
     {
         try {
             // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente, el vehículo y los registros financieros con pagos distribuidos y cuentas
-            $sale = Sale::with(['details', 'client', 'vehicle', 'financeRecord.paymentDistributions.account'])->find($id);
+            $sale = Sale::with(['details', 'client', 'vehicle', 'financeRecord.paymentDistributions.account'])->find((int)$id);
 
             if (!$sale) {
                 return response()->json([
