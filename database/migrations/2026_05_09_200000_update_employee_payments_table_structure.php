@@ -47,19 +47,22 @@ return new class extends Migration
             $table->dropForeign(['account_id']);
             $table->dropForeign(['created_by']);
             $table->dropColumn(['employee_id', 'account_id', 'description', 'payment_method', 'reference', 'type', 'created_by']);
+            $table->dropSoftDeletes();
             
-            // Add old column back
+            // Add old columns back
+            $table->string('employee_name')->after('id');
             $table->string('concept')->nullable()->after('amount');
             
             // Revert amount column
             $table->decimal('amount', 15, 2)->change();
             
-            // Drop indexes
+            // Drop old index and add new one
             $table->dropIndex(['payment_date', 'type']);
             $table->dropIndex(['payment_date']);
             $table->dropIndex(['type']);
             $table->dropIndex(['account_id']);
             $table->dropIndex(['employee_id']);
+            $table->index(['payment_date', 'employee_name']);
         });
     }
 };
