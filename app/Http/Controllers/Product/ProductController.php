@@ -132,6 +132,42 @@ class ProductController extends Controller
             ], 500);
         }
     }
+    public function import_excel(Request $request)
+    {
+        $request->validate($request, [
+            'excel' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+        try {
+            if (!$request->hasFile('excel')) {
+                return response()->json([
+                    'status' => 400,
+                    'message' => 'No se ha proporcionado ningún archivo',
+                ], 400);
+            }
+
+            $file = $request->file('excel');
+
+            if (!$file->isValid()) {
+                return response()->json([
+                    'status' => 400,
+                    'message' => 'Archivo no válido',
+                ], 400);
+            }
+
+            Excel::import(new \App\Imports\Product\ImportProducts, $file);
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Productos importados exitosamente',
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error al importar los productos',
+                'error' => $th->getMessage(),
+            ], 500);
+        }
+    }
 
     /**
      * Store a newly created resource in storage.

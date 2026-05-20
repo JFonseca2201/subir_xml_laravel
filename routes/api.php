@@ -158,5 +158,6 @@ Route::group(
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);
+Route::post('import-excel', [ProductController::class, 'import_excel']);
 Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
 Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
