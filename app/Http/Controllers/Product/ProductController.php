@@ -134,7 +134,7 @@ class ProductController extends Controller
     }
     public function import_excel(Request $request)
     {
-        $request->validate($request, [
+        $request->validate([
             'excel' => 'required|file|mimes:xlsx,xls,csv',
         ]);
         try {
@@ -160,6 +160,18 @@ class ProductController extends Controller
                 'status' => 200,
                 'message' => 'Productos importados exitosamente',
             ]);
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            $failures = $e->failures();
+            $errors = [];
+            foreach ($failures as $failure) {
+                $errors[] = "Fila {$failure->row()} (Columna {$failure->attribute()}): " . implode(', ', $failure->errors());
+            }
+            return response()->json([
+                'status' => 422,
+                'message' => 'Errores de validación en el archivo Excel',
+                'error' => implode(' | ', $errors),
+                'errors' => $errors,
+            ], 422);
         } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,

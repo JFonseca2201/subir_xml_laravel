@@ -8,7 +8,13 @@ class Supplier extends Model
 {
     protected $table = 'suppliers';
 
-    protected $fillable = ['tax_id', 'ruc', 'supplier_id', 'name', 'address'];
+    protected $fillable = [
+        'tax_id', 
+        'ruc', 
+        'supplier_id', 
+        'name', 
+        'address'
+    ];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',
