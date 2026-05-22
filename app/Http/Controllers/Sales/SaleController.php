@@ -316,6 +316,7 @@ class SaleController extends Controller
     public function generatePDF(Request $request)
     {
         try {
+            // HOLA MUNDO PILASS GENERACION DE PDF GENERAL DE VENTAS CON LOS FILTROS APLICADOS
             // Aplicar los mismos filtros que en index
             $query = Sale::with(['client', 'vehicle', 'user', 'details']);
 
