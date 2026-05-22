@@ -114,7 +114,40 @@ class SaleController extends Controller
         ]);
 
         try {
-            // 2. Iniciamos la transacción para asegurar consistencia atómica
+            // 2. Validar stock antes de procesar la venta (solo si no es cotización)
+            if ($request->document_type !== 'quote') {
+                foreach ($request->items as $item) {
+                    if (isset($item['product_id']) && $item['product_id']) {
+                        $product = ModelsProduct::find($item['product_id']);
+                        if ($product && $product->stock < $item['quantity']) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
+                                'error' => 'stock_insufficient'
+                            ], 400);
+                        }
+                    }
+                }
+            }
+
+            // 3. Validar descuentos máximos
+            foreach ($request->items as $item) {
+                if (isset($item['product_id']) && $item['product_id']) {
+                    $product = ModelsProduct::find($item['product_id']);
+                    if ($product && $product->max_discount !== null) {
+                        $maxDiscountAmount = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
+                        if ($item['discount'] > $maxDiscountAmount) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$item['discount']}",
+                                'error' => 'discount_exceeded'
+                            ], 400);
+                        }
+                    }
+                }
+            }
+
+            // 4. Iniciamos la transacción para asegurar consistencia atómica
             $sale = DB::transaction(function () use ($request) {
 
                 // A. Crear la cabecera de la venta
@@ -147,8 +180,14 @@ class SaleController extends Controller
                         'total'       => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
                     ]);
 
-                    // 💥 ESPACIO RESERVADO LUNES:
-                    // Si $request->document_type !== 'quote', aquí disparamos la resta de Stock
+                    // Deducir stock solo si no es cotización
+                    if ($request->document_type !== 'quote' && isset($item['product_id']) && $item['product_id']) {
+                        $product = ModelsProduct::find($item['product_id']);
+                        if ($product) {
+                            $product->stock -= $item['quantity'];
+                            $product->save();
+                        }
+                    }
                 }
 
                 // 💰 ESCALABILIDAD FINANCIERA: Actualizar cuentas según métodos de pago
@@ -455,6 +494,43 @@ class SaleController extends Controller
             // Verificar si se está convirtiendo de cotización a venta
             $wasQuote = $sale->document_type === 'quote';
             $isNowSale = $request->has('document_type') && $request->document_type !== 'quote';
+
+            // Validar stock si se convierte a venta o si ya es venta
+            if ($isNowSale || $sale->document_type !== 'quote') {
+                if ($request->has('items')) {
+                    foreach ($request->items as $item) {
+                        if (isset($item['product_id']) && $item['product_id']) {
+                            $product = ModelsProduct::find($item['product_id']);
+                            if ($product && $product->stock < $item['quantity']) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
+                                    'error' => 'stock_insufficient'
+                                ], 400);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Validar descuentos máximos
+            if ($request->has('items')) {
+                foreach ($request->items as $item) {
+                    if (isset($item['product_id']) && $item['product_id']) {
+                        $product = ModelsProduct::find($item['product_id']);
+                        if ($product && $product->max_discount !== null) {
+                            $maxDiscountAmount = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
+                            if ($item['discount'] > $maxDiscountAmount) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$item['discount']}",
+                                    'error' => 'discount_exceeded'
+                                ], 400);
+                            }
+                        }
+                    }
+                }
+            }
 
             // Actualizar campos operativos básicos
             $sale->update($request->only([
