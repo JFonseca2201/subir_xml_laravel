@@ -219,8 +219,7 @@ class SaleController extends Controller
      * Process financial record for sale and update accounts
      */
     private function processFinancialRecord($sale, Request $request)
-    {
-        //$userId = auth()->id() ?? 1;
+    {        
 
         // Crear el registro financiero principal
         $financeRecord = FinanceRecord::create([
