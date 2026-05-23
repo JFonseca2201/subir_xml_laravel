@@ -201,7 +201,7 @@
                     <th>Tipo</th>
                     <th>Descripción</th>
                     <th>Cuenta</th>
-                    <th style="inline-block; width: 75px;">Monto</th>
+                    <th style="width: 75px;">Monto</th>
                 </tr>
             </thead>
             <tbody>
@@ -226,7 +226,7 @@
                                 @elseif(isset($movement->metadata['from_account_name']))
                                     {{ $movement->metadata['from_account_name'] }} -> Externo
                                 @elseif(isset($movement->metadata['to_account_name']))
-                                    Externo '->' {{ $movement->metadata['to_account_name'] }}
+                                    Externo -> {{ $movement->metadata['to_account_name'] }}
                                 @else
                                     {{ $movement->metadata['from_account'] ?? 'N/A' }} →
                                     {{ $movement->metadata['to_account'] ?? 'N/A' }}
