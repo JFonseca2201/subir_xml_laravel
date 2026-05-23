@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte de Ventas</title>
+    <title>Reporte Financiero</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -65,7 +65,7 @@
         }
 
         td {
-            padding: 8px;
+            padding: 12px 8px;
             text-align: left;
             color: #333;
             border-bottom: 1px solid #eee;
@@ -83,28 +83,16 @@
             text-transform: uppercase;
         }
 
-        .badge-quote {
-            color: #1976d2;
-        }
-
-        .badge-sale-note {
-            color: #388e3c;
-        }
-
-        .badge-invoice {
-            color: #7b1fa2;
-        }
-
-        .badge-completed {
+        .badge-income {
             color: #2e7d32;
         }
 
-        .badge-pending {
-            color: #e65100;
+        .badge-expense {
+            color: #c62828;
         }
 
-        .badge-canceled {
-            color: #c62828;
+        .badge-transfer {
+            color: #f9a825;
         }
 
         .total-section {
@@ -172,10 +160,19 @@
             color: #333;
         }
 
-        .amount-before {
+        .amount-income {
             font-weight: bold;
-            color: #333;
-            font-size: 12px;
+            color: #2e7d32;
+        }
+
+        .amount-expense {
+            font-weight: bold;
+            color: #c62828;
+        }
+
+        .amount-transfer {
+            font-weight: bold;
+            color: #f9a825;
         }
 
         @media print {
@@ -188,55 +185,55 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Reporte de Ventas</h1>
+            <h1>Reporte Financiero</h1>
             <p class="subtitle">Sistema de Gestión Comercial</p>
             <div class="info">
-                <span>Fecha: {{ date('d/m/Y H:i:s') }}</span> | <span>Registros: {{ $sales->count() }}</span>
+                <span>Fecha: {{ date('d/m/Y H:i:s') }}</span> | <span>Registros: {{ $summary['totalCount'] }}</span>
             </div>
         </div>
 
         <table>
             <thead>
                 <tr>
-                    <th>N° Documento</th>
-                    <th>Tipo</th>
                     <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Vehículo</th>
-                    <th>Estado</th>
-                    <th>Total</th>
+                    <th>Tipo</th>
+                    <th>Descripción</th>
+                    <th>Cuenta</th>
+                    <th>Monto</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($sales as $sale)
+                @foreach($movements as $movement)
                 <tr>
-                    <td><strong>{{ $sale->document_number }}</strong></td>
+                    <td>{{ \Carbon\Carbon::parse($movement->entry_date)->format('d/m/Y') }}</td>
                     <td>
-                        @if($sale->document_type == 'quote')
-                            <span class="badge badge-quote">Cotización</span>
-                        @elseif($sale->document_type == 'sale_note')
-                            <span class="badge badge-sale-note">Nota Venta</span>
-                        @elseif($sale->document_type == 'invoice')
-                            <span class="badge badge-invoice">Factura</span>
+                        @if($movement->type == 'income')
+                            <span class="badge badge-income">Ingreso</span>
+                        @elseif($movement->type == 'expense')
+                            <span class="badge badge-expense">Egreso</span>
                         @else
-                            {{ $sale->document_type }}
+                            <span class="badge badge-transfer">{{ $movement->type }}</span>
                         @endif
                     </td>
-                    <td>{{ \Carbon\Carbon::parse($sale->service_date)->format('d/m/Y') }}</td>
-                    <td>{{ $sale->client ? ($sale->client->full_name ?? $sale->client->name ?? 'N/A') : 'N/A' }}</td>
-                    <td>{{ $sale->vehicle ? $sale->vehicle->license_plate : 'N/A' }}</td>
+                    <td>{{ $movement->description ?? $movement->movable?->descripcion ?? 'N/A' }}</td>
                     <td>
-                        @if($sale->status == 'completed')
-                            <span class="badge badge-completed">Completada</span>
-                        @elseif($sale->status == 'pending')
-                            <span class="badge badge-pending">Pendiente</span>
-                        @elseif($sale->status == 'canceled')
-                            <span class="badge badge-canceled">Anulada</span>
+                        @if($movement->type == 'transfer')
+                            @if(isset($movement->metadata['from_account_name']) && isset($movement->metadata['to_account_name']))
+                                {{ $movement->metadata['from_account_name'] }} -> {{ $movement->metadata['to_account_name'] }}
+                            @elseif(isset($movement->metadata['from_account_name']))
+                                {{ $movement->metadata['from_account_name'] }} -> Externo
+                            @elseif(isset($movement->metadata['to_account_name']))
+                                Externo '->' {{ $movement->metadata['to_account_name'] }}
+                            @else
+                                {{ $movement->metadata['from_account'] ?? 'N/A' }} → {{ $movement->metadata['to_account'] ?? 'N/A' }}
+                            @endif
                         @else
-                            {{ $sale->status }}
+                            {{ $movement->account ? $movement->account->name : 'N/A' }}
                         @endif
                     </td>
-                    <td class="amount-before">${{ number_format($sale->total, 2) }}</td>
+                    <td class="{{ $movement->type == 'income' ? 'amount-income' : ($movement->type == 'expense' ? 'amount-expense' : 'amount-transfer') }}">
+                        {{ $movement->type == 'income' ? '+' : ($movement->type == 'expense' ? '-' : '') }} ${{ number_format($movement->amount, 2) }}
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
@@ -244,26 +241,22 @@
 
         <div class="summary-section">
             <div class="summary-row">
-                <span class="summary-label">Cotizaciones:</span>
-                <span class="summary-value">{{ $sales->where('document_type', 'quote')->count() }}</span>
+                <span class="summary-label">Total Ingresos:</span>
+                <span class="summary-value">${{ number_format($summary['totalIncome'], 2) }}</span>
             </div>
             <div class="summary-row">
-                <span class="summary-label">Notas de Venta:</span>
-                <span class="summary-value">{{ $sales->where('document_type', 'sale_note')->count() }}</span>
+                <span class="summary-label">Total Egresos:</span>
+                <span class="summary-value">${{ number_format($summary['totalExpense'], 2) }}</span>
             </div>
             <div class="summary-row">
-                <span class="summary-label">Facturas:</span>
-                <span class="summary-value">{{ $sales->where('document_type', 'invoice')->count() }}</span>
-            </div>
-            <div class="summary-row">
-                <span class="summary-label">Pagadas:</span>
-                <span class="summary-value">{{ $sales->where('payment_status', 'paid')->count() }}</span>
+                <span class="summary-label">Balance:</span>
+                <span class="summary-value">${{ number_format($summary['balance'], 2) }}</span>
             </div>
         </div>
 
         <div class="total-section">
-            <div class="label">Total General</div>
-            <p class="amount">${{ number_format($sales->sum('total'), 2) }}</p>
+            <div class="label">Balance General</div>
+            <p class="amount">${{ number_format($summary['balance'], 2) }}</p>
         </div>
 
         <div class="footer">
