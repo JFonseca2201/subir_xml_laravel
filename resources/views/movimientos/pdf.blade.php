@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -182,6 +183,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -199,42 +201,46 @@
                     <th>Tipo</th>
                     <th>Descripción</th>
                     <th>Cuenta</th>
-                    <th>Monto</th>
+                    <th style="inline-block; width: 75px;">Monto</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($movements as $movement)
-                <tr>
-                    <td>{{ \Carbon\Carbon::parse($movement->entry_date)->format('d/m/Y') }}</td>
-                    <td>
-                        @if($movement->type == 'income')
-                            <span class="badge badge-income">Ingreso</span>
-                        @elseif($movement->type == 'expense')
-                            <span class="badge badge-expense">Egreso</span>
-                        @else
-                            <span class="badge badge-transfer">{{ $movement->type }}</span>
-                        @endif
-                    </td>
-                    <td>{{ $movement->description ?? $movement->movable?->descripcion ?? 'N/A' }}</td>
-                    <td>
-                        @if($movement->type == 'transfer')
-                            @if(isset($movement->metadata['from_account_name']) && isset($movement->metadata['to_account_name']))
-                                {{ $movement->metadata['from_account_name'] }} -> {{ $movement->metadata['to_account_name'] }}
-                            @elseif(isset($movement->metadata['from_account_name']))
-                                {{ $movement->metadata['from_account_name'] }} -> Externo
-                            @elseif(isset($movement->metadata['to_account_name']))
-                                Externo '->' {{ $movement->metadata['to_account_name'] }}
+                @foreach ($movements as $movement)
+                    <tr>
+                        <td>{{ \Carbon\Carbon::parse($movement->entry_date)->format('d/m/Y') }}</td>
+                        <td>
+                            @if ($movement->type == 'income')
+                                <span class="badge badge-income">Ingreso</span>
+                            @elseif($movement->type == 'expense')
+                                <span class="badge badge-expense">Egreso</span>
                             @else
-                                {{ $movement->metadata['from_account'] ?? 'N/A' }} → {{ $movement->metadata['to_account'] ?? 'N/A' }}
+                                <span class="badge badge-transfer">{{ $movement->type }}</span>
                             @endif
-                        @else
-                            {{ $movement->account ? $movement->account->name : 'N/A' }}
-                        @endif
-                    </td>
-                    <td class="{{ $movement->type == 'income' ? 'amount-income' : ($movement->type == 'expense' ? 'amount-expense' : 'amount-transfer') }}">
-                        {{ $movement->type == 'income' ? '+' : ($movement->type == 'expense' ? '-' : '') }} ${{ number_format($movement->amount, 2) }}
-                    </td>
-                </tr>
+                        </td>
+                        <td>{{ $movement->description ?? ($movement->movable?->descripcion ?? 'N/A') }}</td>
+                        <td>
+                            @if ($movement->type == 'transfer')
+                                @if (isset($movement->metadata['from_account_name']) && isset($movement->metadata['to_account_name']))
+                                    {{ $movement->metadata['from_account_name'] }} ->
+                                    {{ $movement->metadata['to_account_name'] }}
+                                @elseif(isset($movement->metadata['from_account_name']))
+                                    {{ $movement->metadata['from_account_name'] }} -> Externo
+                                @elseif(isset($movement->metadata['to_account_name']))
+                                    Externo '->' {{ $movement->metadata['to_account_name'] }}
+                                @else
+                                    {{ $movement->metadata['from_account'] ?? 'N/A' }} →
+                                    {{ $movement->metadata['to_account'] ?? 'N/A' }}
+                                @endif
+                            @else
+                                {{ $movement->account ? $movement->account->name : 'N/A' }}
+                            @endif
+                        </td>
+                        <td
+                            class="{{ $movement->type == 'income' ? 'amount-income' : ($movement->type == 'expense' ? 'amount-expense' : 'amount-transfer') }}">
+                            {{ $movement->type == 'income' ? '+' : ($movement->type == 'expense' ? '-' : '') }}
+                            ${{ number_format($movement->amount, 2) }}
+                        </td>
+                    </tr>
                 @endforeach
             </tbody>
         </table>
@@ -264,4 +270,5 @@
         </div>
     </div>
 </body>
+
 </html>
