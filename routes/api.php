@@ -155,6 +155,8 @@ Route::group(
 
         // ============= RUTAS DE SALES ==========
         Route::resource('sales', SaleController::class);
+        Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
+        Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);

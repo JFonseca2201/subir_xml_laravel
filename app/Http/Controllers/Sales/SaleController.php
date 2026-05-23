@@ -316,7 +316,6 @@ class SaleController extends Controller
     public function generatePDF(Request $request)
     {
         try {
-            // HOLA MUNDO PILASS GENERACION DE PDF GENERAL DE VENTAS CON LOS FILTROS APLICADOS
             // Aplicar los mismos filtros que en index
             $query = Sale::with(['client', 'vehicle', 'user', 'details']);
 
@@ -359,12 +358,9 @@ class SaleController extends Controller
                 ->orderBy('id', 'desc')
                 ->get();
 
-            // Generar PDF usando DOMPDF o similar
-            // Por ahora, retornamos una respuesta simple indicando que se necesita instalar la librería
-            return response()->json([
-                'success' => false,
-                'message' => 'Para generar PDF'
-            ], 501);
+            // Generar PDF
+            $pdf = Pdf::loadView('sales.pdf_list', compact('sales'));
+            return $pdf->download('ventas_' . date('Y-m-d_H-i-s') . '.pdf');
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -693,6 +689,184 @@ class SaleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar la venta.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Dispatch sale - Create sale with pending payment (warehouse output)
+     */
+    public function dispatchSale(Request $request)
+    {
+        $request->validate([
+            'document_number' => 'required|string|unique:sales,document_number',
+            'client_id'       => 'required|exists:clients,id',
+            'vehicle_id'      => 'nullable|exists:vehicles,id',
+            'mileage'         => 'nullable|integer',
+            'service_date'    => 'nullable|date',
+            'subtotal'        => 'required|numeric',
+            'tax_amount'      => 'required|numeric',
+            'total'           => 'required|numeric',
+            'observations'    => 'nullable|string',
+            'items'           => 'required|array|min:1',
+            'items.*.description' => 'required|string',
+            'items.*.quantity'    => 'required|integer|min:1',
+            'items.*.price'       => 'required|numeric',
+            'items.*.discount'    => 'required|numeric',
+            'items.*.product_id'  => 'nullable|exists:products,id',
+        ]);
+
+        try {
+            // Validar stock antes de procesar el despacho
+            foreach ($request->items as $item) {
+                if (isset($item['product_id']) && $item['product_id']) {
+                    $product = ModelsProduct::find($item['product_id']);
+                    if ($product && $product->stock < $item['quantity']) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
+                            'error' => 'stock_insufficient'
+                        ], 400);
+                    }
+                }
+            }
+
+            // Validar descuentos máximos
+            foreach ($request->items as $item) {
+                if (isset($item['product_id']) && $item['product_id']) {
+                    $product = ModelsProduct::find($item['product_id']);
+                    if ($product && $product->max_discount !== null) {
+                        $maxDiscountAmount = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
+                        if ($item['discount'] > $maxDiscountAmount) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$item['discount']}",
+                                'error' => 'discount_exceeded'
+                            ], 400);
+                        }
+                    }
+                }
+            }
+
+            $sale = DB::transaction(function () use ($request) {
+                // Crear la venta con pago pendiente
+                $sale = Sale::create([
+                    'document_type'   => 'sale_note',
+                    'document_number' => $request->document_number,
+                    'client_id'       => $request->client_id,
+                    'vehicle_id'      => $request->vehicle_id,
+                    'user_id'         => $request->user_id,
+                    'mileage'         => $request->mileage,
+                    'service_date'    => $request->service_date ?? now()->format('Y-m-d'),
+                    'subtotal'        => $request->subtotal,
+                    'tax_amount'      => $request->tax_amount,
+                    'total'           => $request->total,
+                    'status'          => 'completed',
+                    'payment_status'  => 'pending',
+                    'is_credited'     => true,
+                    'payment_method'  => null,
+                    'observations'    => $request->observations,
+                ]);
+
+                // Registrar cada producto/servicio del detalle
+                foreach ($request->items as $item) {
+                    $sale->details()->create([
+                        'product_id'  => $item['product_id'] ?? null,
+                        'description' => $item['description'],
+                        'quantity'    => $item['quantity'],
+                        'price'       => $item['price'],
+                        'discount'    => $item['discount'] ?? 0.00,
+                        'total'       => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
+                    ]);
+
+                    // Deducir stock
+                    if (isset($item['product_id']) && $item['product_id']) {
+                        $product = ModelsProduct::find($item['product_id']);
+                        if ($product) {
+                            $product->stock -= $item['quantity'];
+                            $product->save();
+                        }
+                    }
+                }
+
+                return $sale;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Venta despachada correctamente con pago pendiente.',
+                'data'    => $sale->load('details')
+            ], 201);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al despachar la venta.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Register payment for a pending sale
+     */
+    public function registerPayment(Request $request, int $id)
+    {
+        $request->validate([
+            'payment_method' => 'required|string',
+            'convert_to_invoice' => 'nullable|boolean',
+        ]);
+
+        try {
+            $sale = Sale::with(['details', 'financeRecord.paymentDistributions'])->find($id);
+
+            if (!$sale) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La venta no existe.'
+                ], 404);
+            }
+
+            if ($sale->payment_status === 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta venta ya está pagada.'
+                ], 400);
+            }
+
+            if ($sale->payment_status !== 'pending') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo se puede registrar pago para ventas con estado pendiente.'
+                ], 400);
+            }
+
+            DB::transaction(function () use ($sale, $request) {
+                // Actualizar estado de pago y método
+                $sale->update([
+                    'payment_status' => 'paid',
+                    'payment_method' => $request->payment_method,
+                    'status' => 'completed',
+                ]);
+
+                // Convertir a factura si se solicita
+                if ($request->convert_to_invoice && $sale->document_type === 'sale_note') {
+                    $sale->update(['document_type' => 'invoice']);
+                }
+
+                // Procesar registro financiero
+                $this->processFinancialRecord($sale, $request);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pago registrado correctamente.',
+                'data'    => $sale->load('details')
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar el pago.',
                 'error'   => $e->getMessage()
             ], 500);
         }
