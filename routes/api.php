@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\InternalTransferController;
 use App\Http\Controllers\Api\PartnerContributionController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\TransferController;
+use App\Http\Controllers\Api\WorkOrderController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\ClientController;
 use App\Http\Controllers\Config\ProductCategorieController;
@@ -158,6 +159,11 @@ Route::group(
         Route::resource('sales', SaleController::class);
         Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
+
+        // ============= RUTAS DE ÓRDENES DE TRABAJO ==========
+        Route::resource('work-orders', WorkOrderController::class);
+        Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
+        Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);

@@ -93,6 +93,7 @@ class SaleController extends Controller
             'document_number' => 'required|string|unique:sales,document_number',
             'client_id'       => 'required|exists:clients,id',
             'vehicle_id'      => 'nullable|exists:vehicles,id',
+            'work_order_id'   => 'nullable|exists:work_orders,id',
             'mileage'         => 'nullable|integer',
             'service_date'    => 'nullable|date',
             'subtotal'        => 'required|numeric',
@@ -156,6 +157,7 @@ class SaleController extends Controller
                     'document_number' => $request->document_number,
                     'client_id'       => $request->client_id,
                     'vehicle_id'      => $request->vehicle_id,
+                    'work_order_id'   => $request->work_order_id,
                     'user_id'         => $request->user_id,
                     'mileage'         => $request->mileage,
                     'service_date'    => $request->service_date ?? now()->format('Y-m-d'),
@@ -283,8 +285,7 @@ class SaleController extends Controller
             ]);
 
             // Actualizar el saldo de la cuenta
-
-            $account = Account::where($accountId)->first();
+            $account = Account::find($accountId);
             if ($account) {
                 $account->updateBalance($request->total, FinanceRecord::TYPE_INCOME);
             }

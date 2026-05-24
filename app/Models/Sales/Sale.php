@@ -16,6 +16,7 @@ class Sale extends Model
         'document_number',
         'client_id',
         'vehicle_id',
+        'work_order_id',
         'mileage',
         'service_date',
         'subtotal',
@@ -74,5 +75,13 @@ class Sale extends Model
     public function financeRecord()
     {
         return $this->hasOne(\App\Models\FinanceRecord::class, 'invoice_number', 'document_number');
+    }
+
+    /**
+     * Una venta puede pertenecer a una orden de trabajo.
+     */
+    public function workOrder()
+    {
+        return $this->belongsTo(\App\Models\WorkOrder::class, 'work_order_id');
     }
 }
