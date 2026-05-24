@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkOrder;
+use App\Models\Product\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class WorkOrderController extends Controller
 {
@@ -38,6 +40,42 @@ class WorkOrderController extends Controller
         $nextNumber = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
         $validated['number'] = 'OT-' . $nextNumber;
         $validated['status'] = 'received';
+
+        // Validar stock antes de crear la orden de trabajo
+        if (isset($validated['items']) && is_array($validated['items'])) {
+            foreach ($validated['items'] as $item) {
+                if (isset($item['product_id']) && $item['product_id']) {
+                    $product = Product::find($item['product_id']);
+                    if ($product && $product->stock < $item['quantity']) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
+                            'error' => 'stock_insufficient'
+                        ], 400);
+                    }
+                }
+            }
+        }
+
+        // Validar descuentos máximos
+        if (isset($validated['items']) && is_array($validated['items'])) {
+            foreach ($validated['items'] as $item) {
+                if (isset($item['product_id']) && $item['product_id']) {
+                    $product = Product::find($item['product_id']);
+                    if ($product && $product->max_discount !== null) {
+                        $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
+                        $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
+                        if ($itemDiscount > $maxDiscountAmount) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$itemDiscount}",
+                                'error' => 'discount_exceeded'
+                            ], 400);
+                        }
+                    }
+                }
+            }
+        }
 
         $workOrder = WorkOrder::create($validated);
 
@@ -96,7 +134,7 @@ class WorkOrderController extends Controller
     /**
      * Display the specified work order.
      */
-    public function show($id): JsonResponse
+    public function show(int $id): JsonResponse
     {
         $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'technicians', 'items'])
             ->findOrFail($id);
@@ -138,5 +176,38 @@ class WorkOrderController extends Controller
         return response()->json([
             'data' => $readyOrders
         ]);
+    }
+
+    /**
+     * Generate PDF for a work order.
+     */
+    public function generatePDF(int $id)
+    {
+        $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'technicians', 'items', 'sale'])
+            ->findOrFail($id);
+
+        // Verificar que la orden de trabajo tenga una venta asociada
+        if (!$workOrder->sale) {
+            return response()->json([
+                'message' => 'La orden de trabajo no tiene una venta asociada'
+            ], 400);
+        }
+
+        // Calcular totales
+        $grossSubtotal = $workOrder->items->sum(function ($item) {
+            return $item->quantity * $item->unit_price;
+        });
+        $totalDiscount = $workOrder->items->sum('discount');
+        $total = $grossSubtotal - $totalDiscount;
+
+        $data = [
+            'workOrder' => $workOrder,
+            'grossSubtotal' => $grossSubtotal,
+            'totalDiscount' => $totalDiscount,
+            'total' => $total,
+        ];
+
+        $pdf = Pdf::loadView('work-orders.pdf', $data);
+        return $pdf->download('orden-trabajo-' . $workOrder->number . '.pdf');
     }
 }

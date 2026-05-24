@@ -164,6 +164,7 @@ Route::group(
         Route::resource('work-orders', WorkOrderController::class);
         Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);
+        Route::get('work-orders/{id}/pdf', [WorkOrderController::class, 'generatePDF']);
     },
 );
 Route::get('products-excel', [ProductController::class, 'download_excel']);
