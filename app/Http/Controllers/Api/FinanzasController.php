@@ -8,6 +8,7 @@ use App\Models\Account;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class FinanzasController extends Controller
 {
@@ -48,10 +49,13 @@ class FinanzasController extends Controller
     public function generatePDF(Request $request)
     {
         try {
+            // Obtener todos los movimientos sin límite
             $movements = FinancialMovement::with(['movable', 'account'])
                 ->orderBy('entry_date', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get();
+
+            Log::info('Total movements for PDF: ' . $movements->count());
 
             // Cargar nombres de cuentas para transferencias
             $allAccounts = Account::all()->keyBy('id');
@@ -95,14 +99,16 @@ class FinanzasController extends Controller
                 }
             }
 
+            // Calcular resumen general de todos los movimientos
             $summary = [
-                'totalIncome' => (float) FinancialMovement::where('type', 'income')->sum('amount'),
-                'totalExpense' => (float) FinancialMovement::where('type', 'expense')->sum('amount'),
-                'balance' => (float) FinancialMovement::where('type', 'income')->sum('amount') -
-                            FinancialMovement::where('type', 'expense')->sum('amount'),
+                'totalIncome' => (float) $movements->where('type', 'income')->sum('amount'),
+                'totalExpense' => (float) $movements->where('type', 'expense')->sum('amount'),
+                'balance' => (float) $movements->where('type', 'income')->sum('amount') -
+                            $movements->where('type', 'expense')->sum('amount'),
                 'totalCount' => $movements->count()
             ];
 
+            // Generar un solo PDF con todos los movimientos
             $pdf = Pdf::loadView('movimientos.pdf', [
                 'movements' => $movements,
                 'summary' => $summary

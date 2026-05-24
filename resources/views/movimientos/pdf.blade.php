@@ -119,6 +119,8 @@
         }
 
         .summary-section {
+
+
             margin-top: 20px;
             padding: 15px 0;
             border-top: 1px solid #eee;
@@ -163,17 +165,17 @@
 
         .amount-income {
             font-weight: bold;
-            color: #2e7d32;
+            color: #1e55a7;
         }
 
         .amount-expense {
             font-weight: bold;
-            color: #c62828;
+            color: #f10d0dce;
         }
 
         .amount-transfer {
             font-weight: bold;
-            color: #f9a825;
+            color: #ffae2cec;
         }
 
         @media print {
@@ -206,64 +208,65 @@
             </thead>
             <tbody>
                 @foreach ($movements as $movement)
-                    <tr>
-                        <td>{{ \Carbon\Carbon::parse($movement->entry_date)->format('d/m/Y') }}</td>
-                        <td>
-                            @if ($movement->type == 'income')
-                                <span class="badge badge-income">Ingreso</span>
-                            @elseif($movement->type == 'expense')
-                                <span class="badge badge-expense">Egreso</span>
-                            @else
-                                <span class="badge badge-transfer">{{ $movement->type }}</span>
-                            @endif
-                        </td>
-                        <td>{{ $movement->description ?? ($movement->movable?->descripcion ?? 'N/A') }}</td>
-                        <td>
-                            @if ($movement->type == 'transfer')
-                                @if (isset($movement->metadata['from_account_name']) && isset($movement->metadata['to_account_name']))
-                                    {{ $movement->metadata['from_account_name'] }} ->
-                                    {{ $movement->metadata['to_account_name'] }}
-                                @elseif(isset($movement->metadata['from_account_name']))
-                                    {{ $movement->metadata['from_account_name'] }} -> Externo
-                                @elseif(isset($movement->metadata['to_account_name']))
-                                    Externo -> {{ $movement->metadata['to_account_name'] }}
-                                @else
-                                    {{ $movement->metadata['from_account'] ?? 'N/A' }} →
-                                    {{ $movement->metadata['to_account'] ?? 'N/A' }}
-                                @endif
-                            @else
-                                {{ $movement->account ? $movement->account->name : 'N/A' }}
-                            @endif
-                        </td>
-                        <td
-                            class="{{ $movement->type == 'income' ? 'amount-income' : ($movement->type == 'expense' ? 'amount-expense' : 'amount-transfer') }}">
-                            {{ $movement->type == 'income' ? '+' : ($movement->type == 'expense' ? '-' : '') }}
-                            ${{ number_format($movement->amount, 2) }}
-                        </td>
-                    </tr>
+                <tr>
+                    <td>{{ \Carbon\Carbon::parse($movement->entry_date)->format('d/m/Y') }}</td>
+                    <td>
+                        @if ($movement->type == 'income')
+                        <span class="badge badge-income">Ingreso</span>
+                        @elseif($movement->type == 'expense')
+                        <span class="badge badge-expense">Egreso</span>
+                        @else
+                        <span class="badge badge-transfer">{{ $movement->type }}</span>
+                        @endif
+                    </td>
+                    <td>{{ $movement->description ?? ($movement->movable?->descripcion ?? 'N/A') }}</td>
+                    <td>
+                        @if ($movement->type == 'transfer')
+                        @if (isset($movement->metadata['from_account_name']) && isset($movement->metadata['to_account_name']))
+                        {{ $movement->metadata['from_account_name'] }} ->
+                        {{ $movement->metadata['to_account_name'] }}
+                        @elseif(isset($movement->metadata['from_account_name']))
+                        {{ $movement->metadata['from_account_name'] }} -> Externo
+                        @elseif(isset($movement->metadata['to_account_name']))
+                        Externo -> {{ $movement->metadata['to_account_name'] }}
+                        @else
+                        {{ $movement->metadata['from_account'] ?? 'N/A' }} →
+                        {{ $movement->metadata['to_account'] ?? 'N/A' }}
+                        @endif
+                        @else
+                        {{ $movement->account ? $movement->account->name : 'N/A' }}
+                        @endif
+                    </td>
+                    <td
+                        class="{{ $movement->type == 'income' ? 'amount-income' : ($movement->type == 'expense' ? 'amount-expense' : 'amount-transfer') }}">
+                        {{ $movement->type == 'income' ? '+' : ($movement->type == 'expense' ? '-' : '') }}
+                        ${{ number_format($movement->amount, 2) }}
+                    </td>
+                </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <div class="summary-section">
-            <div class="summary-row">
-                <span class="summary-label">Total Ingresos:</span>
-                <span class="summary-value">${{ number_format($summary['totalIncome'], 2) }}</span>
-            </div>
-            <div class="summary-row">
-                <span class="summary-label">Total Egresos:</span>
-                <span class="summary-value">${{ number_format($summary['totalExpense'], 2) }}</span>
-            </div>
-            <div class="summary-row">
-                <span class="summary-label">Balance:</span>
-                <span class="summary-value">${{ number_format($summary['balance'], 2) }}</span>
-            </div>
-        </div>
-
-        <div class="total-section">
-            <div class="label">Balance General</div>
-            <p class="amount">${{ number_format($summary['balance'], 2) }}</p>
-        </div>
+        <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
+            <tr>
+                <td style="width: 50%; vertical-align: top; padding-right: 20px;">
+                    <div class="summary-row">
+                        <span class="summary-label">Total Ingresos:</span>
+                        <span class="summary-value">${{ number_format($summary['totalIncome'], 2) }}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Total Egresos:</span>
+                        <span class="summary-value">${{ number_format($summary['totalExpense'], 2) }}</span>
+                    </div>
+                </td>
+                <td style="width: 50%; vertical-align: top; padding-left: 20px;">
+                    <div class="total-section">
+                        <div class="label">Balance General</div>
+                        <p class="amount">${{ number_format($summary['balance'], 2) }}</p>
+                    </div>
+                </td>
+            </tr>
+        </table>
 
         <div class="footer">
             <p>Sistema de Gestión © {{ date('Y') }} | Generado automáticamente</p>

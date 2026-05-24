@@ -20,17 +20,15 @@ trait RecordsFinancialMovements
      */
     public function registerMovement($accountId, $type, $amount, $description, $entryDate, $metadata = [])
     {
-        return $this->financialMovement()->updateOrCreate(
-            // Aquí el error P1014 debería desaparecer con el @property int $id arriba
-            ['movable_id' => $this->id, 'movable_type' => get_class($this)],
-            [
-                'account_id'  => $accountId,
-                'type'        => $type,
-                'amount'      => $amount,
-                'description' => $description,
-                'entry_date'  => $entryDate,
-                'metadata'    => $metadata,
-            ]
-        );
+        return FinancialMovement::create([
+            'movable_id' => $this->id,
+            'movable_type' => get_class($this),
+            'account_id'  => $accountId,
+            'type'        => $type,
+            'amount'      => $amount,
+            'description' => $description,
+            'entry_date'  => $entryDate,
+            'metadata'    => $metadata,
+        ]);
     }
 }
