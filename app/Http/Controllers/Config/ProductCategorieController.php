@@ -50,8 +50,7 @@ class ProductCategorieController extends Controller
             $request->request->add(['imagen' => $path]);
         }
 
-        $maxId = ProductCategorie::max('id') ?? 0;
-        DB::statement('ALTER TABLE product_categories AUTO_INCREMENT = ' . ($maxId + 1));
+
 
         $categorie = ProductCategorie::create($request->all());
 

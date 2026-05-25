@@ -85,9 +85,7 @@ class SupplierController extends Controller
             $data['name'] = strtoupper(trim($data['name']));
             $data['address'] = isset($data['address']) ? strtoupper(trim($data['address'])) : null;
 
-            // Ajustar autoincrement al último ID + 1
-            $maxId = Supplier::max('id') ?? 0;
-            DB::statement('ALTER TABLE suppliers AUTO_INCREMENT = ' . ($maxId + 1));
+
 
             $supplier = Supplier::create($data);
 

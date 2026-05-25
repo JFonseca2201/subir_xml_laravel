@@ -82,10 +82,10 @@ class ClientController extends Controller
             'gender' => 'nullable|string|max:10',
             'ubigeo_region' => 'nullable|string|max:10',
             'ubigeo_provincia' => 'nullable|string|max:10',
-            'ubigeo_ciudad' => 'nullable|string|max:10',
+            'ubigeo_distrito' => 'nullable|string|max:10',
             'region' => 'nullable|string|max:100',
             'provincia' => 'nullable|string|max:100',
-            'ciudad' => 'nullable|string|max:100',
+            'distrito' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:500',
         ]);
 
@@ -97,8 +97,6 @@ class ClientController extends Controller
             ], 422);
         }
 
-        $maxId = Client::max('id') ?? 0;
-        DB::statement('ALTER TABLE clients AUTO_INCREMENT = ' . ($maxId + 1));
 
         // Procesar según el tipo de cliente
         $typeClient = $request->get('type_client');
@@ -131,10 +129,10 @@ class ClientController extends Controller
             'gender' => $request->get('gender'),
             'ubigeo_region' => $request->get('ubigeo_region'),
             'ubigeo_provincia' => $request->get('ubigeo_provincia'),
-            'ubigeo_ciudad' => $request->get('ubigeo_ciudad'),
+            'ubigeo_distrito' => $request->get('ubigeo_distrito'),
             'region' => $request->get('region'),
             'provincia' => $request->get('provincia'),
-            'ciudad' => $request->get('ciudad'),
+            'distrito' => $request->get('distrito'),
             'address' => $request->get('address'),
         ]);
 
@@ -195,10 +193,10 @@ class ClientController extends Controller
             'gender' => 'nullable|string|max:10',
             'ubigeo_region' => 'nullable|string|max:10',
             'ubigeo_provincia' => 'nullable|string|max:10',
-            'ubigeo_ciudad' => 'nullable|string|max:10',
+            'ubigeo_distrito' => 'nullable|string|max:10',
             'region' => 'nullable|string|max:100',
             'provincia' => 'nullable|string|max:100',
-            'ciudad' => 'nullable|string|max:100',
+            'distrito' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:500',
         ]);
 
@@ -226,10 +224,10 @@ class ClientController extends Controller
             'gender' => $request->get('gender'),
             'ubigeo_region' => $request->get('ubigeo_region'),
             'ubigeo_provincia' => $request->get('ubigeo_provincia'),
-            'ubigeo_ciudad' => $request->get('ubigeo_ciudad'),
+            'ubigeo_distrito' => $request->get('ubigeo_distrito'),
             'region' => $request->get('region'),
             'provincia' => $request->get('provincia'),
-            'ciudad' => $request->get('ciudad'),
+            'distrito' => $request->get('distrito'),
             'address' => $request->get('address'),
         ]);
 

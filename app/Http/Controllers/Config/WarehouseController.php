@@ -59,8 +59,7 @@ class WarehouseController extends Controller
     {
         try {
 
-            $maxId = Warehouse::max('id') ?? 0;
-            DB::statement('ALTER TABLE warehouses AUTO_INCREMENT = ' . ($maxId + 1));
+
 
             $request->validate([
                 'name' => 'required|string|unique:warehouses,name|max:255',

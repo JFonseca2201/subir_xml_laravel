@@ -99,8 +99,7 @@ class UserController extends Controller
                 ],
             );
 
-            $maxId = User::max('id') ?? 0;
-            DB::statement('ALTER TABLE users AUTO_INCREMENT = ' . ($maxId + 1));
+
 
             if ($validator->fails()) {
                 return response()->json(

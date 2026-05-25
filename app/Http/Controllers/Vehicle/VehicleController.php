@@ -65,8 +65,7 @@ class VehicleController extends Controller
         // Si en tu config las marcas son ID => Nombre, validamos contra los IDs
         $allowedBrands = array_keys(config('vehicle_brands', []));
 
-        $maxId = Vehicle::max('id') ?? 0;
-        DB::statement('ALTER TABLE vehicles AUTO_INCREMENT = ' . ($maxId + 1));
+
 
         // 2. Validación Robusta
         $validator = Validator::make($request->all(), [

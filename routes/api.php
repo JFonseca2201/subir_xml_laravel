@@ -26,6 +26,7 @@ use App\Http\Controllers\Roles\RoleController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
+use App\Http\Controllers\Api\GeographicController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(
@@ -101,6 +102,11 @@ Route::group(
         // ============= RUTAS DE CLIENTES ==============
         Route::resource('clients', ClientController::class);
 
+        // ============= RUTAS GEOGRÁFICAS ==============
+        Route::get('geographic/regions', [GeographicController::class, 'getRegions']);
+        Route::get('geographic/provinces/{regionId}', [GeographicController::class, 'getProvinces']);
+        Route::get('geographic/cities/{provinceId}', [GeographicController::class, 'getCities']);
+
         // ============= RUTAS DE VEHÍCULOS ==============
         Route::resource('vehicles', VehicleController::class);
         Route::get('vehicle-types', [VehicleController::class, 'getVehicleTypes']);
@@ -165,9 +171,9 @@ Route::group(
         Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);
         Route::get('work-orders/{id}/pdf', [WorkOrderController::class, 'generatePDF']);
+        Route::get('products-excel', [ProductController::class, 'download_excel']);
+        Route::post('products/import-excel', [ProductController::class, 'import_excel']);
+        Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
+        Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
     },
 );
-Route::get('products-excel', [ProductController::class, 'download_excel']);
-Route::post('products/import-excel', [ProductController::class, 'import_excel']);
-Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
-Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);

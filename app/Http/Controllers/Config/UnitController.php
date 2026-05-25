@@ -67,9 +67,7 @@ class UnitController extends Controller
                 ], 403);
             }
 
-            // Controlar el autoincrementable
-            $maxId = Unit::max('id') ?? 0;
-            DB::statement('ALTER TABLE units AUTO_INCREMENT = ' . ($maxId + 1));
+
 
             $unit = Unit::create($request->all());
 

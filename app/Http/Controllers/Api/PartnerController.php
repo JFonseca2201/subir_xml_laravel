@@ -29,8 +29,7 @@ class PartnerController extends Controller
 
     public function store(Request $request)
     {
-        $maxId = Partner::max('id') ?? 0;
-        DB::statement('ALTER TABLE partners AUTO_INCREMENT = '.($maxId + 1));
+
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
