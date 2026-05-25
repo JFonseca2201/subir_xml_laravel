@@ -73,15 +73,6 @@ class Account extends Model
         $amount = (float) $amount;
         $type = (int) $type;
 
-        \Log::info('Account updateBalance called:', [
-            'account_id' => $this->id,
-            'account_name' => $this->name,
-            'amount' => $amount,
-            'type' => $type,
-            'current_saldo_actual' => $this->saldo_actual,
-            'current_dynamic_balance' => $this->current_balance
-        ]);
-
         if ($type === 0) {
             // Income: add to balance
             $this->saldo_actual += $amount;
@@ -90,8 +81,6 @@ class Account extends Model
             $this->saldo_actual -= $amount;
         }
 
-        \Log::info('Before save - new saldo_actual:', ['saldo_actual' => $this->saldo_actual]);
         $this->save();
-        \Log::info('After save - saldo_actual in DB:', ['saldo_actual' => $this->fresh()->saldo_actual]);
     }
 }

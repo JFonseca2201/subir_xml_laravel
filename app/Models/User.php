@@ -13,6 +13,7 @@ use Spatie\Permission\Traits\HasRoles;
 use App\Models\Config\Sucursale;
 
 class User extends Authenticatable implements JWTSubject
+
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
@@ -97,22 +98,22 @@ class User extends Authenticatable implements JWTSubject
 
     public function role()
     {
-        return $this->belongsTo(Role::class, 'role_id');
+        return $this->belongsTo(Role::class , 'role_id');
     }
 
     public function sucursale()
     {
-        return $this->belongsTo(Sucursale::class, 'sucursale_id');
+        return $this->belongsTo(Sucursale::class , 'sucursale_id');
     }
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class, 'customer_id');
+        return $this->hasMany(Invoice::class , 'customer_id');
     }
 
     public function createdInvoices()
     {
-        return $this->hasMany(Invoice::class, 'created_by');
+        return $this->hasMany(Invoice::class , 'created_by');
     }
 
     public function getFullNameAttribute()

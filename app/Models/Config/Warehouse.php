@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Warehouse extends Model
+
 {
     use HasFactory, SoftDeletes;
 
@@ -37,6 +38,6 @@ class Warehouse extends Model
 
     public function sucursale()
     {
-        return $this->belongsTo(Sucursale::class, 'sucursale_id');
+        return $this->belongsTo(Sucursale::class , 'sucursale_id');
     }
 }

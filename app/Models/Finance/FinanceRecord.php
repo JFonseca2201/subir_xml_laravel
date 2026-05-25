@@ -11,6 +11,7 @@ use App\Traits\RecordsFinancialMovements;
 use Carbon\Carbon;
 
 class FinanceRecord extends Model
+
 {
     use HasFactory;
     use RecordsFinancialMovements;
@@ -67,7 +68,7 @@ class FinanceRecord extends Model
      */
     public function account(): BelongsTo
     {
-        return $this->belongsTo(Account::class, 'account_id');
+        return $this->belongsTo(Account::class , 'account_id');
     }
 
     /**
@@ -112,7 +113,8 @@ class FinanceRecord extends Model
     {
         if ($this->account_id == self::ACCOUNT_CASH) {
             $this->payment_method = 'cash';
-        } elseif (in_array($this->account_id, [self::ACCOUNT_PICHINCHA, self::ACCOUNT_GUAYAQUIL])) {
+        }
+        elseif (in_array($this->account_id, [self::ACCOUNT_PICHINCHA, self::ACCOUNT_GUAYAQUIL])) {
             $this->payment_method = 'transfer';
         }
     }
@@ -131,11 +133,11 @@ class FinanceRecord extends Model
     public function getAccountLabelAttribute(): string
     {
         return match ($this->account_id) {
-            self::ACCOUNT_CASH => 'Efectivo/Caja chica',
-            self::ACCOUNT_PICHINCHA => 'Banco Pichincha',
-            self::ACCOUNT_GUAYAQUIL => 'Banco Guayaquil',
-            default => 'Desconocida',
-        };
+                self::ACCOUNT_CASH => 'Efectivo/Caja chica',
+                self::ACCOUNT_PICHINCHA => 'Banco Pichincha',
+                self::ACCOUNT_GUAYAQUIL => 'Banco Guayaquil',
+                default => 'Desconocida',
+            };
     }
 
     /**

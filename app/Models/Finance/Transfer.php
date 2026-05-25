@@ -5,8 +5,16 @@ namespace App\Models\Finance;
 use Illuminate\Database\Eloquent\Model;
 
 class Transfer extends Model
+
 {
-    protected $fillable = ['from_account_id', 'to_account_id', 'amount', 'transfer_date', 'description'];
+
+    protected $fillable = [
+        'from_account_id',
+        'to_account_id',
+        'amount',
+        'transfer_date',
+        'description'
+    ];
 
     protected $casts = [
         'transfer_date' => 'date:Y-m-d',
@@ -30,12 +38,12 @@ class Transfer extends Model
 
     public function fromAccount()
     {
-        return $this->belongsTo(Account::class, 'from_account_id');
+        return $this->belongsTo(Account::class , 'from_account_id');
     }
 
     public function toAccount()
     {
-        return $this->belongsTo(Account::class, 'to_account_id');
+        return $this->belongsTo(Account::class , 'to_account_id');
     }
 
     public function getFormattedAmountAttribute()

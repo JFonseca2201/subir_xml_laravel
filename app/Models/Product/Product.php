@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
  * @var array<int, string>
  */
 class Product extends Model
+
 {
     use HasFactory, SoftDeletes;
 
@@ -86,7 +87,7 @@ class Product extends Model
         return $link;
     }
 
-    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id,  $disponibilidad, $is_gift)
+    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift)
     {
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -140,21 +141,21 @@ class Product extends Model
 
     public function categorie()
     {
-        return $this->belongsTo(ProductCategorie::class, 'product_categorie_id');
+        return $this->belongsTo(ProductCategorie::class , 'product_categorie_id');
     }
 
     public function unit()
     {
-        return $this->belongsTo(Unit::class, 'unit_id');
+        return $this->belongsTo(Unit::class , 'unit_id');
     }
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+        return $this->belongsTo(Warehouse::class , 'warehouse_id');
     }
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class, 'supplier_id');
+        return $this->belongsTo(Supplier::class , 'supplier_id');
     }
 }

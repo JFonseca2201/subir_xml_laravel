@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\User;
 
 class Employee extends Model
+
 {
     use SoftDeletes;
 
@@ -62,6 +63,6 @@ class Employee extends Model
     // Relación con el usuario que creó el empleado
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class , 'created_by');
     }
 }

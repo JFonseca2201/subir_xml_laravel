@@ -10,7 +10,7 @@ class Vehicle extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'user_id',      // <--- Añadido
+        'user_id', // <--- Añadido
         'license_plate',
         'brand',
         'model',
@@ -18,7 +18,7 @@ class Vehicle extends Model
         'color',
         'vehicle_type',
         'description',
-        'status',       // <--- Añadido
+        'status', // <--- Añadido
     ];
 
     protected $casts = [
@@ -31,6 +31,6 @@ class Vehicle extends Model
     // Relación para saber quién lo ingresó
     public function creator()
     {
-        return $this->belongsTo(\App\Models\User::class, 'user_id');
+        return $this->belongsTo(\App\Models\User::class , 'user_id');
     }
 }

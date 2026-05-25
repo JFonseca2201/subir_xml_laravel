@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Config\Sucursale;
 
 class Invoice extends Model
+
 {
     protected $table = 'invoices';
 
@@ -54,32 +55,32 @@ class Invoice extends Model
 
     public function items()
     {
-        return $this->hasMany(InvoiceItem::class, 'invoice_id');
+        return $this->hasMany(InvoiceItem::class , 'invoice_id');
     }
 
     public function invoice_items()
     {
-        return $this->hasMany(InvoiceItem::class, 'invoice_id');
+        return $this->hasMany(InvoiceItem::class , 'invoice_id');
     }
 
     public function customer()
     {
-        return $this->belongsTo(User::class, 'customer_id');
+        return $this->belongsTo(User::class , 'customer_id');
     }
 
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class , 'created_by');
     }
 
     public function sucursal()
     {
-        return $this->belongsTo(Sucursale::class, 'sucursal_id');
+        return $this->belongsTo(Sucursale::class , 'sucursal_id');
     }
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class, 'supplier_id');
+        return $this->belongsTo(Supplier::class , 'supplier_id');
     }
 
     public function getFormattedTotalAttribute()
@@ -105,9 +106,10 @@ class Invoice extends Model
                     ->orWhere('access_key', 'like', "%{$search}%")
                     ->orWhere('total', 'like', "%{$search}%")
                     ->orWhereHas('invoice_items', function ($itemQuery) use ($search) {
-                        $itemQuery->where('code', 'like', "%{$search}%")
-                            ->orWhere('description', 'like', "%{$search}%");
-                    });
+                    $itemQuery->where('code', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                }
+                );
             });
         }
 

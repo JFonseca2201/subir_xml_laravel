@@ -5,8 +5,18 @@ namespace App\Models\Finance;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
+
 {
-    protected $fillable = ['account_id', 'type', 'amount', 'concept', 'description', 'transaction_date', 'transactionable_type', 'transactionable_id'];
+    protected $fillable = [
+        'account_id',
+        'type',
+        'amount',
+        'concept',
+        'description',
+        'transaction_date',
+        'transactionable_type',
+        'transactionable_id'
+    ];
 
     protected $casts = [
         'transaction_date' => 'datetime:Y-m-d H:i:s',

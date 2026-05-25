@@ -6,6 +6,7 @@ use App\Models\Config\ProductCategorie;
 use Illuminate\Database\Eloquent\Model;
 
 class InvoiceItem extends Model
+
 {
     protected $table = 'invoice_items';
 
@@ -49,12 +50,12 @@ class InvoiceItem extends Model
 
     public function invoice()
     {
-        return $this->belongsTo(Invoice::class, 'invoice_id');
+        return $this->belongsTo(Invoice::class , 'invoice_id');
     }
 
     public function category()
     {
-        return $this->belongsTo(ProductCategorie::class, 'product_categorie_id');
+        return $this->belongsTo(ProductCategorie::class , 'product_categorie_id');
     }
 
     public function getFormattedUnitPriceAttribute()

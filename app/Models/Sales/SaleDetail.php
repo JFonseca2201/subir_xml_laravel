@@ -9,18 +9,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 
 class SaleDetail extends Model
+
 {
     use HasFactory;
 
     protected $table = 'sale_details';
 
     protected $fillable = [
-        'sale_id', 
-        'product_id', 
-        'description', 
-        'quantity', 
-        'price', 
-        'discount', 
+        'sale_id',
+        'product_id',
+        'description',
+        'quantity',
+        'price',
+        'discount',
         'total'
     ];
 
@@ -30,7 +31,7 @@ class SaleDetail extends Model
     public function sale(): BelongsTo
     {
         // Apuntamos al modelo maestro hermano en la misma carpeta sales
-        return $this->belongsTo(Sale::class, 'sale_id');
+        return $this->belongsTo(Sale::class , 'sale_id');
     }
 
     /**

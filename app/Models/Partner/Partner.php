@@ -5,6 +5,7 @@ namespace App\Models\Partner;
 use Illuminate\Database\Eloquent\Model;
 
 class Partner extends Model
+
 {
     protected $fillable = ['name', 'identification', 'phone', 'email', 'address'];
 

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Sucursale extends Model
+
 {
     use HasFactory;
 
@@ -50,6 +51,6 @@ class Sucursale extends Model
 
     public function users()
     {
-        return $this->hasMany(\App\Models\User::class, 'sucursale_id');
+        return $this->hasMany(\App\Models\User::class , 'sucursale_id');
     }
 }

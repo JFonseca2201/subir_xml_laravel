@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Client extends Model
+
 {
     use SoftDeletes;
 
@@ -49,11 +50,11 @@ class Client extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class , 'user_id');
     }
 
     public function sucursal()
     {
-        return $this->belongsTo(Sucursale::class, 'sucursale_id');
+        return $this->belongsTo(Sucursale::class , 'sucursale_id');
     }
 }

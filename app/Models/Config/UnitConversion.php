@@ -5,6 +5,7 @@ namespace App\Models\Config;
 use Illuminate\Database\Eloquent\Model;
 
 class UnitConversion extends Model
+
 {
     protected $fillable = [
         'unit_id',
@@ -32,11 +33,11 @@ class UnitConversion extends Model
 
     public function unit()
     {
-        return $this->belongsTo(Unit::class, 'unit_id');
+        return $this->belongsTo(Unit::class , 'unit_id');
     }
 
     public function unit_to()
     {
-        return $this->belongsTo(Unit::class, 'unit_to_id');
+        return $this->belongsTo(Unit::class , 'unit_to_id');
     }
 }

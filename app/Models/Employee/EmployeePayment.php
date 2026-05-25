@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeePayment extends Model
+
 {
     use HasFactory, SoftDeletes;
     use RecordsFinancialMovements;
@@ -55,7 +56,7 @@ class EmployeePayment extends Model
 
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class , 'created_by');
     }
 
     // Scope para filtrar por tipo

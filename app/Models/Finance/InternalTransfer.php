@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InternalTransfer extends Model
+
 {
     use HasFactory;
     use RecordsFinancialMovements;
@@ -51,12 +52,12 @@ class InternalTransfer extends Model
 
     public function sourceAccount(): BelongsTo
     {
-        return $this->belongsTo(Account::class, 'from_account_id');
+        return $this->belongsTo(Account::class , 'from_account_id');
     }
 
     public function destinationAccount(): BelongsTo
     {
-        return $this->belongsTo(Account::class, 'to_account_id');
+        return $this->belongsTo(Account::class , 'to_account_id');
     }
 
     protected static function boot()

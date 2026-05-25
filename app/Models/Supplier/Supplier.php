@@ -5,14 +5,15 @@ namespace App\Models\Supplier;
 use Illuminate\Database\Eloquent\Model;
 
 class Supplier extends Model
+
 {
     protected $table = 'suppliers';
 
     protected $fillable = [
-        'tax_id', 
-        'ruc', 
-        'supplier_id', 
-        'name', 
+        'tax_id',
+        'ruc',
+        'supplier_id',
+        'name',
         'address'
     ];
 
@@ -36,7 +37,7 @@ class Supplier extends Model
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class, 'tax_id');
+        return $this->hasMany(Invoice::class , 'tax_id');
     }
 
     public function getFormattedRucAttribute()
@@ -44,13 +45,13 @@ class Supplier extends Model
         if (!$this->ruc) {
             return null;
         }
-        
+
         // Formatear RUC ecuatoriano (13 dígitos)
         $ruc = $this->ruc;
         if (strlen($ruc) === 13) {
             return substr($ruc, 0, 2) . '-' . substr($ruc, 2, 3) . '-' . substr($ruc, 5, 3) . '-' . substr($ruc, 8);
         }
-        
+
         return $ruc;
     }
 }

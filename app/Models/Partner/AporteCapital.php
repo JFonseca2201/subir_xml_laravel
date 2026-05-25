@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Traits\RecordsFinancialMovements;
 
 class AporteCapital extends Model
+
 {
     use HasFactory, SoftDeletes;
     use RecordsFinancialMovements;
@@ -53,7 +54,7 @@ class AporteCapital extends Model
 
     public function movimientos()
     {
-        return $this->hasMany(MovimientoCuenta::class, 'referencia_id')
+        return $this->hasMany(MovimientoCuenta::class , 'referencia_id')
             ->where('referencia', 'aporte_capital');
     }
 

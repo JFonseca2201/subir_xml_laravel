@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Traits\RecordsFinancialMovements;
 
 class PaymentDistribution extends Model
+
 {
     use RecordsFinancialMovements;
 

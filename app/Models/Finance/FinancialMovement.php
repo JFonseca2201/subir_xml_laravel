@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FinancialMovement extends Model
+
 {
     protected $fillable = [
         'movable_id',
