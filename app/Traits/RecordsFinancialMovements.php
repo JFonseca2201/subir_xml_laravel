@@ -2,7 +2,7 @@
 
 namespace App\Traits;
 
-use App\Models\FinancialMovement;
+use App\Models\Finance\FinancialMovement;
 use Illuminate\Database\Eloquent\Model;
 
 trait RecordsFinancialMovements

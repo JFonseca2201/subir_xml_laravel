@@ -1,16 +1,16 @@
 <?php
 
-use App\Http\Controllers\Api\AccountController;
-use App\Http\Controllers\Api\AporteController;
-use App\Http\Controllers\Api\EmployeeExpenseController;
-use App\Http\Controllers\Api\EmployeePaymentController;
-use App\Http\Controllers\Api\FinanceRecordController;
-use App\Http\Controllers\Api\FinanzasController;
-use App\Http\Controllers\Api\InternalTransferController;
-use App\Http\Controllers\Api\PartnerContributionController;
-use App\Http\Controllers\Api\PartnerController;
-use App\Http\Controllers\Api\TransferController;
-use App\Http\Controllers\Api\WorkOrderController;
+use App\Http\Controllers\Api\Finance\AccountController;
+use App\Http\Controllers\Api\Aporte\AporteController;
+use App\Http\Controllers\Api\Employee\EmployeeExpenseController;
+use App\Http\Controllers\Api\Employee\EmployeePaymentController;
+use App\Http\Controllers\Api\Finance\FinanceRecordController;
+use App\Http\Controllers\Api\Finance\FinanzasController;
+use App\Http\Controllers\Api\Finance\InternalTransferController;
+use App\Http\Controllers\Api\Partner\PartnerContributionController;
+use App\Http\Controllers\Api\Partner\PartnerController;
+use App\Http\Controllers\Api\Finance\TransferController;
+use App\Http\Controllers\Api\WorkOrder\WorkOrderController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\ClientController;
 use App\Http\Controllers\Config\ProductCategorieController;
@@ -26,7 +26,7 @@ use App\Http\Controllers\Roles\RoleController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
-use App\Http\Controllers\Api\GeographicController;
+use App\Http\Controllers\Api\Geographic\GeographicController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(

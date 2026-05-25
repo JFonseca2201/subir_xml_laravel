@@ -5,7 +5,7 @@ namespace App\Models\Product;
 use App\Models\Config\ProductCategorie;
 use App\Models\Config\Unit;
 use App\Models\Config\Warehouse;
-use App\Models\Supplier;
+use App\Models\Supplier\Supplier;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;

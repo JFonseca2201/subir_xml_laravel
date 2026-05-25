@@ -9,7 +9,7 @@ use App\Http\Resources\Product\ProductResource;
 use App\Models\Config\ProductCategorie;
 use App\Models\Config\Unit;
 use App\Models\Config\Warehouse;
-use App\Models\Supplier;
+use App\Models\Supplier\Supplier;
 use App\Models\Product\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;

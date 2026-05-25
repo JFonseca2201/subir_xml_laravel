@@ -6,7 +6,7 @@ use App\Models\Config\ProductCategorie;
 use App\Models\Config\Unit;
 use App\Models\Config\Warehouse;
 use App\Models\Product\Product;
-use App\Models\Supplier;
+use App\Models\Supplier\Supplier;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\Importable;
 use Maatwebsite\Excel\Concerns\SkipsErrors;

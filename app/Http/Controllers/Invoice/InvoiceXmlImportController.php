@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Invoice;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoices\InvoiceCollection;
 use App\Models\Config\ProductCategorie;
-use App\Models\Invoice;
-use App\Models\InvoiceItem;
+use App\Models\Invoice\Invoice;
+use App\Models\Invoice\InvoiceItem;
 use App\Models\Product\Product;
-use App\Models\Supplier;
+use App\Models\Supplier\Supplier;
 // MODELS
 use Carbon\Carbon;
 use Illuminate\Http\Request;
