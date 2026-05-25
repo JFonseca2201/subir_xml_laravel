@@ -200,6 +200,13 @@ class WorkOrderController extends Controller
         $totalDiscount = $workOrder->items->sum('discount');
         $total = $grossSubtotal - $totalDiscount;
 
+        // Mapear el ID de la marca al nombre de la marca para el PDF
+        $vehicleBrands = config('vehicle_brands', []);
+        if ($workOrder->vehicle && isset($workOrder->vehicle->brand)) {
+            $brandId = $workOrder->vehicle->brand;
+            $workOrder->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
+        }
+
         $data = [
             'workOrder' => $workOrder,
             'grossSubtotal' => $grossSubtotal,

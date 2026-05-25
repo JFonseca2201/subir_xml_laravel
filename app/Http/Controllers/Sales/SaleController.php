@@ -358,6 +358,15 @@ class SaleController extends Controller
                 ->orderBy('id', 'desc')
                 ->get();
 
+            // Mapear el ID de la marca al nombre de la marca para el PDF
+            $vehicleBrands = config('vehicle_brands', []);
+            foreach ($sales as $sale) {
+                if ($sale->vehicle && isset($sale->vehicle->brand)) {
+                    $brandId = $sale->vehicle->brand;
+                    $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
+                }
+            }
+
             // Generar PDF
             $pdf = Pdf::loadView('sales.pdf_list', compact('sales'));
             return $pdf->download('ventas_' . date('Y-m-d_H-i-s') . '.pdf');
@@ -383,6 +392,13 @@ class SaleController extends Controller
                     'success' => false,
                     'message' => 'Venta no encontrada'
                 ], 404);
+            }
+
+            // Mapear el ID de la marca al nombre de la marca para el PDF
+            $vehicleBrands = config('vehicle_brands', []);
+            if ($sale->vehicle && isset($sale->vehicle->brand)) {
+                $brandId = $sale->vehicle->brand;
+                $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
             }
 
             $pdf = Pdf::loadView('sales.pdf', compact('sale'));
