@@ -3,6 +3,7 @@
 namespace App\Models\Invoice;
 
 use App\Models\User;
+use App\Models\Supplier\Supplier;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;

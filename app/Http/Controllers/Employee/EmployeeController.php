@@ -22,6 +22,7 @@ class EmployeeController extends Controller
             $page = $request->get('page', 1);
             $per_page = $request->get('per_page', 10);
 
+            /** @var \Illuminate\Database\Eloquent\Builder $query */
             $query = Employee::with(['creator:id,name,email']);
 
             // Filtrar por estado

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Finance\Transfer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Account\Account;
 
 class TransferController extends Controller
 {
@@ -13,8 +14,8 @@ class TransferController extends Controller
     {
         return response()->json(
             Transfer::with(['fromAccount', 'toAccount'])
-                ->latest()
-                ->paginate(10),
+            ->latest()
+            ->paginate(10),
         );
     }
 
@@ -29,8 +30,8 @@ class TransferController extends Controller
         ]);
 
         return DB::transaction(function () use ($validated) {
-            $from = \App\Models\Account::findOrFail($validated['from_account_id']);
-            $to = \App\Models\Account::findOrFail($validated['to_account_id']);
+            $from = Account::findOrFail($validated['from_account_id']);
+            $to = Account::findOrFail($validated['to_account_id']);
 
             if ($from->current_balance < $validated['amount']) {
                 return response()->json(['message' => 'Saldo insuficiente'], 422);
