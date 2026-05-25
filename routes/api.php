@@ -167,10 +167,10 @@ Route::group(
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
 
         // ============= RUTAS DE ÓRDENES DE TRABAJO ==========
-        Route::resource('work-orders', WorkOrderController::class);
-        Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);
+        Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/{id}/pdf', [WorkOrderController::class, 'generatePDF']);
+        Route::resource('work-orders', WorkOrderController::class);
         Route::get('products-excel', [ProductController::class, 'download_excel']);
         Route::post('products/import-excel', [ProductController::class, 'import_excel']);
         Route::post('sales/pdf', [SaleController::class, 'generatePDF']);

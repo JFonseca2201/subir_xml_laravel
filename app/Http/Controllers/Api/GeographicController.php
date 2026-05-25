@@ -10,11 +10,12 @@ class GeographicController extends Controller
 {
     private function getUbigeoData()
     {
-        if (!Storage::disk('local')->exists('ubigeo.json')) {
+        $path = storage_path('app/ubigeo.json');
+        if (!file_exists($path)) {
             return [];
         }
         
-        $json = Storage::disk('local')->get('ubigeo.json');
+        $json = file_get_contents($path);
         return json_decode($json, true) ?? [];
     }
 
