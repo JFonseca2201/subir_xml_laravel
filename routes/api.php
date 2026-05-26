@@ -183,5 +183,15 @@ Route::group(
         Route::post('products/import-excel', [ProductController::class, 'import_excel']);
         Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
         Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
+
+        // ============= RUTAS DE PEDIDOS A DISTRIBUIDOR ==========
+        Route::get('pedidos-distribuidor/productos/{distribuidor_id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getProductsBySupplier']);
+        Route::post('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'store']);
+        Route::get('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'index']);
+        Route::get('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'show']);
+        Route::get('pedidos-distribuidor/{id}/pdf', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'generatePDF']);
+        Route::put('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'update']);
+        Route::delete('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'destroy']);
+        Route::put('pedidos-distribuidor/{id}/status', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'updateStatus']);
     },
 );

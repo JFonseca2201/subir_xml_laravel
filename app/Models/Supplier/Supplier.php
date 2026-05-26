@@ -40,6 +40,11 @@ class Supplier extends Model
         return $this->hasMany(Invoice::class , 'tax_id');
     }
 
+    public function pedidos()
+    {
+        return $this->hasMany(PedidoDistribuidor::class, 'distribuidor_id');
+    }
+
     public function getFormattedRucAttribute()
     {
         if (!$this->ruc) {
