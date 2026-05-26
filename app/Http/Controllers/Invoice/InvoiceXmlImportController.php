@@ -340,7 +340,7 @@ class InvoiceXmlImportController extends Controller
             ]);
 
             // Obtener la factura actual
-            $invoiceModel = Invoice::find($validated['invoice']);
+            $invoiceModel = Invoice::with('supplier')->find($validated['invoice']);
             if (!$invoiceModel) {
                 return response()->json([
                     'status' => 404,
@@ -425,11 +425,12 @@ class InvoiceXmlImportController extends Controller
             $exists = \App\Models\Finance\FinanceRecord::where('invoice_number', $invoiceModel->invoice_number)->exists();
             
             if (!$exists) {
+                $supplierName = $invoiceModel->supplier ? ($invoiceModel->supplier->trade_name ?? $invoiceModel->supplier->name) : ('#' . $invoiceModel->supplier_id);
                 $financeRecord = \App\Models\Finance\FinanceRecord::create([
                     'type' => \App\Models\Finance\FinanceRecord::TYPE_EXPENSE, // 1 = Egreso
                     'amount' => $invoiceModel->total,
                     'invoice_number' => $invoiceModel->invoice_number,
-                    'description' => 'Pago por Compra XML a Proveedor #' . $invoiceModel->supplier_id,
+                    'description' => 'Pago por Compra XML a Proveedor ' . $supplierName,
                     'user_id' => auth()->id() ?? 1,
                     'entry_date' => \Carbon\Carbon::now('America/Guayaquil')->toDateString()
                 ]);

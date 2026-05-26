@@ -118,12 +118,13 @@ class PurchaseManualController extends Controller
 
             // 3. Financial Integration
             if ($request->payment_type === 'efectivo' || $request->payment_type === 'aporte') {
-                
+                $supplier = \App\Models\Supplier\Supplier::find($request->supplier_id);
+                $supplierName = $supplier ? ($supplier->trade_name ?? $supplier->name) : ('#' . $request->supplier_id);
                 $financeRecord = new FinanceRecord([
                     'type' => FinanceRecord::TYPE_EXPENSE,
                     'amount' => $request->total,
                     'invoice_number' => $request->invoice_number,
-                    'description' => 'Pago por Compra Manual a Proveedor #' . $request->supplier_id,
+                    'description' => 'Pago por Compra Manual a Proveedor ' . $supplierName,
                     'user_id' => auth()->id() ?? 1,
                 ]);
 
