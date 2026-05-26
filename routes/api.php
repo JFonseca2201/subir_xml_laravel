@@ -79,12 +79,14 @@ Route::group(
         Route::post('categories/{id}', [ProductCategorieController::class, 'update']);
         Route::resource('categories', ProductCategorieController::class);
 
-        // ============= RUTAS DE FACTURAS ==============
+        // ============= RUTAS DE FACTURAS / COMPRAS ==============
         Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
+        Route::post('purchases/manual', [\App\Http\Controllers\Purchases\PurchaseManualController::class, 'store']);
         Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
         Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
         Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
         Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'update']);
+        Route::delete('/invoices/{id}', [InvoiceXmlImportController::class, 'destroy']);
         Route::put('/invoice-items/{id}', [InvoiceXmlImportController::class, 'updateType']);
 
         // ============= RUTAS DE PARTNERS ==============

@@ -420,6 +420,49 @@ class InvoiceXmlImportController extends Controller
                 'invoice_process' => 1
             ]);
 
+            // --- REGISTRAR MOVIMIENTO FINANCIERO POR DEFECTO (CAJA CHICA/EFECTIVO) ---
+            // Solo si no existe ya un registro para evitar duplicados
+            $exists = \App\Models\Finance\FinanceRecord::where('invoice_number', $invoiceModel->invoice_number)->exists();
+            
+            if (!$exists) {
+                $financeRecord = \App\Models\Finance\FinanceRecord::create([
+                    'type' => \App\Models\Finance\FinanceRecord::TYPE_EXPENSE, // 1 = Egreso
+                    'amount' => $invoiceModel->total,
+                    'invoice_number' => $invoiceModel->invoice_number,
+                    'description' => 'Pago por Compra XML a Proveedor #' . $invoiceModel->supplier_id,
+                    'user_id' => auth()->id() ?? 1,
+                    'entry_date' => \Carbon\Carbon::now('America/Guayaquil')->toDateString()
+                ]);
+
+                $accountId = 1; // Default a Caja Efectivo
+                $distribution = \App\Models\Finance\PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $accountId,
+                    'amount' => $invoiceModel->total,
+                    'payment_method' => 'cash',
+                ]);
+
+                // Registrar el movimiento en el Dashboard
+                $distribution->registerMovement(
+                    $accountId,
+                    'expense',
+                    $invoiceModel->total,
+                    $financeRecord->description,
+                    $financeRecord->entry_date,
+                    [
+                        'finance_record_id' => $financeRecord->id,
+                        'record_type' => 1,
+                        'invoice' => $financeRecord->invoice_number,
+                    ]
+                );
+
+                // Descontar saldo de la cuenta
+                $account = \App\Models\Finance\Account::find($accountId);
+                if ($account) {
+                    $account->updateBalance($invoiceModel->total, 1);
+                }
+            }
+
             return response()->json([
                 'message' => $processedCount . ' producto(s) procesado(s) correctamente',
                 'status' => 200,
@@ -440,5 +483,92 @@ class InvoiceXmlImportController extends Controller
                 'error' => $th->getMessage(),
             ], 500);
         }
+    }
+    public function destroy($id)
+    {
+        return DB::transaction(function () use ($id) {
+            try {
+                $invoice = Invoice::findOrFail($id);
+
+                // 1. Revertir inventario si la factura fue procesada
+                if ($invoice->invoice_process === 1) {
+                    $invoiceItems = InvoiceItem::where('invoice_id', $invoice->id)->get();
+                    foreach ($invoiceItems as $item) {
+                        if ((int) $item->item_type === 1) { // 1 = Producto físico
+                            $product = Product::where('sku', $item->code)
+                                ->orWhere('description', $item->description)
+                                ->first();
+
+                            if ($product) {
+                                // Revertir stock
+                                $product->stock = max(0, $product->stock - $item->quantity);
+                                $product->save();
+                            }
+                        }
+                    }
+                }
+
+                // 2. Revertir Cuentas por Pagar (Compras a Crédito)
+                $accountPayable = \App\Models\Finance\AccountPayable::where('invoice_id', $invoice->id)->first();
+                if ($accountPayable) {
+                    if ((float)$accountPayable->amount_paid > 0) {
+                        return response()->json([
+                            'status' => 400,
+                            'message' => 'No se puede eliminar la factura porque ya existen abonos o pagos asociados a la cuenta por pagar.'
+                        ], 400);
+                    }
+                    $accountPayable->delete();
+                }
+
+                // 3. Revertir Movimientos Financieros (Pagos al Contado/Aportes)
+                if ($invoice->invoice_number) {
+                    $financeRecords = \App\Models\Finance\FinanceRecord::where('invoice_number', $invoice->invoice_number)->get();
+                    foreach ($financeRecords as $financeRecord) {
+                        $paymentDistributions = $financeRecord->paymentDistributions;
+                        if ($paymentDistributions && $paymentDistributions->count() > 0) {
+                            foreach ($paymentDistributions as $distribution) {
+                                // Eliminar el movimiento financiero asociado
+                                if (method_exists($distribution, 'financialMovement')) {
+                                    $distribution->financialMovement()->delete();
+                                }
+                                
+                                // Revertir saldo en la cuenta bancaria / efectivo
+                                $account = \App\Models\Finance\Account::find($distribution->account_id);
+                                if ($account) {
+                                    // Como fue un egreso (type = 1), devolvemos el dinero usando type=0 (Ingreso)
+                                    $account->updateBalance($distribution->amount, 0);
+                                }
+                            }
+                        } else {
+                            // Lógica de respaldo
+                            if (method_exists($financeRecord, 'financialMovement')) {
+                                $financeRecord->financialMovement()->delete();
+                            }
+                            $account = \App\Models\Finance\Account::find($financeRecord->account_id);
+                            if ($account) {
+                                $account->updateBalance($financeRecord->amount, 0);
+                            }
+                        }
+                        // Borrar el registro financiero
+                        $financeRecord->delete();
+                    }
+                }
+
+                // 4. Borrar items y la factura
+                InvoiceItem::where('invoice_id', $invoice->id)->delete();
+                $invoice->delete();
+
+                return response()->json([
+                    'status' => 200,
+                    'message' => 'Factura y todos sus registros asociados eliminados correctamente.',
+                ]);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 500,
+                    'message' => 'Error al eliminar la factura.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+        });
     }
 }
