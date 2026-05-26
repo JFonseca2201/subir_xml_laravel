@@ -24,6 +24,7 @@ use App\Http\Controllers\Invoice\InvoiceXmlImportController;
 use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Roles\RoleController;
 use App\Http\Controllers\Sales\SaleController;
+use App\Http\Controllers\Sales\ProductReturnController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
 use App\Http\Controllers\Api\Geographic\GeographicController;
@@ -165,6 +166,11 @@ Route::group(
         Route::resource('sales', SaleController::class);
         Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
+
+        // ============= RUTAS DE DEVOLUCIONES ==========
+        Route::get('returns', [ProductReturnController::class, 'index']);
+        Route::post('returns', [ProductReturnController::class, 'store']);
+        Route::get('returns/{id}', [ProductReturnController::class, 'show']);
 
         // ============= RUTAS DE ÓRDENES DE TRABAJO ==========
         Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);

@@ -29,14 +29,15 @@ class SaleController extends Controller
             // Esto evita el problema de consultas N+1 y hace que la API vuele
             $query = Sale::with(['client', 'vehicle', 'user']);
 
-            // 1. Filtro por búsqueda (nombre, cédula del cliente o placa de vehículo)
+            // 1. Filtro por búsqueda (nombre, cédula del cliente, placa de vehículo o número de documento)
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = $request->search;
                 $query->where(function ($q) use ($searchTerm) {
-                    $q->whereHas('client', function ($clientQuery) use ($searchTerm) {
-                        $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
-                            ->orWhere('n_document', 'like', "%{$searchTerm}%");
-                    })
+                    $q->where('document_number', 'like', "%{$searchTerm}%")
+                        ->orWhereHas('client', function ($clientQuery) use ($searchTerm) {
+                            $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
+                                ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                        })
                         ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
                             $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
                         });
