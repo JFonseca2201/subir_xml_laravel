@@ -49,7 +49,7 @@ class InvoiceXmlImportController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'xml' => 'required|file|mimes:xml',
+            'xml' => 'required|file',
             'item_type' => 'required',
         ]);
 
