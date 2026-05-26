@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('work_order_items', function (Blueprint $table) {
-            $table->softDeletes();
-        });
+        if (!Schema::hasColumn('work_order_items', 'deleted_at')) {
+            Schema::table('work_order_items', function (Blueprint $table) {
+                $table->softDeletes();
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('work_order_items', function (Blueprint $table) {
-            $table->dropSoftDeletes();
-        });
+        if (Schema::hasColumn('work_order_items', 'deleted_at')) {
+            Schema::table('work_order_items', function (Blueprint $table) {
+                $table->dropSoftDeletes();
+            });
+        }
     }
 };
