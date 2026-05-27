@@ -80,6 +80,12 @@ class ExcelImportService
                 $type_document = 2; // RUC
             }
 
+            // Validar Cédula o RUC
+            if (!$this->validateEcuadorianDocument($n_document)) {
+                $errors[] = "Fila $rowNumber: El número de documento '$n_document' no es una Cédula o RUC ecuatoriano válido.";
+                continue;
+            }
+
             // Lógica Tipo de Cliente: si es RUC que no es de persona natural, podría ser empresa.
             // Para simplificar: 1 (Persona Natural), 2 (Empresa)
             // Si es RUC y el 3er dígito es 6 o 9, es empresa
@@ -96,13 +102,17 @@ class ExcelImportService
                 // Comprobar si existe para actualizar o crear nuevo
                 $client = Client::where('n_document', $n_document)->first();
 
-                if (!$client) {
-                    $client = new Client();
-                    $client->n_document = $n_document;
-                    $client->user_id = $userId;
-                    $client->sucursale_id = 1;
-                    $client->state = 1;
+                if ($client) {
+                    $errors[] = "Fila $rowNumber: El cliente con identificación '$n_document' ya existe y no puede ser ingresado nuevamente.";
+                    DB::rollBack();
+                    continue;
                 }
+
+                $client = new Client();
+                $client->n_document = $n_document;
+                $client->user_id = $userId;
+                $client->sucursale_id = 1;
+                $client->state = 1;
 
                 $client->full_name = $full_name;
                 $client->name = null;
@@ -230,12 +240,16 @@ class ExcelImportService
             try {
                 $vehicle = Vehicle::where('license_plate', $license_plate)->first();
 
-                if (!$vehicle) {
-                    $vehicle = new Vehicle();
-                    $vehicle->license_plate = $license_plate;
-                    $vehicle->user_id = $userId;
-                    $vehicle->status = 1;
+                if ($vehicle) {
+                    $errors[] = "Fila $rowNumber: El vehículo con placa '$license_plate' ya existe y no puede ser ingresado nuevamente.";
+                    DB::rollBack();
+                    continue;
                 }
+
+                $vehicle = new Vehicle();
+                $vehicle->license_plate = $license_plate;
+                $vehicle->user_id = $userId;
+                $vehicle->status = 1;
 
                 $vehicle->brand = $brand ?: $vehicle->brand;
                 $vehicle->model = $model ?: $vehicle->model;
@@ -260,5 +274,90 @@ class ExcelImportService
             'success_count' => $successCount,
             'errors' => $errors
         ];
+    }
+
+    private function validateEcuadorianDocument($numero)
+    {
+        $numero = trim((string) $numero);
+        $len = strlen($numero);
+
+        // Debe tener 10 o 13 dígitos
+        if ($len != 10 && $len != 13) {
+            return false;
+        }
+
+        // Si es RUC, debe terminar en al menos un 0 y un 1 (típicamente 001 pero por seguridad validar longitud)
+        if ($len == 13 && substr($numero, 10, 3) == '000') {
+            return false;
+        }
+
+        $provincia = (int) substr($numero, 0, 2);
+        // Validar provincia (01 a 24) o 30 (ecuatorianos en el exterior)
+        if (($provincia < 1 || $provincia > 24) && $provincia != 30) {
+            return false;
+        }
+
+        $tercerDigito = (int) $numero[2];
+
+        // RUC de entidad pública (tercer dígito = 6)
+        if ($tercerDigito == 6 && $len == 13) {
+            return $this->validateModulo11($numero, [3, 2, 7, 6, 5, 4, 3, 2], 8);
+        }
+
+        // RUC de empresa privada (tercer dígito = 9)
+        if ($tercerDigito == 9 && $len == 13) {
+            return $this->validateModulo11($numero, [4, 3, 2, 7, 6, 5, 4, 3, 2], 9);
+        }
+
+        // Persona natural (Cédula o RUC) (tercer dígito < 6)
+        if ($tercerDigito < 6) {
+            return $this->validateModulo10(substr($numero, 0, 10));
+        }
+
+        return false;
+    }
+
+    private function validateModulo10($cedula)
+    {
+        $total = 0;
+        $longitud = strlen($cedula);
+        if ($longitud != 10) return false;
+
+        for ($i = 0; $i < 9; $i++) {
+            $digito = (int) $cedula[$i];
+            if ($i % 2 == 0) { // Posiciones impares (0, 2, 4...) se multiplican por 2
+                $digito *= 2;
+                if ($digito > 9) {
+                    $digito -= 9;
+                }
+            }
+            $total += $digito;
+        }
+
+        $decenaSuperior = ceil($total / 10) * 10;
+        $digitoVerificadorCalculado = $decenaSuperior - $total;
+
+        if ($digitoVerificadorCalculado == 10) {
+            $digitoVerificadorCalculado = 0;
+        }
+
+        $digitoVerificadorReal = (int) $cedula[9];
+
+        return $digitoVerificadorCalculado === $digitoVerificadorReal;
+    }
+
+    private function validateModulo11($ruc, $coeficientes, $posicionVerificador)
+    {
+        $total = 0;
+        for ($i = 0; $i < count($coeficientes); $i++) {
+            $total += ((int) $ruc[$i]) * $coeficientes[$i];
+        }
+
+        $residuo = $total % 11;
+        $digitoVerificadorCalculado = $residuo == 0 ? 0 : 11 - $residuo;
+
+        $digitoVerificadorReal = (int) $ruc[$posicionVerificador];
+
+        return $digitoVerificadorCalculado === $digitoVerificadorReal;
     }
 }
