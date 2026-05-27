@@ -74,7 +74,13 @@ class ExcelImportService
             $length = strlen($n_document);
             if ($length <= 10) {
                 $n_document = str_pad($n_document, 10, "0", STR_PAD_LEFT);
-                $type_document = 1; // Cédula
+                $thirdDigit = (int) substr($n_document, 2, 1);
+                if (in_array($thirdDigit, [6, 9])) {
+                    $n_document .= '001';
+                    $type_document = 2; // RUC
+                } else {
+                    $type_document = 1; // Cédula
+                }
             } else {
                 $n_document = str_pad($n_document, 13, "0", STR_PAD_LEFT);
                 $type_document = 2; // RUC
@@ -297,21 +303,27 @@ class ExcelImportService
             return false;
         }
 
+        // Si tiene 10 dígitos, siempre se valida como Cédula (Modulo 10)
+        if ($len == 10) {
+            return $this->validateModulo10($numero);
+        }
+
+        // Si tiene 13 dígitos:
+        // 1. Primero comprobar si los primeros 10 dígitos forman una Cédula válida (Persona Natural, incluye extranjeros con tercer dígito 6 o 9)
+        if ($this->validateModulo10(substr($numero, 0, 10))) {
+            return true;
+        }
+
         $tercerDigito = (int) $numero[2];
 
-        // RUC de entidad pública (tercer dígito = 6)
-        if ($tercerDigito == 6 && $len == 13) {
+        // 2. Si no es cédula válida y el tercer dígito es 6, RUC de entidad pública
+        if ($tercerDigito == 6) {
             return $this->validateModulo11($numero, [3, 2, 7, 6, 5, 4, 3, 2], 8);
         }
 
-        // RUC de empresa privada (tercer dígito = 9)
-        if ($tercerDigito == 9 && $len == 13) {
+        // 3. Si no es cédula válida y el tercer dígito es 9, RUC de empresa privada
+        if ($tercerDigito == 9) {
             return $this->validateModulo11($numero, [4, 3, 2, 7, 6, 5, 4, 3, 2], 9);
-        }
-
-        // Persona natural (Cédula o RUC) (tercer dígito < 6)
-        if ($tercerDigito < 6) {
-            return $this->validateModulo10(substr($numero, 0, 10));
         }
 
         return false;
@@ -334,7 +346,7 @@ class ExcelImportService
             $total += $digito;
         }
 
-        $decenaSuperior = ceil($total / 10) * 10;
+        $decenaSuperior = (int) (ceil($total / 10) * 10);
         $digitoVerificadorCalculado = $decenaSuperior - $total;
 
         if ($digitoVerificadorCalculado == 10) {

@@ -16,7 +16,7 @@ function validateModulo10($cedula)
         $total += $digito;
     }
 
-    $decenaSuperior = ceil($total / 10) * 10;
+    $decenaSuperior = (int) (ceil($total / 10) * 10);
     $digitoVerificadorCalculado = $decenaSuperior - $total;
     
     if ($digitoVerificadorCalculado == 10) {

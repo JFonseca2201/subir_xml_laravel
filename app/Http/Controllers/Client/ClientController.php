@@ -66,15 +66,38 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
+        $this->normalizeRequest($request);
+
         $validator = Validator::make($request->all(), [
             'type_client' => 'required|integer|in:1,2',
-            'name' => 'nullable|string|max:255',
-            'surname' => 'nullable|string|max:255',
+            'name' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
+            'surname' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'full_name' => 'required_if:type_client,2|string|max:255|unique:clients',
-            'phone' => 'required|string|max:20|unique:clients',
+            'phone' => ['required', 'string', 'max:20', 'unique:clients', 'regex:/^[0-9+\-\s()]+$/'],
             'email' => 'nullable|email|max:255|unique:clients',
             'type_document' => 'nullable|string|max:10',
-            'n_document' => 'required|string|max:20|unique:clients',
+            'n_document' => [
+                'required',
+                'string',
+                'max:20',
+                'unique:clients',
+                function ($attribute, $value, $fail) use ($request) {
+                    $typeDoc = (string) $request->input('type_document');
+                    if ($typeDoc === '1' || $typeDoc === '2' || empty($typeDoc)) {
+                        if (!preg_match('/^[0-9]+$/', $value)) {
+                            $fail("El número de documento '$value' debe contener solo números.");
+                            return;
+                        }
+                        if (!$this->validateEcuadorianDocument($value)) {
+                            $fail("El número de documento '$value' no es una Cédula o RUC ecuatoriano válido.");
+                        }
+                    } else if ($typeDoc === '3') {
+                        if (!preg_match('/^[a-zA-Z0-9]+$/', $value)) {
+                            $fail("El número de pasaporte '$value' debe contener solo letras y números.");
+                        }
+                    }
+                }
+            ],
             'birth_date' => 'nullable|date',
             'user_id' => 'nullable|integer|exists:users,id',
             'sucursale_id' => 'nullable|integer|exists:sucursales,id',
@@ -177,15 +200,38 @@ class ClientController extends Controller
             ], 404);
         }
 
+        $this->normalizeRequest($request);
+
         $validator = Validator::make($request->all(), [
-            'name' => 'nullable|string|max:255',
-            'surname' => 'nullable|string|max:255',
+            'name' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
+            'surname' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'full_name' => 'required|string|max:255|unique:clients,full_name,' . $id,
-            'phone' => 'required|string|max:20|unique:clients,phone,' . $id,
+            'phone' => ['required', 'string', 'max:20', 'unique:clients,phone,' . $id, 'regex:/^[0-9+\-\s()]+$/'],
             'email' => 'nullable|email|max:255|unique:clients,email,' . $id,
             'type_client' => 'nullable|string|max:50',
             'type_document' => 'nullable|string|max:10',
-            'n_document' => 'required|string|max:20|unique:clients,n_document,' . $id,
+            'n_document' => [
+                'required',
+                'string',
+                'max:20',
+                'unique:clients,n_document,' . $id,
+                function ($attribute, $value, $fail) use ($request) {
+                    $typeDoc = (string) $request->input('type_document');
+                    if ($typeDoc === '1' || $typeDoc === '2' || empty($typeDoc)) {
+                        if (!preg_match('/^[0-9]+$/', $value)) {
+                            $fail("El número de documento '$value' debe contener solo números.");
+                            return;
+                        }
+                        if (!$this->validateEcuadorianDocument($value)) {
+                            $fail("El número de documento '$value' no es una Cédula o RUC ecuatoriano válido.");
+                        }
+                    } else if ($typeDoc === '3') {
+                        if (!preg_match('/^[a-zA-Z0-9]+$/', $value)) {
+                            $fail("El número de pasaporte '$value' debe contener solo letras y números.");
+                        }
+                    }
+                }
+            ],
             'birth_date' => 'nullable|date',
             'user_id' => 'nullable|integer|exists:users,id',
             'sucursale_id' => 'nullable|integer|exists:sucursales,id',
@@ -258,5 +304,128 @@ class ClientController extends Controller
             'status' => 200,
             'message' => 'Cliente eliminado exitosamente',
         ]);
+    }
+
+    private function normalizeRequest(Request $request)
+    {
+        $input = $request->all();
+
+        // Si es pasaporte (3), no aplicar normalización de cédula/RUC
+        $typeDoc = isset($input['type_document']) ? (string)$input['type_document'] : null;
+        if ($typeDoc === '3') {
+            return;
+        }
+
+        // Normalizar documento ecuatoriano si es aplicable
+        if (isset($input['n_document'])) {
+            $n_document = trim((string)$input['n_document']);
+            $length = strlen($n_document);
+            if ($length <= 10 && $length > 0) {
+                $n_document = str_pad($n_document, 10, "0", STR_PAD_LEFT);
+                $thirdDigit = (int) substr($n_document, 2, 1);
+                if (in_array($thirdDigit, [6, 9])) {
+                    $n_document .= '001';
+                    $input['type_document'] = '2'; // RUC
+                } else {
+                    $input['type_document'] = isset($input['type_document']) ? (string)$input['type_document'] : '1';
+                }
+            } else if ($length > 10) {
+                $n_document = str_pad($n_document, 13, "0", STR_PAD_LEFT);
+                $input['type_document'] = '2'; // RUC
+            }
+            $input['n_document'] = $n_document;
+            $request->replace($input); // Reemplaza los datos del request con los normalizados
+        }
+    }
+
+    private function validateEcuadorianDocument($numero)
+    {
+        $numero = trim((string) $numero);
+        $len = strlen($numero);
+
+        // Debe tener 10 o 13 dígitos
+        if ($len != 10 && $len != 13) {
+            return false;
+        }
+
+        // Si es RUC, debe terminar en al menos un 0 y un 1 (típicamente 001 pero por seguridad validar longitud)
+        if ($len == 13 && substr($numero, 10, 3) == '000') {
+            return false;
+        }
+
+        $provincia = (int) substr($numero, 0, 2);
+        // Validar provincia (01 a 24) o 30 (ecuatorianos en el exterior)
+        if (($provincia < 1 || $provincia > 24) && $provincia != 30) {
+            return false;
+        }
+
+        // Si tiene 10 dígitos, siempre se valida como Cédula (Modulo 10)
+        if ($len == 10) {
+            return $this->validateModulo10($numero);
+        }
+
+        // Si tiene 13 dígitos:
+        // 1. Primero comprobar si los primeros 10 dígitos forman una Cédula válida (Persona Natural, incluye extranjeros con tercer dígito 6 o 9)
+        if ($this->validateModulo10(substr($numero, 0, 10))) {
+            return true;
+        }
+
+        $tercerDigito = (int) $numero[2];
+
+        // 2. Si no es cédula válida y el tercer dígito es 6, RUC de entidad pública
+        if ($tercerDigito == 6) {
+            return $this->validateModulo11($numero, [3, 2, 7, 6, 5, 4, 3, 2], 8);
+        }
+
+        // 3. Si no es cédula válida y el tercer dígito es 9, RUC de empresa privada
+        if ($tercerDigito == 9) {
+            return $this->validateModulo11($numero, [4, 3, 2, 7, 6, 5, 4, 3, 2], 9);
+        }
+
+        return false;
+    }
+
+    private function validateModulo10($cedula)
+    {
+        $total = 0;
+        $longitud = strlen($cedula);
+        if ($longitud != 10) return false;
+
+        for ($i = 0; $i < 9; $i++) {
+            $digito = (int) $cedula[$i];
+            if ($i % 2 == 0) { // Posiciones impares (0, 2, 4...) se multiplican por 2
+                $digito *= 2;
+                if ($digito > 9) {
+                    $digito -= 9;
+                }
+            }
+            $total += $digito;
+        }
+
+        $decenaSuperior = (int) (ceil($total / 10) * 10);
+        $digitoVerificadorCalculado = $decenaSuperior - $total;
+
+        if ($digitoVerificadorCalculado == 10) {
+            $digitoVerificadorCalculado = 0;
+        }
+
+        $digitoVerificadorReal = (int) $cedula[9];
+
+        return $digitoVerificadorCalculado === $digitoVerificadorReal;
+    }
+
+    private function validateModulo11($ruc, $coeficientes, $posicionVerificador)
+    {
+        $total = 0;
+        for ($i = 0; $i < count($coeficientes); $i++) {
+            $total += ((int) $ruc[$i]) * $coeficientes[$i];
+        }
+
+        $residuo = $total % 11;
+        $digitoVerificadorCalculado = $residuo == 0 ? 0 : 11 - $residuo;
+
+        $digitoVerificadorReal = (int) $ruc[$posicionVerificador];
+
+        return $digitoVerificadorCalculado === $digitoVerificadorReal;
     }
 }

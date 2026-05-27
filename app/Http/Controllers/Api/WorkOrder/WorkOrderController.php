@@ -33,12 +33,17 @@ class WorkOrderController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount' => 'nullable|numeric|min:0',
             'items.*.type' => 'required|in:product,service',
+            'number' => 'nullable|string|unique:work_orders,number',
         ]);
 
-        // Autogenerar el número de orden de trabajo (OT-0001, OT-0002, etc.)
-        $count = WorkOrder::count();
-        $nextNumber = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-        $validated['number'] = 'OT-' . $nextNumber;
+        // Usar el número enviado si existe, de lo contrario autogenerar el número de orden de trabajo (OT-0001, OT-0002, etc.)
+        if ($request->filled('number')) {
+            $validated['number'] = $request->input('number');
+        } else {
+            $count = WorkOrder::count();
+            $nextNumber = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+            $validated['number'] = 'OT-' . $nextNumber;
+        }
         $validated['status'] = 'received';
 
         // Validar stock antes de crear la orden de trabajo

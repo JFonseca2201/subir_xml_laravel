@@ -456,6 +456,7 @@ class SaleController extends Controller
     {
         // 1. Validamos los campos que se pueden editar
         $request->validate([
+            'document_number' => 'nullable|string|unique:sales,document_number,' . $id,
             'vehicle_id'   => 'nullable|exists:vehicles,id',
             'mileage'      => 'nullable|integer',
             'service_date' => 'nullable|date',
@@ -546,8 +547,11 @@ class SaleController extends Controller
                 }
             }
 
+            $oldDocumentNumber = $sale->document_number;
+
             // Actualizar campos operativos básicos
             $sale->update($request->only([
+                'document_number',
                 'vehicle_id',
                 'mileage',
                 'service_date',
@@ -557,6 +561,39 @@ class SaleController extends Controller
                 'payment_status',
                 'is_credited'
             ]));
+
+            // Si el número de documento cambió, actualizar el registro financiero y movimientos asociados
+            if ($request->has('document_number') && $request->document_number !== $oldDocumentNumber) {
+                $financeRecord = \App\Models\Finance\FinanceRecord::where('invoice_number', $oldDocumentNumber)->first();
+                if ($financeRecord) {
+                    $financeRecord->update([
+                        'work_order_number' => $request->document_number,
+                        'invoice_number' => $request->document_number,
+                        'description' => 'Venta: ' . $sale->document_type . ' - ' . $request->document_number,
+                    ]);
+                }
+
+                // También actualizar descripciones de movimientos financieros asociados si existieran
+                if (method_exists($sale, 'financialMovement')) {
+                    $movements = \App\Models\Finance\FinancialMovement::where('movable_id', $sale->id)
+                        ->where('movable_type', get_class($sale))
+                        ->get();
+
+                    foreach ($movements as $movement) {
+                        $newDesc = str_replace($oldDocumentNumber, $request->document_number, $movement->description);
+                        
+                        $metadata = $movement->metadata ?? [];
+                        if (isset($metadata['document_number']) && $metadata['document_number'] === $oldDocumentNumber) {
+                            $metadata['document_number'] = $request->document_number;
+                        }
+
+                        $movement->update([
+                            'description' => $newDesc,
+                            'metadata' => $metadata
+                        ]);
+                    }
+                }
+            }
 
             // Si se proporcionan items, actualizar el detalle
             if ($request->has('items')) {

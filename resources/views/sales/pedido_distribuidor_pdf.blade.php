@@ -139,7 +139,7 @@
                     <tr>
                         <td style="padding: 0 !important; border-bottom: none; text-align: left;">
                             <img style="height: 125px; background: black;"
-                                 src="{{ public_path('assets/img/brand/logo.jpeg') }}">
+                                src="{{ public_path('assets/img/brand/logo.jpeg') }}">
                         </td>
 
                         <td style="padding: 0 !important; border-bottom: none; text-align: right; line-height: 1.4;">
@@ -159,7 +159,7 @@
                 </tbody>
             </table>
         </div>
-        
+
         <div style="clear: both;"></div>
 
         <table class="invoice-info-container">
@@ -173,25 +173,27 @@
                 </td>
             </tr>
         </table>
-        
+
         <div class="divider"></div>
-        
+
         <table class="invoice-info-container">
             <tr>
                 <td style="text-align: left; vertical-align: top;">
                     <h3 style="margin: 0; font-size: 1.1em; color: #444;">DATOS DEL DISTRIBUIDOR</h3>
                     <br>
                     <b>NOMBRE:</b> {{ $pedido->distribuidor ? $pedido->distribuidor->name : 'N/A' }}
-                    @if($pedido->distribuidor && $pedido->distribuidor->ruc)
-                    <br><br>
-                    <b>RUC:</b> {{ $pedido->distribuidor->ruc }}
+                    @if ($pedido->distribuidor && $pedido->distribuidor->ruc)
+                        <br><br>
+                        <b>RUC:</b> {{ $pedido->distribuidor->ruc }}
                     @endif
-                    @if($pedido->distribuidor && $pedido->distribuidor->address)
-                    <br><br>
-                    <b>DIRECCIÓN:</b> {{ $pedido->distribuidor->address }}
+                    @if ($pedido->distribuidor && $pedido->distribuidor->address)
+                        <br><br>
+                        <b>DIRECCIÓN:</b> {{ $pedido->distribuidor->address }}
                     @endif
                 </td>
-                <td style="width: 40%;">
+                <td style="width: 40%; vertical-align: top;">
+                    <h3 style="margin: 0; font-size: 1.1em; color: #444;">DATOS DE ENTREGA</h3>
+                    <br>
                     <table style="width: 100%;">
                         <tr>
                             <td style="text-align: left;"><b>SUCURSAL:</b></td>
@@ -208,7 +210,7 @@
 
         <div class="divider"></div>
 
-        <table class="line-items-container">
+        <table class="line-items-container" style="text-transform: uppercase;">
             <thead>
                 <tr>
                     <th class="heading-item">#</th>
@@ -219,30 +221,49 @@
             <tbody>
                 @php
                     $cont = 0;
+                    $total_items = 0;
                 @endphp
                 @foreach ($pedido->detalles as $detail)
+                    @php
+                        $total_items += $detail->cantidad;
+                    @endphp
                     <tr>
                         <td class="center" style="text-align: center;">{{ $cont = $cont + 1 }}</td>
                         <td style="text-align: left;">
-                            <span style="font-weight: 500;">{{ $detail->description }}</span>
-                            @if($detail->producto && $detail->producto->sku)
-                                <br><span style="font-size: 0.85em; color: #777;">SKU: {{ $detail->producto->sku }}</span>
+                            <span
+                                style="font-size: 1.1em; color: #444; font-weight: normal;">{{ $detail->description }}</span>
+                            @if ($detail->producto && $detail->producto->sku)
+                                <br><span style="font-size: 0.85em; color: #777;">SKU:
+                                    {{ $detail->producto->sku }}</span>
                             @endif
                         </td>
-                        <td class="right" style="text-align: right; font-weight: bold; font-size: 1.1em;">{{ $detail->cantidad }}</td>
+                        <td class="right"
+                            style="text-align: right; font-weight: normal; font-size: 1.1em; color: #444;">
+                            {{ $detail->cantidad }}</td>
                     </tr>
                 @endforeach
             </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2"
+                        style="text-align: right; font-weight: bold; font-size: 1.3em; padding-top: 25px; padding-right: 15px; color: #333;">
+                        TOTAL DE ITEMS:</td>
+                    <td
+                        style="text-align: right; font-weight: bold; font-size: 1.6em; padding-top: 25px; color: #fb7578;">
+                        {{ $total_items }}</td>
+                </tr>
+            </tfoot>
         </table>
 
-        @if($pedido->observations)
-            <div style="margin-top: 20px; font-size: 0.85em; background-color: #f9f9f9; padding: 10px; border-left: 3px solid #fb7578;">
+        @if ($pedido->observations)
+            <div
+                style="margin-top: 20px; font-size: 0.85em; background-color: #f9f9f9; padding: 10px; border-left: 3px solid #fb7578;">
                 <strong>Observaciones:</strong> {{ $pedido->observations }}
             </div>
         @endif
 
         <div class="footer">
-            <p>Documento de control interno generado automáticamente</p>
+            <p>Documento de control interno generado automáticamente Luxury Evys Cia. Ltda.</p>
         </div>
     </div>
 </body>

@@ -152,15 +152,15 @@
     <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
         <tr>
             <td style="width: 20%; vertical-align: middle; text-align: center;">
-                <img style="height: 110px;background:black;"
-                    src="{{ public_path('assets/img/brand/logo.jpeg') }}">
+                <img style="height: 110px;background:black;" src="{{ public_path('assets/img/brand/logo.jpeg') }}">
             </td>
             <td style="width: 40%; vertical-align: middle; text-align: center; font-weight: bold;">
                 ORDEN DE TRABAJO
             </td>
             <td style="width: 40%; vertical-align: middle; text-align: center;">
-                <div style="font-size: 16px; font-weight: bold; color: #d11f008e;">#{{ str_pad($workOrder->number, 6, '0', STR_PAD_LEFT) }}</div>
-                
+                <div style="font-size: 16px; font-weight: bold; color: #d11f008e;">
+                    #{{ str_pad($workOrder->number, 6, '0', STR_PAD_LEFT) }}</div>
+
             </td>
         </tr>
     </table>
@@ -171,37 +171,47 @@
             <td style="width: 48%; vertical-align: top; padding-right: 20px;">
                 <div class="info-title">DATOS DEL VEHÍCULO</div>
                 <div class="info-row">
-                    <span class="info-label">Fecha:</span> {{ $workOrder->created_at ? date('d/m/Y', strtotime($workOrder->created_at)) : 'N/A' }}
+                    <span class="info-label">Fecha:</span>
+                    {{ $workOrder->created_at ? date('d/m/Y', strtotime($workOrder->created_at)) : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Placa:</span> {{ $workOrder->vehicle ? $workOrder->vehicle->license_plate : 'N/A' }}
+                    <span class="info-label">Placa:</span>
+                    {{ $workOrder->vehicle ? $workOrder->vehicle->license_plate : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Modelo:</span> {{ $workOrder->vehicle ? $workOrder->vehicle->brand . ' ' . $workOrder->vehicle->model : 'N/A' }}
+                    <span class="info-label">Modelo:</span>
+                    {{ $workOrder->vehicle ? $workOrder->vehicle->brand . ' ' . $workOrder->vehicle->model : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Kilometraje:</span> {{ $workOrder->mileage ? $workOrder->mileage . ' km' : 'N/A' }}
+                    <span class="info-label">Kilometraje:</span>
+                    {{ $workOrder->mileage ? $workOrder->mileage . ' km' : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Tipo:</span> {{ $workOrder->vehicle ? $workOrder->vehicle->vehicle_type : 'N/A' }}
+                    <span class="info-label">Tipo:</span>
+                    {{ $workOrder->vehicle ? $workOrder->vehicle->vehicle_type : 'N/A' }}
                 </div>
             </td>
             <td style="width: 48%; vertical-align: top; padding-left: 20px;">
                 <div class="info-title">DATOS DEL CLIENTE</div>
                 <div class="info-row">
-                    <span class="info-label">Cédula/RUC:</span> {{ $workOrder->client ? $workOrder->client->n_document : 'N/A' }}
+                    <span class="info-label">Cédula/RUC:</span>
+                    {{ $workOrder->client ? $workOrder->client->n_document : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Nombre:</span> {{ $workOrder->client ? $workOrder->client->full_name : 'N/A' }}
+                    <span class="info-label">Nombre:</span>
+                    {{ $workOrder->client ? $workOrder->client->full_name : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Dirección:</span> {{ $workOrder->client ? $workOrder->client->address : 'N/A' }}
+                    <span class="info-label">Dirección:</span>
+                    {{ $workOrder->client ? $workOrder->client->address : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Teléfono:</span> {{ $workOrder->client ? $workOrder->client->phone : 'N/A' }}
+                    <span class="info-label">Teléfono:</span>
+                    {{ $workOrder->client ? $workOrder->client->phone : 'N/A' }}
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Correo:</span> {{ $workOrder->client ? $workOrder->client->email : 'N/A' }}
+                    <span class="info-label">Correo:</span>
+                    {{ $workOrder->client ? $workOrder->client->email : 'N/A' }}
                 </div>
             </td>
         </tr>
@@ -210,7 +220,7 @@
     <!-- Lista de trabajos -->
     <div class="items-section">
         <div class="items-title">TRABAJOS REALIZADOS</div>
-        <table>
+        <table style="text-transform: uppercase;">
             <thead>
                 <tr>
                     <th>Descripción</th>
@@ -221,14 +231,14 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($workOrder->items as $item)
-                <tr>
-                    <td>{{ $item->description }}</td>
-                    <td>{{ $item->quantity }}</td>
-                    <td>${{ number_format($item->unit_price, 2) }}</td>
-                    <td>${{ number_format($item->discount, 2) }}</td>
-                    <td>${{ number_format($item->subtotal, 2) }}</td>
-                </tr>
+                @foreach ($workOrder->items as $item)
+                    <tr>
+                        <td>{{ $item->description }}</td>
+                        <td>{{ $item->quantity }}</td>
+                        <td>${{ number_format($item->unit_price, 2) }}</td>
+                        <td>${{ number_format($item->discount, 2) }}</td>
+                        <td>${{ number_format($item->subtotal, 2) }}</td>
+                    </tr>
                 @endforeach
             </tbody>
         </table>
@@ -253,7 +263,8 @@
                     <span class="info-label">Descuentos:</span>
                     <span>${{ number_format($totalDiscount, 2) }}</span>
                 </div>
-                <div class="info-row" style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-top: 10px;">
+                <div class="info-row"
+                    style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-top: 10px;">
                     <span class="info-label">TOTAL:</span>
                     <span style="color: #d32f2f;">${{ number_format($total, 2) }}</span>
                 </div>
@@ -273,12 +284,14 @@
             </td>
             <td style="width: 48%; vertical-align: top; padding-left: 20px; padding-top: 20px;">
                 <div class="signature-line">
-                    @if($workOrder->technicians && $workOrder->technicians->count() > 0)
-                    @foreach($workOrder->technicians as $technician)
-                    {{ $technician->first_name }} {{ $technician->last_name }}@if(!$loop->last){{ ', ' }}@endif
-                    @endforeach
+                    @if ($workOrder->technicians && $workOrder->technicians->count() > 0)
+                        @foreach ($workOrder->technicians as $technician)
+                            {{ $technician->first_name }} {{ $technician->last_name }}@if (!$loop->last)
+                                {{ ', ' }}
+                            @endif
+                        @endforeach
                     @else
-                    Técnico
+                        Técnico
                     @endif
                     <br>Técnico(s)
                 </div>
