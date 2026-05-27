@@ -28,6 +28,7 @@ use App\Http\Controllers\Sales\ProductReturnController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
 use App\Http\Controllers\Api\Geographic\GeographicController;
+use App\Http\Controllers\ExcelImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(
@@ -181,6 +182,11 @@ Route::group(
         Route::resource('work-orders', WorkOrderController::class);
         Route::get('products-excel', [ProductController::class, 'download_excel']);
         Route::post('products/import-excel', [ProductController::class, 'import_excel']);
+        
+        // Excel Import Routes para Clientes y Vehículos
+        Route::post('import/clients', [ExcelImportController::class, 'importClients']);
+        Route::post('import/vehicles', [ExcelImportController::class, 'importVehicles']);
+        
         Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
         Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
 
