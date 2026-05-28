@@ -75,7 +75,7 @@ class Sale extends Model
      */
     public function financeRecord()
     {
-        return $this->hasOne(\App\Models\Finance\FinanceRecord::class , 'invoice_number', 'document_number');
+        return $this->hasOne(\App\Models\Finance\FinanceRecord::class, 'invoice_number', 'document_number');
     }
 
     /**
@@ -83,6 +83,6 @@ class Sale extends Model
      */
     public function workOrder()
     {
-        return $this->belongsTo(\App\Models\WorkOrder\WorkOrder::class , 'work_order_id');
+        return $this->belongsTo(\App\Models\WorkOrder\WorkOrder::class, 'work_order_id');
     }
 }

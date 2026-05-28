@@ -67,6 +67,38 @@ class ClientController extends Controller
     public function store(Request $request)
     {
         $this->normalizeRequest($request);
+        $exists = Client::where('n_document', $request->get('n_document'))->first();
+        if ($exists) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El número de documento ya existe',
+                'errors' => ['n_document' => 'El número de documento ya existe'],
+            ], 422);
+        }
+        $exists = Client::where('email', $request->get('email'))->first();
+        if ($exists) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El correo electrónico ya existe',
+                'errors' => ['email' => 'El correo electrónico ya existe'],
+            ], 422);
+        }
+        $exists = Client::where('phone', $request->get('phone'))->first();
+        if ($exists) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El número de teléfono ya existe',
+                'errors' => ['phone' => 'El número de teléfono ya existe'],
+            ], 422);
+        }
+        $exists = Client::where('full_name', $request->get('full_name'))->first();
+        if ($exists) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El nombre completo ya existe',
+                'errors' => ['full_name' => 'El nombre completo ya existe'],
+            ], 422);
+        }   
 
         $validator = Validator::make($request->all(), [
             'type_client' => 'required|integer|in:1,2',

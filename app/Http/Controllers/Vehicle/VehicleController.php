@@ -60,15 +60,32 @@ class VehicleController extends Controller
      */
     public function store(Request $request)
     {
+
+        $exists = Vehicle::where('license_plate', $request->license_plate)->first();
+        if ($exists) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El vehículo con la placa ' . $request->license_plate . ' ya se encuentra registrado',
+                'errors' => ['license_plate' => 'El vehículo con la placa ' . $request->license_plate . ' ya se encuentra registrado'],
+            ], 422);
+        }
+
         // 1. Obtener opciones permitidas desde config para validar
         $allowedTypes = array_keys(config('vehicle_types', []));
         // Si en tu config las marcas son ID => Nombre, validamos contra los IDs
         $allowedBrands = array_keys(config('vehicle_brands', []));
 
+        $requestData = $request->all();
 
+        // Extraer valores si el frontend los envía como objetos (comportamiento de Vuetify v-select)
+        foreach (['vehicle_type', 'brand', 'color'] as $field) {
+            if (isset($requestData[$field]) && is_array($requestData[$field])) {
+                $requestData[$field] = $requestData[$field]['value'] ?? $requestData[$field]['title'] ?? $requestData[$field];
+            }
+        }
 
         // 2. Validación Robusta
-        $validator = Validator::make($request->all(), [
+        $validator = Validator::make($requestData, [
             'user_id' => 'required|exists:users,id',
             'license_plate' => [
                 'required',
@@ -80,8 +97,8 @@ class VehicleController extends Controller
             'brand'        => 'required',
             'model'        => 'required|string|max:100',
             'year'         => 'required|integer|min:1900|max:' . (date('Y') + 5),
-            'color'        => 'required|string',
-            'vehicle_type' => 'required|string',
+            'color'        => 'required',
+            'vehicle_type' => 'required',
             'description'  => 'nullable|string|max:1000',
             'status'       => 'required|integer|in:1,2',
         ], [
@@ -98,7 +115,6 @@ class VehicleController extends Controller
         }
 
         // 3. Asegurar que el status sea válido (1 = activo, 2 = inactivo)
-        $requestData = $request->all();
         if (!isset($requestData['status']) || !in_array($requestData['status'], [1, 2])) {
             $requestData['status'] = 1; // Por defecto activo
         }
@@ -124,7 +140,16 @@ class VehicleController extends Controller
             return response()->json(['status' => 404, 'message' => 'Vehículo no encontrado'], 404);
         }
 
-        $validator = Validator::make($request->all(), [
+        $requestData = $request->all();
+
+        // Extraer valores si el frontend los envía como objetos (comportamiento de Vuetify v-select)
+        foreach (['vehicle_type', 'brand', 'color'] as $field) {
+            if (isset($requestData[$field]) && is_array($requestData[$field])) {
+                $requestData[$field] = $requestData[$field]['value'] ?? $requestData[$field]['title'] ?? $requestData[$field];
+            }
+        }
+
+        $validator = Validator::make($requestData, [
             'user_id' => 'required|exists:users,id',
             'license_plate' => [
                 'required',
@@ -135,8 +160,8 @@ class VehicleController extends Controller
             'brand'        => 'required',
             'model'        => 'required|string|max:100',
             'year'         => 'required|integer|min:1900|max:' . (date('Y') + 5),
-            'color'        => 'required|string',
-            'vehicle_type' => 'required|string',
+            'color'        => 'required',
+            'vehicle_type' => 'required',
             'description'  => 'nullable|string|max:1000',
             'status'       => 'required|integer|in:1,2',
         ]);
@@ -148,7 +173,7 @@ class VehicleController extends Controller
             ], 422);
         }
 
-        $vehicle->update($request->all());
+        $vehicle->update($requestData);
 
         return response()->json([
             'status' => 200,

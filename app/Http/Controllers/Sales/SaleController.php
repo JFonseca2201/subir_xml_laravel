@@ -516,12 +516,22 @@ class SaleController extends Controller
                     foreach ($request->items as $item) {
                         if (isset($item['product_id']) && $item['product_id']) {
                             $product = ModelsProduct::find($item['product_id']);
-                            if ($product && $product->stock < $item['quantity']) {
+                            if ($product) {
+                                $quantityNeeded = $item['quantity'];
+                                if (!$wasQuote && isset($item['id'])) {
+                                    $oldDetail = $sale->details->firstWhere('id', $item['id']);
+                                    if ($oldDetail && $oldDetail->product_id == $item['product_id']) {
+                                        $quantityNeeded -= $oldDetail->quantity;
+                                    }
+                                }
+                                
+                                if ($quantityNeeded > 0 && $product->stock < $quantityNeeded) {
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
+                                    'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado adicional: {$quantityNeeded}",
                                     'error' => 'stock_insufficient'
                                 ], 400);
+                            }
                             }
                         }
                     }
@@ -601,6 +611,20 @@ class SaleController extends Controller
                     // Obtener IDs de los items enviados
                     $itemIds = array_filter(array_column($request->items, 'id'));
 
+                    // Si ya era una venta, restauramos el stock de los items que van a ser eliminados
+                    if (!$wasQuote) {
+                        $itemsToDelete = $sale->details->whereNotIn('id', $itemIds);
+                        foreach ($itemsToDelete as $deletedItem) {
+                            if ($deletedItem->product_id) {
+                                $product = ModelsProduct::find($deletedItem->product_id);
+                                if ($product) {
+                                    $product->stock += $deletedItem->quantity;
+                                    $product->save();
+                                }
+                            }
+                        }
+                    }
+
                     // Eliminar items que no están en la solicitud
                     $sale->details()->whereNotIn('id', $itemIds)->delete();
 
@@ -609,15 +633,49 @@ class SaleController extends Controller
                         $itemTotal = ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
 
                         if (isset($item['id'])) {
-                            // Actualizar item existente
-                            $sale->details()->where('id', $item['id'])->update([
-                                'product_id' => $item['product_id'] ?? null,
-                                'description' => $item['description'],
-                                'quantity' => $item['quantity'],
-                                'price' => $item['price'],
-                                'discount' => $item['discount'] ?? 0,
-                                'total' => $itemTotal,
-                            ]);
+                            $detail = $sale->details->firstWhere('id', $item['id']);
+                            
+                            if ($detail) {
+                                // Gestionar stock de la diferencia si ya era una venta
+                                if (!$wasQuote) {
+                                    if ($detail->product_id == ($item['product_id'] ?? null)) {
+                                        if ($detail->product_id) {
+                                            $product = ModelsProduct::find($detail->product_id);
+                                            if ($product) {
+                                                $diff = $item['quantity'] - $detail->quantity;
+                                                $product->stock -= $diff;
+                                                $product->save();
+                                            }
+                                        }
+                                    } else {
+                                        // Cambió de producto en la misma línea
+                                        if ($detail->product_id) {
+                                            $oldProduct = ModelsProduct::find($detail->product_id);
+                                            if ($oldProduct) {
+                                                $oldProduct->stock += $detail->quantity;
+                                                $oldProduct->save();
+                                            }
+                                        }
+                                        if (isset($item['product_id']) && $item['product_id']) {
+                                            $newProduct = ModelsProduct::find($item['product_id']);
+                                            if ($newProduct) {
+                                                $newProduct->stock -= $item['quantity'];
+                                                $newProduct->save();
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Actualizar item existente
+                                $detail->update([
+                                    'product_id' => $item['product_id'] ?? null,
+                                    'description' => $item['description'],
+                                    'quantity' => $item['quantity'],
+                                    'price' => $item['price'],
+                                    'discount' => $item['discount'] ?? 0,
+                                    'total' => $itemTotal,
+                                ]);
+                            }
                         } else {
                             // Crear nuevo item
                             $sale->details()->create([
@@ -628,6 +686,15 @@ class SaleController extends Controller
                                 'discount' => $item['discount'] ?? 0,
                                 'total' => $itemTotal,
                             ]);
+
+                            // Descontar stock si ya era una venta y es un item nuevo
+                            if (!$wasQuote && isset($item['product_id']) && $item['product_id']) {
+                                $product = ModelsProduct::find($item['product_id']);
+                                if ($product) {
+                                    $product->stock -= $item['quantity'];
+                                    $product->save();
+                                }
+                            }
                         }
                     }
 
@@ -647,12 +714,12 @@ class SaleController extends Controller
                         $sale->status = 'completed';
                         $sale->save();
 
-                        // Restar stock de los productos
-                        foreach ($sale->details as $detail) {
-                            if ($detail->product_id) {
-                                $product = ModelsProduct::find($detail->product_id);
+                        // Restar stock de TODOS los productos (pues es su primera vez como venta)
+                        foreach ($request->items as $item) {
+                            if (isset($item['product_id']) && $item['product_id']) {
+                                $product = ModelsProduct::find($item['product_id']);
                                 if ($product) {
-                                    $product->stock -= $detail->quantity;
+                                    $product->stock -= $item['quantity'];
                                     $product->save();
                                 }
                             }
@@ -819,7 +886,7 @@ class SaleController extends Controller
                     'status'          => 'completed',
                     'payment_status'  => 'pending',
                     'is_credited'     => true,
-                    'payment_method'  => null,
+                    'payment_method'  => 'credit',
                     'observations'    => $request->observations,
                 ]);
 
