@@ -85,4 +85,12 @@ class Sale extends Model
     {
         return $this->belongsTo(\App\Models\WorkOrder\WorkOrder::class, 'work_order_id');
     }
+
+    /**
+     * Técnicos asignados a la venta (heredados de la orden de trabajo).
+     */
+    public function technicians()
+    {
+        return $this->belongsToMany(\App\Models\Employee\Employee::class, 'sale_technicians');
+    }
 }

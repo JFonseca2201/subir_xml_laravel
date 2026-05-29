@@ -9,6 +9,7 @@ use App\Models\Finance\FinanceRecord;
 use App\Models\Finance\PaymentDistribution;
 use App\Models\Finance\Account;
 use App\Models\Product\Product as ModelsProduct;
+use App\Services\WorkOrder\WorkOrderSaleSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -113,9 +114,17 @@ class SaleController extends Controller
             'payment_distributions.*.account_id' => 'required|exists:accounts,id',
             'payment_distributions.*.amount' => 'required|numeric|min:0',
             'payment_distributions.*.payment_method' => 'required|string',
+            'technicians' => 'nullable|array',
+            'technicians.*' => 'exists:employees,id',
         ]);
 
         try {
+            $linkedWorkOrder = null;
+            if ($request->work_order_id) {
+                $linkedWorkOrder = WorkOrderSaleSync::assertReadyForInvoicing((int) $request->work_order_id);
+                $request->merge(['document_number' => $linkedWorkOrder->number]);
+            }
+
             // 2. Validar stock antes de procesar la venta (solo si no es cotización)
             if ($request->document_type !== 'quote') {
                 foreach ($request->items as $item) {
@@ -149,8 +158,10 @@ class SaleController extends Controller
                 }
             }
 
+            $paymentMethod = $this->resolveSalePaymentMethod($request);
+
             // 4. Iniciamos la transacción para asegurar consistencia atómica
-            $sale = DB::transaction(function () use ($request) {
+            $sale = DB::transaction(function () use ($request, $linkedWorkOrder, $paymentMethod) {
 
                 // A. Crear la cabecera de la venta
                 $sale = Sale::create([
@@ -168,7 +179,7 @@ class SaleController extends Controller
                     'status'          => $request->document_type === 'quote' ? 'pending' : 'completed',
                     'payment_status'  => $request->payment_status,
                     'is_credited'     => $request->is_credited,
-                    'payment_method'  => $request->payment_method,
+                    'payment_method'  => $paymentMethod,
                     'observations'    => $request->observations,
                 ]);
 
@@ -196,7 +207,17 @@ class SaleController extends Controller
                 // 💰 ESCALABILIDAD FINANCIERA: Actualizar cuentas según métodos de pago
                 // Si $request->document_type !== 'quote' (Es Nota de Venta o Factura)
                 if ($request->document_type !== 'quote') {
+                    $request->merge(['payment_method' => $paymentMethod]);
                     $this->processFinancialRecord($sale, $request);
+                }
+
+                $technicianIds = WorkOrderSaleSync::resolveTechnicianIds($request, $linkedWorkOrder);
+                if (!empty($technicianIds)) {
+                    WorkOrderSaleSync::syncTechniciansToSale($sale, $technicianIds);
+                }
+
+                if ($linkedWorkOrder) {
+                    WorkOrderSaleSync::markAsDelivered($linkedWorkOrder);
                 }
 
                 return $sale;
@@ -206,7 +227,7 @@ class SaleController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'El registro se procesó correctamente.',
-                'data'    => $sale->load('details')
+                'data'    => $sale->load(['details', 'technicians'])
             ], 201);
         } catch (Exception $e) {
             // Si algo truena dentro del bloque, el DB::transaction hace rollback automático
@@ -231,7 +252,10 @@ class SaleController extends Controller
             'account_id' => 1, // Default, se sobrescribe con payment_distributions
             'payment_method' => $request->payment_method,
             'amount' => $request->total,
-            'work_order_number' => $request->document_number,
+            'work_order_number' => WorkOrderSaleSync::resolveFinanceWorkOrderNumber(
+                $sale->work_order_id,
+                $request->document_number
+            ),
             'invoice_number' => $request->document_number,
             'description' => 'Venta: ' . $request->document_type . ' - ' . $request->document_number,
             'user_id' => $request->user_id,
@@ -312,6 +336,34 @@ class SaleController extends Controller
     }
 
     /**
+     * Obtiene el método de pago real desde los pagos distribuidos (si existen).
+     */
+    private function resolveSalePaymentMethod(Request $request): string
+    {
+        if (
+            $request->has('payment_distributions')
+            && is_array($request->payment_distributions)
+            && count($request->payment_distributions) > 0
+        ) {
+            $methods = collect($request->payment_distributions)
+                ->pluck('payment_method')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($methods->count() === 1) {
+                return (string) $methods->first();
+            }
+
+            if ($methods->count() > 1) {
+                return $methods->implode(', ');
+            }
+        }
+
+        return (string) ($request->payment_method ?? 'Efectivo');
+    }
+
+    /**
      * Generate PDF report for sales
      */
     public function generatePDF(Request $request)
@@ -386,7 +438,7 @@ class SaleController extends Controller
     public function generateSinglePDF(int $id)
     {
         try {
-            $sale = Sale::with(['client', 'vehicle', 'user', 'details', 'financeRecord.paymentDistributions.account'])->find($id);
+            $sale = Sale::with(['client', 'vehicle', 'user', 'details', 'technicians', 'financeRecord.paymentDistributions.account'])->find($id);
 
             if (!$sale) {
                 return response()->json([
@@ -424,7 +476,7 @@ class SaleController extends Controller
     {
         try {
             // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente, el vehículo y los registros financieros con pagos distribuidos y cuentas
-            $sale = Sale::with(['details', 'client', 'vehicle', 'financeRecord.paymentDistributions.account'])->find((int)$id);
+            $sale = Sale::with(['details', 'client', 'vehicle', 'technicians', 'financeRecord.paymentDistributions.account'])->find((int)$id);
 
             if (!$sale) {
                 return response()->json([
@@ -577,7 +629,10 @@ class SaleController extends Controller
                 $financeRecord = \App\Models\Finance\FinanceRecord::where('invoice_number', $oldDocumentNumber)->first();
                 if ($financeRecord) {
                     $financeRecord->update([
-                        'work_order_number' => $request->document_number,
+                        'work_order_number' => WorkOrderSaleSync::resolveFinanceWorkOrderNumber(
+                            $sale->work_order_id,
+                            $request->document_number
+                        ),
                         'invoice_number' => $request->document_number,
                         'description' => 'Venta: ' . $sale->document_type . ' - ' . $request->document_number,
                     ]);
@@ -824,6 +879,7 @@ class SaleController extends Controller
             'document_number' => 'required|string|unique:sales,document_number',
             'client_id'       => 'required|exists:clients,id',
             'vehicle_id'      => 'nullable|exists:vehicles,id',
+            'work_order_id'   => 'nullable|exists:work_orders,id',
             'mileage'         => 'nullable|integer',
             'service_date'    => 'nullable|date',
             'subtotal'        => 'required|numeric',
@@ -836,9 +892,17 @@ class SaleController extends Controller
             'items.*.price'       => 'required|numeric',
             'items.*.discount'    => 'required|numeric',
             'items.*.product_id'  => 'nullable|exists:products,id',
+            'technicians' => 'nullable|array',
+            'technicians.*' => 'exists:employees,id',
         ]);
 
         try {
+            $linkedWorkOrder = null;
+            if ($request->work_order_id) {
+                $linkedWorkOrder = WorkOrderSaleSync::assertReadyForInvoicing((int) $request->work_order_id);
+                $request->merge(['document_number' => $linkedWorkOrder->number]);
+            }
+
             // Validar stock antes de procesar el despacho
             foreach ($request->items as $item) {
                 if (isset($item['product_id']) && $item['product_id']) {
@@ -870,13 +934,14 @@ class SaleController extends Controller
                 }
             }
 
-            $sale = DB::transaction(function () use ($request) {
+            $sale = DB::transaction(function () use ($request, $linkedWorkOrder) {
                 // Crear la venta con pago pendiente
                 $sale = Sale::create([
                     'document_type'   => 'sale_note',
                     'document_number' => $request->document_number,
                     'client_id'       => $request->client_id,
                     'vehicle_id'      => $request->vehicle_id,
+                    'work_order_id'   => $request->work_order_id,
                     'user_id'         => $request->user_id,
                     'mileage'         => $request->mileage,
                     'service_date'    => $request->service_date ?? now()->format('Y-m-d'),
@@ -911,13 +976,22 @@ class SaleController extends Controller
                     }
                 }
 
+                $technicianIds = WorkOrderSaleSync::resolveTechnicianIds($request, $linkedWorkOrder);
+                if (!empty($technicianIds)) {
+                    WorkOrderSaleSync::syncTechniciansToSale($sale, $technicianIds);
+                }
+
+                if ($linkedWorkOrder) {
+                    WorkOrderSaleSync::markAsDelivered($linkedWorkOrder);
+                }
+
                 return $sale;
             });
 
             return response()->json([
                 'success' => true,
                 'message' => 'Venta despachada correctamente con pago pendiente.',
-                'data'    => $sale->load('details')
+                'data'    => $sale->load(['details', 'technicians'])
             ], 201);
         } catch (Exception $e) {
             return response()->json([

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Employee;
 use App\Http\Controllers\Controller;
 use App\Models\Employee\EmployeePayment;
 use App\Models\Employee\EmployeeAdvance;
+use App\Models\Employee\Employee;
 use App\Models\Finance\Account;
 use App\Models\Finance\MovimientoCuenta;
 use Illuminate\Http\Request;
@@ -545,7 +546,7 @@ class EmployeeExpenseController extends Controller
     public function getEmployeePendingAdvances($employeeId)
     {
         try {
-            $employee = \App\Models\Employee::findOrFail($employeeId);
+            $employee = Employee::findOrFail($employeeId);
 
             // Obtener adelantos pendientes del empleado
             $pendingAdvances = EmployeeAdvance::with(['account', 'creator'])
@@ -584,7 +585,7 @@ class EmployeeExpenseController extends Controller
     public function getEmployeeEarnings($employeeId)
     {
         try {
-            $employee = \App\Models\Employee::findOrFail($employeeId);
+            $employee = Employee::findOrFail($employeeId);
 
             // Obtener adelantos del empleado
             $totalAdvances = EmployeeAdvance::where('employee_id', $employeeId)

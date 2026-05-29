@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\WorkOrder;
 use App\Http\Controllers\Controller;
 use App\Models\WorkOrder\WorkOrder;
 use App\Models\Product\Product;
+use App\Services\WorkOrder\WorkOrderSaleSync;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -24,7 +25,7 @@ class WorkOrderController extends Controller
             'fuel_level' => 'nullable|string|max:50',
             'observations' => 'nullable|string',
             'diagnostic' => 'nullable|string',
-            'technicians' => 'nullable|array|max:2',
+            'technicians' => 'nullable|array',
             'technicians.*' => 'exists:employees,id',
             'items' => 'nullable|array',
             'items.*.product_id' => 'nullable|exists:products,id',
@@ -40,9 +41,7 @@ class WorkOrderController extends Controller
         if ($request->filled('number')) {
             $validated['number'] = $request->input('number');
         } else {
-            $count = WorkOrder::count();
-            $nextNumber = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-            $validated['number'] = 'OT-' . $nextNumber;
+            $validated['number'] = WorkOrderSaleSync::formatNextNumber();
         }
         $validated['status'] = 'received';
 
@@ -172,7 +171,7 @@ class WorkOrderController extends Controller
      */
     public function getReadyToInvoice(): JsonResponse
     {
-        $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items'])
+        $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items', 'technicians'])
             ->where('status', 'ready')
             ->whereDoesntHave('sale')
             ->orderBy('created_at', 'desc')

@@ -672,6 +672,16 @@
                     TELÉFONO: {{ $sale->user->phone ?? '022698134' }}
                 </td>
             </tr>
+            @if ($sale->technicians && $sale->technicians->count() > 0)
+            <tr>
+                <td colspan="2">
+                    <b>TÉCNICOS:</b>
+                    @foreach ($sale->technicians as $technician)
+                        {{ $technician->first_name }} {{ $technician->last_name }}@if (!$loop->last), @endif
+                    @endforeach
+                </td>
+            </tr>
+            @endif
 
         </table>
 
