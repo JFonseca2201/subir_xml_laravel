@@ -125,12 +125,12 @@ class SaleController extends Controller
                 $request->merge(['document_number' => $linkedWorkOrder->number]);
             }
 
-            // 2. Validar stock antes de procesar la venta (solo si no es cotización)
+            // 2. Validar stock antes de procesar la venta (solo si no es cotización y es producto físico)
             if ($request->document_type !== 'quote') {
                 foreach ($request->items as $item) {
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = ModelsProduct::find($item['product_id']);
-                        if ($product && $product->stock < $item['quantity']) {
+                        if ($product && $product->item_type == 1 && $product->stock < $item['quantity']) {
                             return response()->json([
                                 'success' => false,
                                 'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
@@ -141,18 +141,45 @@ class SaleController extends Controller
                 }
             }
 
-            // 3. Validar descuentos máximos
+            // 3. Validar descuentos y margen (sólo aplica para item_type == 1 / Productos Físicos)
             foreach ($request->items as $item) {
                 if (isset($item['product_id']) && $item['product_id']) {
                     $product = ModelsProduct::find($item['product_id']);
-                    if ($product && $product->max_discount !== null) {
-                        $maxDiscountAmount = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
-                        if ($item['discount'] > $maxDiscountAmount) {
+                    if ($product && $product->item_type == 1) {
+                        // A. Validar que el precio final no sea menor al precio de compra (purchase_price)
+                        $itemDiscount = (float)($item['discount'] ?? 0.00);
+                        $finalPrice = ($item['quantity'] * $item['price']) - $itemDiscount;
+                        $minFinalPrice = $item['quantity'] * ($product->purchase_price ?? 0.00);
+                        if ($finalPrice < $minFinalPrice) {
                             return response()->json([
                                 'success' => false,
-                                'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$item['discount']}",
-                                'error' => 'discount_exceeded'
+                                'message' => "El descuento excede el margen permitido para el producto: {$product->description}. El precio final no puede ser menor al costo de compra (\${$product->purchase_price} c/u).",
+                                'error' => 'price_below_cost'
                             ], 400);
+                        }
+
+                        // B. Validar porcentaje de descuento máximo definido
+                        if ($product->discount_percentage > 0) {
+                            $maxAllowedByPct = ($item['quantity'] * $item['price']) * ($product->discount_percentage / 100);
+                            if ($itemDiscount > $maxAllowedByPct) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "El descuento excede el porcentaje máximo permitido ({$product->discount_percentage}%) para el producto: {$product->description}.",
+                                    'error' => 'discount_exceeded'
+                                ], 400);
+                            }
+                        }
+
+                        // C. Validar max_discount (monto absoluto o porcentaje según lógica del sistema)
+                        if ($product->max_discount > 0) {
+                            $maxAllowedByVal = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
+                            if ($itemDiscount > $maxAllowedByVal) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "El descuento excede el máximo permitido para el producto: {$product->description}.",
+                                    'error' => 'discount_exceeded'
+                                ], 400);
+                            }
                         }
                     }
                 }
@@ -194,10 +221,10 @@ class SaleController extends Controller
                         'total'       => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
                     ]);
 
-                    // Deducir stock solo si no es cotización
+                    // Deducir stock solo si no es cotización y es producto físico
                     if ($request->document_type !== 'quote' && isset($item['product_id']) && $item['product_id']) {
                         $product = ModelsProduct::find($item['product_id']);
-                        if ($product) {
+                        if ($product && $product->item_type == 1) {
                             $product->stock -= $item['quantity'];
                             $product->save();
                         }
@@ -568,7 +595,7 @@ class SaleController extends Controller
                     foreach ($request->items as $item) {
                         if (isset($item['product_id']) && $item['product_id']) {
                             $product = ModelsProduct::find($item['product_id']);
-                            if ($product) {
+                            if ($product && $product->item_type == 1) { // Solo si es Producto Físico
                                 $quantityNeeded = $item['quantity'];
                                 if (!$wasQuote && isset($item['id'])) {
                                     $oldDetail = $sale->details->firstWhere('id', $item['id']);
@@ -578,31 +605,58 @@ class SaleController extends Controller
                                 }
                                 
                                 if ($quantityNeeded > 0 && $product->stock < $quantityNeeded) {
-                                return response()->json([
-                                    'success' => false,
-                                    'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado adicional: {$quantityNeeded}",
-                                    'error' => 'stock_insufficient'
-                                ], 400);
-                            }
+                                    return response()->json([
+                                        'success' => false,
+                                        'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado adicional: {$quantityNeeded}",
+                                        'error' => 'stock_insufficient'
+                                    ], 400);
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Validar descuentos máximos
+            // Validar descuentos y margen (sólo aplica para item_type == 1 / Productos Físicos)
             if ($request->has('items')) {
                 foreach ($request->items as $item) {
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = ModelsProduct::find($item['product_id']);
-                        if ($product && $product->max_discount !== null) {
-                            $maxDiscountAmount = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
-                            if ($item['discount'] > $maxDiscountAmount) {
+                        if ($product && $product->item_type == 1) {
+                            // A. Validar que el precio final no sea menor al precio de compra (purchase_price)
+                            $itemDiscount = (float)($item['discount'] ?? 0.00);
+                            $finalPrice = ($item['quantity'] * $item['price']) - $itemDiscount;
+                            $minFinalPrice = $item['quantity'] * ($product->purchase_price ?? 0.00);
+                            if ($finalPrice < $minFinalPrice) {
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$item['discount']}",
-                                    'error' => 'discount_exceeded'
+                                    'message' => "El descuento excede el margen permitido para el producto: {$product->description}. El precio final no puede ser menor al costo de compra (\${$product->purchase_price} c/u).",
+                                    'error' => 'price_below_cost'
                                 ], 400);
+                            }
+
+                            // B. Validar porcentaje de descuento máximo definido
+                            if ($product->discount_percentage > 0) {
+                                $maxAllowedByPct = ($item['quantity'] * $item['price']) * ($product->discount_percentage / 100);
+                                if ($itemDiscount > $maxAllowedByPct) {
+                                    return response()->json([
+                                        'success' => false,
+                                        'message' => "El descuento excede el porcentaje máximo permitido ({$product->discount_percentage}%) para el producto: {$product->description}.",
+                                        'error' => 'discount_exceeded'
+                                    ], 400);
+                                }
+                            }
+
+                            // C. Validar max_discount (monto absoluto o porcentaje según lógica del sistema)
+                            if ($product->max_discount > 0) {
+                                $maxAllowedByVal = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
+                                if ($itemDiscount > $maxAllowedByVal) {
+                                    return response()->json([
+                                        'success' => false,
+                                        'message' => "El descuento excede el máximo permitido para el producto: {$product->description}.",
+                                        'error' => 'discount_exceeded'
+                                    ], 400);
+                                }
                             }
                         }
                     }
@@ -672,7 +726,7 @@ class SaleController extends Controller
                         foreach ($itemsToDelete as $deletedItem) {
                             if ($deletedItem->product_id) {
                                 $product = ModelsProduct::find($deletedItem->product_id);
-                                if ($product) {
+                                if ($product && $product->item_type == 1) { // Solo si es Producto Físico
                                     $product->stock += $deletedItem->quantity;
                                     $product->save();
                                 }
@@ -696,7 +750,7 @@ class SaleController extends Controller
                                     if ($detail->product_id == ($item['product_id'] ?? null)) {
                                         if ($detail->product_id) {
                                             $product = ModelsProduct::find($detail->product_id);
-                                            if ($product) {
+                                            if ($product && $product->item_type == 1) {
                                                 $diff = $item['quantity'] - $detail->quantity;
                                                 $product->stock -= $diff;
                                                 $product->save();
@@ -706,14 +760,14 @@ class SaleController extends Controller
                                         // Cambió de producto en la misma línea
                                         if ($detail->product_id) {
                                             $oldProduct = ModelsProduct::find($detail->product_id);
-                                            if ($oldProduct) {
+                                            if ($oldProduct && $oldProduct->item_type == 1) {
                                                 $oldProduct->stock += $detail->quantity;
                                                 $oldProduct->save();
                                             }
                                         }
                                         if (isset($item['product_id']) && $item['product_id']) {
                                             $newProduct = ModelsProduct::find($item['product_id']);
-                                            if ($newProduct) {
+                                            if ($newProduct && $newProduct->item_type == 1) {
                                                 $newProduct->stock -= $item['quantity'];
                                                 $newProduct->save();
                                             }
@@ -745,7 +799,7 @@ class SaleController extends Controller
                             // Descontar stock si ya era una venta y es un item nuevo
                             if (!$wasQuote && isset($item['product_id']) && $item['product_id']) {
                                 $product = ModelsProduct::find($item['product_id']);
-                                if ($product) {
+                                if ($product && $product->item_type == 1) {
                                     $product->stock -= $item['quantity'];
                                     $product->save();
                                 }
@@ -769,11 +823,11 @@ class SaleController extends Controller
                         $sale->status = 'completed';
                         $sale->save();
 
-                        // Restar stock de TODOS los productos (pues es su primera vez como venta)
+                        // Restar stock de TODOS los productos físicos (pues es su primera vez como venta)
                         foreach ($request->items as $item) {
                             if (isset($item['product_id']) && $item['product_id']) {
                                 $product = ModelsProduct::find($item['product_id']);
-                                if ($product) {
+                                if ($product && $product->item_type == 1) {
                                     $product->stock -= $item['quantity'];
                                     $product->save();
                                 }

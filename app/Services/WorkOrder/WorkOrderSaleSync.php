@@ -40,7 +40,7 @@ class WorkOrderSaleSync
 
     public static function formatNextNumber(): string
     {
-        return 'OT-' . str_pad((string) (self::getMaxOtNumber() + 1), 4, '0', STR_PAD_LEFT);
+        return 'OT-' . str_pad((string) (self::getMaxOtNumber() + 1), 7, '0', STR_PAD_LEFT);
     }
 
     /**

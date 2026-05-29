@@ -218,15 +218,15 @@ class ProductController extends Controller
                 'supplier_id' => 'nullable|integer|exists:suppliers,id',
                 'price' => 'required|numeric|min:0',
                 'price_sale' => 'required|numeric|min:0',
-                'purchase_price' => 'required|numeric|min:0',
+                'purchase_price' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'tax_rate' => 'required|numeric|min:0|max:100',
                 'max_discount' => 'required|numeric|min:0',
                 'discount_percentage' => 'required|numeric|min:0|max:100',
                 'brand' => 'nullable|string|max:100',
-                'stock' => 'required|numeric|min:0',
+                'stock' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'item_type' => 'required|integer|min:1|max:99',
-                'min_stock' => 'required|numeric|min:0',
-                'max_stock' => 'required|numeric|min:0',
+                'min_stock' => 'required_if:item_type,1|nullable|numeric|min:0',
+                'max_stock' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'is_taxable' => 'required|integer|in:1,2',
                 'is_gift' => 'required|integer|in:1,2',
                 'notes' => 'nullable|string|max:2000',
@@ -234,13 +234,29 @@ class ProductController extends Controller
                 'imagen' => 'nullable|image|max:2048',
             ]);
 
+            // Sanitizar valores si es servicio (item_type = 2)
+            $data = $request->all();
+            if ($request->input('item_type') == 2) {
+                $data['stock'] = 0.00;
+                $data['min_stock'] = 0.00;
+                $data['max_stock'] = 0.00;
+                $data['purchase_price'] = 0.00;
+                $data['warehouse_id'] = null;
+                $data['imagen'] = null;
+            }
+
+            // Si es un archivo, no lo pasamos en el create para evitar conflictos con el objeto UploadedFile
+            if ($request->hasFile('imagen')) {
+                unset($data['imagen']);
+            }
+
             // Crear el producto
-            Log::info('Creating product with data:', $request->all());
-            $product = Product::create($request->all());
+            Log::info('Creating product with data:', $data);
+            $product = Product::create($data);
             Log::info('Product created successfully:', ['id' => $product->id, 'description' => $product->description]);
 
             // Manejar la imagen si se envía
-            if ($request->hasFile('imagen')) {
+            if ($request->hasFile('imagen') && $request->input('item_type') != 2) {
                 Log::info('Image file detected:', ['filename' => $request->file('imagen')->getClientOriginalName()]);
                 $path = Storage::putFile('products', $request->file('imagen'));
                 $product->update([
@@ -342,15 +358,15 @@ class ProductController extends Controller
                 'supplier_id' => 'nullable|integer|exists:suppliers,id',
                 'price' => 'required|numeric|min:0',
                 'price_sale' => 'required|numeric|min:0',
-                'purchase_price' => 'required|numeric|min:0',
+                'purchase_price' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'tax_rate' => 'required|numeric|min:0|max:100',
                 'max_discount' => 'required|numeric|min:0',
                 'discount_percentage' => 'required|numeric|min:0|max:100',
                 'brand' => 'nullable|string|max:100',
-                'stock' => 'required|numeric|min:0',
+                'stock' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'item_type' => 'required|integer|min:1|max:99',
-                'min_stock' => 'required|numeric|min:0',
-                'max_stock' => 'required|numeric|min:0',
+                'min_stock' => 'required_if:item_type,1|nullable|numeric|min:0',
+                'max_stock' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'is_taxable' => 'required|integer|in:1,2',
                 'is_gift' => 'required|integer|in:1,2',
                 'notes' => 'nullable|string|max:2000',
@@ -358,9 +374,30 @@ class ProductController extends Controller
                 'imagen' => 'nullable|image|max:2048',
             ]);
 
-            $product->update($request->all());
+            // Sanitizar valores si es servicio (item_type = 2)
+            $data = $request->all();
+            if ($request->input('item_type') == 2) {
+                $data['stock'] = 0.00;
+                $data['min_stock'] = 0.00;
+                $data['max_stock'] = 0.00;
+                $data['purchase_price'] = 0.00;
+                $data['warehouse_id'] = null;
+                $data['imagen'] = null;
 
+                // Eliminar archivo físico anterior si existía
+                if ($product->imagen) {
+                    Storage::delete($product->imagen);
+                }
+            }
+
+            // Si es un archivo, no lo pasamos en el update principal
             if ($request->hasFile('imagen')) {
+                unset($data['imagen']);
+            }
+
+            $product->update($data);
+
+            if ($request->hasFile('imagen') && $request->input('item_type') != 2) {
                 if ($product->imagen) {
                     Storage::delete($product->imagen);
                 }
