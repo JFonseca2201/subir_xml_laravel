@@ -18,6 +18,17 @@ use Exception;
 class SaleController extends Controller
 {
     /**
+     * Get next sequence number
+     */
+    public function getNextNumber()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => \App\Services\SequenceService::getNextDirectSaleNumber()
+        ]);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     /**
@@ -116,6 +127,7 @@ class SaleController extends Controller
             'payment_distributions.*.payment_method' => 'required|string',
             'technicians' => 'nullable|array',
             'technicians.*' => 'exists:employees,id',
+            'is_draft' => 'nullable|boolean',
         ]);
 
         try {
@@ -123,10 +135,14 @@ class SaleController extends Controller
             if ($request->work_order_id) {
                 $linkedWorkOrder = WorkOrderSaleSync::assertReadyForInvoicing((int) $request->work_order_id);
                 $request->merge(['document_number' => $linkedWorkOrder->number]);
+            } else if (!$request->document_number) {
+                $request->merge(['document_number' => \App\Services\SequenceService::getNextDirectSaleNumber()]);
             }
 
+            $isDraft = $request->boolean('is_draft');
+
             // 2. Validar stock antes de procesar la venta (solo si no es cotización y es producto físico)
-            if ($request->document_type !== 'quote') {
+            if ($request->document_type !== 'quote' && !$isDraft) {
                 foreach ($request->items as $item) {
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = ModelsProduct::find($item['product_id']);
@@ -203,7 +219,7 @@ class SaleController extends Controller
                     'subtotal'        => $request->subtotal,
                     'tax_amount'      => $request->tax_amount,
                     'total'           => $request->total,
-                    'status'          => $request->document_type === 'quote' ? 'pending' : 'completed',
+                    'status'          => $isDraft ? 'draft' : ($request->document_type === 'quote' ? 'pending' : 'completed'),
                     'payment_status'  => $request->payment_status,
                     'is_credited'     => $request->is_credited,
                     'payment_method'  => $paymentMethod,
@@ -222,7 +238,7 @@ class SaleController extends Controller
                     ]);
 
                     // Deducir stock solo si no es cotización y es producto físico
-                    if ($request->document_type !== 'quote' && isset($item['product_id']) && $item['product_id']) {
+                    if ($request->document_type !== 'quote' && !$isDraft && isset($item['product_id']) && $item['product_id']) {
                         $product = ModelsProduct::find($item['product_id']);
                         if ($product && $product->item_type == 1) {
                             $product->stock -= $item['quantity'];
@@ -233,7 +249,7 @@ class SaleController extends Controller
 
                 // 💰 ESCALABILIDAD FINANCIERA: Actualizar cuentas según métodos de pago
                 // Si $request->document_type !== 'quote' (Es Nota de Venta o Factura)
-                if ($request->document_type !== 'quote') {
+                if ($request->document_type !== 'quote' && !$isDraft) {
                     $request->merge(['payment_method' => $paymentMethod]);
                     $this->processFinancialRecord($sale, $request);
                 }
@@ -243,7 +259,7 @@ class SaleController extends Controller
                     WorkOrderSaleSync::syncTechniciansToSale($sale, $technicianIds);
                 }
 
-                if ($linkedWorkOrder) {
+                if ($linkedWorkOrder && !$isDraft) {
                     WorkOrderSaleSync::markAsDelivered($linkedWorkOrder);
                 }
 
@@ -553,8 +569,8 @@ class SaleController extends Controller
             'items.*.discount' => 'required|numeric',
             'payment_distributions' => 'nullable|array',
             'payment_distributions.*.account_id' => 'required|exists:accounts,id',
-            'payment_distributions.*.amount' => 'required|numeric|min:0',
             'payment_distributions.*.payment_method' => 'required|string',
+            'is_draft' => 'nullable|boolean',
         ]);
 
         try {
@@ -587,17 +603,20 @@ class SaleController extends Controller
 
             // Verificar si se está convirtiendo de cotización a venta
             $wasQuote = $sale->document_type === 'quote';
+            $wasDraft = $sale->status === 'draft';
             $isNowSale = $request->has('document_type') && $request->document_type !== 'quote';
+            $isDraft = $request->boolean('is_draft');
+            $isFinishingDraft = $wasDraft && !$isDraft;
 
             // Validar stock si se convierte a venta o si ya es venta
-            if ($isNowSale || $sale->document_type !== 'quote') {
+            if ($isNowSale || ($sale->document_type !== 'quote' && !$isDraft)) {
                 if ($request->has('items')) {
                     foreach ($request->items as $item) {
                         if (isset($item['product_id']) && $item['product_id']) {
                             $product = ModelsProduct::find($item['product_id']);
                             if ($product && $product->item_type == 1) { // Solo si es Producto Físico
                                 $quantityNeeded = $item['quantity'];
-                                if (!$wasQuote && isset($item['id'])) {
+                                if (!$wasQuote && !$wasDraft && isset($item['id'])) {
                                     $oldDetail = $sale->details->firstWhere('id', $item['id']);
                                     if ($oldDetail && $oldDetail->product_id == $item['product_id']) {
                                         $quantityNeeded -= $oldDetail->quantity;
@@ -665,6 +684,13 @@ class SaleController extends Controller
 
             $oldDocumentNumber = $sale->document_number;
 
+            $status = $sale->status;
+            if ($isFinishingDraft) {
+                $status = $request->document_type === 'quote' ? 'pending' : 'completed';
+            } else if ($isDraft) {
+                $status = 'draft';
+            }
+
             // Actualizar campos operativos básicos
             $sale->update($request->only([
                 'document_number',
@@ -676,7 +702,7 @@ class SaleController extends Controller
                 'document_type',
                 'payment_status',
                 'is_credited'
-            ]));
+            ]) + ['status' => $status]);
 
             // Si el número de documento cambió, actualizar el registro financiero y movimientos asociados
             if ($request->has('document_number') && $request->document_number !== $oldDocumentNumber) {
@@ -721,7 +747,7 @@ class SaleController extends Controller
                     $itemIds = array_filter(array_column($request->items, 'id'));
 
                     // Si ya era una venta, restauramos el stock de los items que van a ser eliminados
-                    if (!$wasQuote) {
+                    if (!$wasQuote && !$wasDraft) {
                         $itemsToDelete = $sale->details->whereNotIn('id', $itemIds);
                         foreach ($itemsToDelete as $deletedItem) {
                             if ($deletedItem->product_id) {
@@ -746,7 +772,7 @@ class SaleController extends Controller
                             
                             if ($detail) {
                                 // Gestionar stock de la diferencia si ya era una venta
-                                if (!$wasQuote) {
+                                if (!$wasQuote && !$wasDraft) {
                                     if ($detail->product_id == ($item['product_id'] ?? null)) {
                                         if ($detail->product_id) {
                                             $product = ModelsProduct::find($detail->product_id);
@@ -797,7 +823,7 @@ class SaleController extends Controller
                             ]);
 
                             // Descontar stock si ya era una venta y es un item nuevo
-                            if (!$wasQuote && isset($item['product_id']) && $item['product_id']) {
+                            if (!$wasQuote && !$wasDraft && isset($item['product_id']) && $item['product_id']) {
                                 $product = ModelsProduct::find($item['product_id']);
                                 if ($product && $product->item_type == 1) {
                                     $product->stock -= $item['quantity'];
@@ -819,7 +845,7 @@ class SaleController extends Controller
                     ]);
 
                     // Si se convierte de cotización a venta, procesar el stock y finanzas
-                    if ($wasQuote && $isNowSale) {
+                    if (($wasQuote && $isNowSale) || $isFinishingDraft) {
                         $sale->status = 'completed';
                         $sale->save();
 
@@ -835,7 +861,17 @@ class SaleController extends Controller
                         }
 
                         // Procesar registro financiero
-                        $this->processFinancialRecord($sale, $request);
+                        if ($request->document_type !== 'quote') {
+                            $request->merge(['payment_method' => $sale->payment_method]);
+                            $this->processFinancialRecord($sale, $request);
+                            
+                            if ($sale->work_order_id) {
+                                $linkedWorkOrder = \App\Models\WorkOrder\WorkOrder::find($sale->work_order_id);
+                                if ($linkedWorkOrder) {
+                                    WorkOrderSaleSync::markAsDelivered($linkedWorkOrder);
+                                }
+                            }
+                        }
                     }
                 });
             }

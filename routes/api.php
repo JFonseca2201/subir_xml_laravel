@@ -166,6 +166,7 @@ Route::group(
         Route::post('financial-movements/pdf', [FinanzasController::class, 'generatePDF']);
 
         // ============= RUTAS DE SALES ==========
+        Route::get('sales/next-number', [SaleController::class, 'getNextNumber']);
         Route::resource('sales', SaleController::class);
         Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
@@ -176,6 +177,7 @@ Route::group(
         Route::get('returns/{id}', [ProductReturnController::class, 'show']);
 
         // ============= RUTAS DE ÓRDENES DE TRABAJO ==========
+        Route::get('work-orders/next-number', [WorkOrderController::class, 'getNextNumber']);
         Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);
         Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/{id}/pdf', [WorkOrderController::class, 'generatePDF']);
@@ -191,6 +193,7 @@ Route::group(
         Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
 
         // ============= RUTAS DE PEDIDOS A DISTRIBUIDOR ==========
+        Route::get('pedidos-distribuidor/next-number', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getNextNumber']);
         Route::get('pedidos-distribuidor/productos/{distribuidor_id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getProductsBySupplier']);
         Route::post('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'store']);
         Route::get('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'index']);

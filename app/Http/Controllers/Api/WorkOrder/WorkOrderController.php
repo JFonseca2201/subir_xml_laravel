@@ -13,6 +13,16 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class WorkOrderController extends Controller
 {
     /**
+     * Get next sequence number
+     */
+    public function getNextNumber(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => \App\Services\SequenceService::getNextWorkOrderNumber()
+        ]);
+    }
+    /**
      * Store a newly created work order in storage.
      */
     public function store(Request $request): JsonResponse
@@ -35,46 +45,52 @@ class WorkOrderController extends Controller
             'items.*.discount' => 'nullable|numeric|min:0',
             'items.*.type' => 'required|in:product,service',
             'number' => 'nullable|string|unique:work_orders,number',
+            'is_draft' => 'nullable|boolean',
         ]);
 
         // Usar el número enviado si existe, de lo contrario autogenerar el número de orden de trabajo (OT-0001, OT-0002, etc.)
         if ($request->filled('number')) {
             $validated['number'] = $request->input('number');
         } else {
-            $validated['number'] = WorkOrderSaleSync::formatNextNumber();
+            $validated['number'] = \App\Services\SequenceService::getNextWorkOrderNumber();
         }
-        $validated['status'] = 'received';
+        $validated['status'] = $request->boolean('is_draft') ? 'draft' : 'received';
 
-        // Validar stock antes de crear la orden de trabajo
-        if (isset($validated['items']) && is_array($validated['items'])) {
-            foreach ($validated['items'] as $item) {
-                if (isset($item['product_id']) && $item['product_id']) {
-                    $product = Product::find($item['product_id']);
-                    if ($product && $product->stock < $item['quantity']) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
-                            'error' => 'stock_insufficient'
-                        ], 400);
+        if (!$request->boolean('is_draft')) {
+            // Validar stock antes de crear la orden de trabajo
+            if (isset($validated['items']) && is_array($validated['items'])) {
+                foreach ($validated['items'] as $item) {
+                    if (isset($item['type']) && $item['type'] === 'service') {
+                        continue;
+                    }
+                    if (isset($item['product_id']) && $item['product_id']) {
+                        $product = Product::find($item['product_id']);
+                        if ($product && $product->stock < $item['quantity']) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
+                                'error' => 'stock_insufficient'
+                            ], 400);
+                        }
                     }
                 }
             }
-        }
 
-        // Validar descuentos máximos
-        if (isset($validated['items']) && is_array($validated['items'])) {
-            foreach ($validated['items'] as $item) {
-                if (isset($item['product_id']) && $item['product_id']) {
-                    $product = Product::find($item['product_id']);
-                    if ($product && $product->max_discount !== null) {
-                        $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
-                        $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
-                        if ($itemDiscount > $maxDiscountAmount) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$itemDiscount}",
-                                'error' => 'discount_exceeded'
-                            ], 400);
+            // Validar descuentos máximos
+            if (isset($validated['items']) && is_array($validated['items'])) {
+                foreach ($validated['items'] as $item) {
+                    if (isset($item['product_id']) && $item['product_id']) {
+                        $product = Product::find($item['product_id']);
+                        if ($product && $product->max_discount !== null) {
+                            $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
+                            $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
+                            if ($itemDiscount > $maxDiscountAmount) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$itemDiscount}",
+                                    'error' => 'discount_exceeded'
+                                ], 400);
+                            }
                         }
                     }
                 }
@@ -108,6 +124,106 @@ class WorkOrderController extends Controller
             'message' => 'Orden de trabajo creada exitosamente',
             'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items'])
         ], 201);
+    }
+
+    /**
+     * Update the specified work order in storage.
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $workOrder = WorkOrder::findOrFail($id);
+
+        $validated = $request->validate([
+            'client_id' => 'required|exists:clients,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'user_id' => 'required|exists:users,id',
+            'mileage' => 'nullable|integer',
+            'fuel_level' => 'nullable|string|max:50',
+            'observations' => 'nullable|string',
+            'diagnostic' => 'nullable|string',
+            'technicians' => 'nullable|array',
+            'technicians.*' => 'exists:employees,id',
+            'items' => 'nullable|array',
+            'items.*.product_id' => 'nullable|exists:products,id',
+            'items.*.description' => 'required|string',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.discount' => 'nullable|numeric|min:0',
+            'items.*.type' => 'required|in:product,service',
+            'is_draft' => 'nullable|boolean',
+        ]);
+
+        $validated['status'] = $request->boolean('is_draft') ? 'draft' : 'received';
+
+        if (!$request->boolean('is_draft')) {
+            // Validar stock antes de actualizar
+            if (isset($validated['items']) && is_array($validated['items'])) {
+                foreach ($validated['items'] as $item) {
+                    if (isset($item['type']) && $item['type'] === 'service') {
+                        continue;
+                    }
+                    if (isset($item['product_id']) && $item['product_id']) {
+                        $product = Product::find($item['product_id']);
+                        if ($product && $product->stock < $item['quantity']) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
+                                'error' => 'stock_insufficient'
+                            ], 400);
+                        }
+                    }
+                }
+            }
+
+            // Validar descuentos
+            if (isset($validated['items']) && is_array($validated['items'])) {
+                foreach ($validated['items'] as $item) {
+                    if (isset($item['product_id']) && $item['product_id']) {
+                        $product = Product::find($item['product_id']);
+                        if ($product && $product->max_discount !== null) {
+                            $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
+                            $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
+                            if ($itemDiscount > $maxDiscountAmount) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$itemDiscount}",
+                                    'error' => 'discount_exceeded'
+                                ], 400);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        $workOrder->update($validated);
+
+        // Guardar técnicos
+        if (isset($validated['technicians']) && is_array($validated['technicians'])) {
+            $workOrder->technicians()->sync($validated['technicians']);
+        }
+
+        // Actualizar items
+        if (isset($validated['items']) && is_array($validated['items'])) {
+            $workOrder->items()->delete();
+            foreach ($validated['items'] as $item) {
+                $subtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
+                $workOrder->items()->create([
+                    'product_id' => $item['product_id'] ?? null,
+                    'description' => $item['description'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'discount' => $item['discount'] ?? 0,
+                    'subtotal' => $subtotal,
+                    'type' => $item['type'],
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Orden de trabajo actualizada exitosamente',
+            'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items'])
+        ], 200);
     }
 
     /**
@@ -154,7 +270,7 @@ class WorkOrderController extends Controller
     public function updateStatus(Request $request, $id): JsonResponse
     {
         $validated = $request->validate([
-            'status' => 'required|in:received,in_progress,ready,delivered'
+            'status' => 'required|in:draft,received,in_progress,ready,delivered'
         ]);
 
         $workOrder = WorkOrder::findOrFail($id);

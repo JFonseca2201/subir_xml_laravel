@@ -16,6 +16,18 @@ use Exception;
 class PedidoDistribuidorController extends Controller
 {
     /**
+     * Get next sequence number
+     */
+    public function getNextNumber()
+    {
+        return response()->json([
+            'status' => 200,
+            'success' => true,
+            'data' => \App\Services\SequenceService::getNextPedidoNumber()
+        ]);
+    }
+
+    /**
      * Obtener los productos asociados a un distribuidor específico.
      */
     public function getProductsBySupplier(Request $request, $supplier_id)
@@ -29,7 +41,7 @@ class PedidoDistribuidorController extends Controller
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', "%{$search}%")
-                      ->orWhere('sku', 'like', "%{$search}%");
+                        ->orWhere('sku', 'like', "%{$search}%");
                 });
             }
 
@@ -37,7 +49,7 @@ class PedidoDistribuidorController extends Controller
 
             return response()->json([
                 'status' => 200,
-                'products' => $products->map(function($product) {
+                'products' => $products->map(function ($product) {
                     return [
                         'id' => $product->id,
                         'description' => $product->description,
@@ -129,6 +141,8 @@ class PedidoDistribuidorController extends Controller
             'items.*.description' => 'required|string|max:255',
             'items.*.cantidad' => 'required|integer|min:1',
             'items.*.precio_compra_estimado' => 'required|numeric|min:0',
+            'number' => 'nullable|string|unique:pedidos_distribuidor,number',
+            'is_draft' => 'nullable|boolean',
         ], [
             'distribuidor_id.required' => 'El distribuidor es obligatorio.',
             'distribuidor_id.exists' => 'El distribuidor seleccionado no es válido.',
@@ -155,7 +169,7 @@ class PedidoDistribuidorController extends Controller
         }
 
         try {
-            $pedido = DB::transaction(function() use ($request) {
+            $pedido = DB::transaction(function () use ($request) {
                 // Calcular el total estimado del pedido
                 $total = 0;
                 foreach ($request->items as $item) {
@@ -164,9 +178,10 @@ class PedidoDistribuidorController extends Controller
 
                 // Crear cabecera del pedido a distribuidor
                 $pedido = PedidoDistribuidor::create([
+                    'number' => $request->filled('number') ? $request->number : \App\Services\SequenceService::getNextPedidoNumber(),
                     'distribuidor_id' => $request->distribuidor_id,
                     'usuario_id' => $request->usuario_id,
-                    'estado' => 'pendiente', // Estado inicial según requerimiento
+                    'estado' => $request->boolean('is_draft') ? 'draft' : 'pendiente',
                     'total' => $total,
                 ]);
 
@@ -232,7 +247,9 @@ class PedidoDistribuidorController extends Controller
         $validator = Validator::make($request->all(), [
             'distribuidor_id' => 'required|exists:suppliers,id',
             'usuario_id' => 'required|exists:users,id',
-            'estado' => 'nullable|string|in:pendiente,por_confirmar,completado,cancelado',
+            'estado' => 'nullable|string|in:draft,pendiente,por_confirmar,completado,cancelado',
+            'number' => 'nullable|string',
+            'is_draft' => 'nullable|boolean',
             'items' => 'required|array|min:1',
             'items.*.producto_id' => 'nullable|exists:products,id',
             'items.*.description' => 'required|string|max:255',
@@ -266,7 +283,7 @@ class PedidoDistribuidorController extends Controller
         try {
             $pedido = PedidoDistribuidor::findOrFail($id);
 
-            $pedido = DB::transaction(function() use ($request, $pedido) {
+            $pedido = DB::transaction(function () use ($request, $pedido) {
                 // Calcular el total estimado del pedido
                 $total = 0;
                 foreach ($request->items as $item) {
@@ -274,10 +291,15 @@ class PedidoDistribuidorController extends Controller
                 }
 
                 // Actualizar cabecera
+                $estadoFinal = $request->boolean('is_draft') ? 'draft' : ($request->estado ?? $pedido->estado);
+                if ($estadoFinal === 'draft' && $request->has('estado') && $request->estado !== 'draft') {
+                    $estadoFinal = $request->estado;
+                }
+
                 $pedido->update([
                     'distribuidor_id' => $request->distribuidor_id,
                     'usuario_id' => $request->usuario_id,
-                    'estado' => $request->estado ?? $pedido->estado,
+                    'estado' => $estadoFinal,
                     'total' => $total,
                 ]);
 
@@ -351,7 +373,7 @@ class PedidoDistribuidorController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'estado' => 'required|string|in:pendiente,por_confirmar,completado,cancelado',
+            'estado' => 'required|string|in:draft,pendiente,por_confirmar,completado,cancelado',
         ], [
             'estado.required' => 'El estado es obligatorio.',
             'estado.in' => 'El estado seleccionado no es válido.',
