@@ -16,34 +16,33 @@ class UnitConversionController extends Controller
         try {
             $unit_id = $request->get('unit_id');
 
-            if (!$unit_id) {
-                return response()->json([
-                    'status' => 422,
-                    'message' => 'Error de validación',
-                    'errors' => ['unit_id' => 'El campo unit_id es requerido'],
-                ], 422);
+            $query = UnitConversion::with(['unit', 'unit_to']);
+
+            // Si se proporciona unit_id, filtrar por esa unidad
+            if ($unit_id) {
+                $query->where('unit_id', $unit_id);
             }
 
-            $unit_conversions = UnitConversion::where('unit_id', $unit_id)
-                ->with(['unit', 'unit_to'])
-                ->orderBy('id', 'desc')
-                ->get();
+            $unit_conversions = $query->orderBy('id', 'desc')->get();
 
             return response()->json([
                 'status' => 200,
-                'unit_conversions' => $unit_conversions->map(function ($unit_conversion) {
+                'conversions' => $unit_conversions->map(function ($unit_conversion) {
                     return [
                         'id' => $unit_conversion->id,
                         'unit_id' => $unit_conversion->unit_id,
-                        'unit' => [
+                        'from_unit' => [
                             'id' => $unit_conversion->unit->id,
                             'name' => strtoupper(trim($unit_conversion->unit->name)),
+                            'code' => $unit_conversion->unit->code ?? '',
                         ],
                         'unit_to_id' => $unit_conversion->unit_to_id,
-                        'unit_to' => [
+                        'to_unit' => [
                             'id' => $unit_conversion->unit_to->id,
                             'name' => strtoupper(trim($unit_conversion->unit_to->name)),
+                            'code' => $unit_conversion->unit_to->code ?? '',
                         ],
+                        'factor' => $unit_conversion->factor ?? 1.00,
                         'created_at' => $unit_conversion->created_at->format('Y-m-d H:i:s'),
                     ];
                 }),
@@ -93,15 +92,18 @@ class UnitConversionController extends Controller
                 'unit_conversion' => [
                     'id' => $unit_conversion->id,
                     'unit_id' => $unit_conversion->unit_id,
-                    'unit' => [
+                    'from_unit' => [
                         'id' => $unit_conversion->unit->id,
                         'name' => strtoupper(trim($unit_conversion->unit->name)),
+                        'code' => $unit_conversion->unit->code ?? '',
                     ],
                     'unit_to_id' => $unit_conversion->unit_to_id,
-                    'unit_to' => [
+                    'to_unit' => [
                         'id' => $unit_conversion->unit_to->id,
                         'name' => strtoupper(trim($unit_conversion->unit_to->name)),
+                        'code' => $unit_conversion->unit_to->code ?? '',
                     ],
+                    'factor' => $unit_conversion->factor ?? 1.00,
                     'created_at' => $unit_conversion->created_at->format('Y-m-d H:i:s'),
                 ],
             ]);

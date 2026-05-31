@@ -83,8 +83,9 @@ class ProductController extends Controller
                 ->get();
 
             $units = Unit::where('state', 1)
-                ->select('id', 'name')
+                ->selectRaw('MIN(id) as id, name')
                 ->orderBy('name', 'asc')
+                ->groupBy('name')
                 ->get();
 
             return response()->json([
