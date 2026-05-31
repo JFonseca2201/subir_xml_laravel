@@ -16,7 +16,7 @@ class UnitController extends Controller
     {
         try {
             $search = $request->get('search', '');
-            $perPage = $request->get('per_page', 5);
+            $perPage = $request->get('per_page', 10);
 
             $units = Unit::where('name', 'LIKE', '%' . $search . '%')->orderBy('id', 'desc')->paginate($perPage);
 
