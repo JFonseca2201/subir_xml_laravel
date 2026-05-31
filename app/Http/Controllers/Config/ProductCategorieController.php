@@ -16,9 +16,10 @@ class ProductCategorieController extends Controller
     public function index(Request $request)
     {
         $search = $request->get('search');
+        $perPage = $request->get('per_page', 10);
 
         //$categories = ProductCategorie::where('title', 'ilike', '%' . $search . '%')->orderBy('title', 'ASC')->get();
-        $categories = ProductCategorie::where('title', 'LIKE', '%' . $search . '%')->orderBy('title', 'ASC')->get();
+        $categories = ProductCategorie::where('title', 'LIKE', '%' . $search . '%')->orderBy('title', 'ASC')->paginate($perPage);
         return response()->json([
             'categories' => $categories->map(function ($categorie) {
                 return [
@@ -29,6 +30,10 @@ class ProductCategorieController extends Controller
                     'created_at' => $categorie->created_at->format('Y-m-d h:i A'),
                 ];
             }),
+            'total' => $categories->total(),
+            'per_page' => $categories->perPage(),
+            'current_page' => $categories->currentPage(),
+            'total_pages' => $categories->lastPage(),
         ]);
     }
 

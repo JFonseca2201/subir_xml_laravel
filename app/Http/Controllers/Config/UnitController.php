@@ -16,8 +16,9 @@ class UnitController extends Controller
     {
         try {
             $search = $request->get('search', '');
+            $perPage = $request->get('per_page', 5);
 
-            $units = Unit::where('name', 'LIKE', '%' . $search . '%')->orderBy('id', 'desc')->get();
+            $units = Unit::where('name', 'LIKE', '%' . $search . '%')->orderBy('id', 'desc')->paginate($perPage);
 
             return response()->json([
                 'status' => 200,
@@ -30,6 +31,10 @@ class UnitController extends Controller
                         'created_at' => $unit->created_at->format('Y/m/d h:i:s'),
                     ];
                 }),
+                'total' => $units->total(),
+                'per_page' => $units->perPage(),
+                'current_page' => $units->currentPage(),
+                'total_pages' => $units->lastPage(),
             ]);
         } catch (\Throwable $th) {
             return response()->json([

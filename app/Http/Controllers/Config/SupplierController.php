@@ -17,11 +17,12 @@ class SupplierController extends Controller
     {
         try {
             $search = $request->search;
+            $perPage = $request->get('per_page', 10);
 
             $suppliers = Supplier::where("name", "like", "%{$search}%")
                 ->orWhere("ruc", "like", "%{$search}%")
                 ->orderBy("id", "desc")
-                ->get();
+                ->paginate($perPage);
 
             return response()->json([
                 'status' => 200,
@@ -36,6 +37,10 @@ class SupplierController extends Controller
                         'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                     ];
                 }),
+                'total' => $suppliers->total(),
+                'per_page' => $suppliers->perPage(),
+                'current_page' => $suppliers->currentPage(),
+                'total_pages' => $suppliers->lastPage(),
             ], 200);
         } catch (\Throwable $th) {
             return response()->json([
