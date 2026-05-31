@@ -21,6 +21,7 @@ use App\Http\Controllers\Config\UnitController;
 use App\Http\Controllers\Config\WarehouseController;
 use App\Http\Controllers\Employee\EmployeeController;
 use App\Http\Controllers\Invoice\InvoiceXmlImportController;
+use App\Http\Controllers\KardexController;
 use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Roles\RoleController;
 use App\Http\Controllers\Sales\SaleController;
@@ -184,11 +185,11 @@ Route::group(
         Route::resource('work-orders', WorkOrderController::class);
         Route::get('products-excel', [ProductController::class, 'download_excel']);
         Route::post('products/import-excel', [ProductController::class, 'import_excel']);
-        
+
         // Excel Import Routes para Clientes y Vehículos
         Route::post('import/clients', [ExcelImportController::class, 'importClients']);
         Route::post('import/vehicles', [ExcelImportController::class, 'importVehicles']);
-        
+
         Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
         Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
 
@@ -202,5 +203,8 @@ Route::group(
         Route::put('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'update']);
         Route::delete('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'destroy']);
         Route::put('pedidos-distribuidor/{id}/status', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'updateStatus']);
+
+        // ============= RUTAS DE KARDEX INTEGRAL ==========
+        Route::get('kardex', [KardexController::class, 'index']);
     },
 );
