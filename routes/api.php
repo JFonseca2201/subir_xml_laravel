@@ -205,6 +205,7 @@ Route::group(
         Route::put('pedidos-distribuidor/{id}/status', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'updateStatus']);
 
         // ============= RUTAS DE KARDEX INTEGRAL ==========
+        Route::get('kardex/productos', [KardexController::class, 'indexByProduct']);
         Route::get('kardex', [KardexController::class, 'index']);
     },
 );

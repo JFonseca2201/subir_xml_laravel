@@ -29,14 +29,18 @@ class AppServiceProvider extends ServiceProvider
 
         // Ensure database morph types from before the refactor can still resolve
         Relation::morphMap([
+            'App\Models\Sales\Sale' => \App\Models\Sales\Sale::class,
+            'App\Models\Sale\Sale' => \App\Models\Sales\Sale::class,
             'App\Models\AporteCapital' => \App\Models\Partner\AporteCapital::class,
             'App\Models\PartnerContribution' => \App\Models\Partner\PartnerContribution::class,
             'App\Models\EmployeeAdvance' => \App\Models\Employee\EmployeeAdvance::class,
             'App\Models\EmployeePayment' => \App\Models\Employee\EmployeePayment::class,
+            'App\Models\Finance\InternalTransfer' => \App\Models\Finance\InternalTransfer::class,
             'App\Models\InternalTransfer' => \App\Models\Finance\InternalTransfer::class,
             'App\Models\Transfer' => \App\Models\Finance\Transfer::class,
             'App\Models\Transaction' => \App\Models\Finance\Transaction::class,
             'App\Models\MovimientoCuenta' => \App\Models\Finance\MovimientoCuenta::class,
+            'App\Models\Finance\PaymentDistribution' => \App\Models\Finance\PaymentDistribution::class,
             'App\Models\PaymentDistribution' => \App\Models\Finance\PaymentDistribution::class,
             'App\Models\FinanceRecord' => \App\Models\Finance\FinanceRecord::class,
             'App\Models\FinancialMovement' => \App\Models\Finance\FinancialMovement::class,
