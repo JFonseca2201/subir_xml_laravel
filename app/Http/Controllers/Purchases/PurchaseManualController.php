@@ -19,6 +19,8 @@ class PurchaseManualController extends Controller
 {
     public function store(Request $request)
     {
+        //Corregir la compra manual y al ingresar productos.
+        
         $request->validate([
             'supplier_id' => 'required|integer|exists:suppliers,id',
             'invoice_number' => 'required|string',
