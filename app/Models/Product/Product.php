@@ -37,7 +37,6 @@ class Product extends Model
         'tax_rate',
         'max_discount',
         'discount_percentage',
-        'discount',
         'brand',
         'stock',
         'item_type',

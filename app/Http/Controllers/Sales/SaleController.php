@@ -742,7 +742,7 @@ class SaleController extends Controller
 
             // Si se proporcionan items, actualizar el detalle
             if ($request->has('items')) {
-                DB::transaction(function () use ($sale, $request, $wasQuote, $isNowSale) {
+                DB::transaction(function () use ($sale, $request, $wasQuote, $isNowSale, $wasDraft, $isFinishingDraft) {
                     // Obtener IDs de los items enviados
                     $itemIds = array_filter(array_column($request->items, 'id'));
 
