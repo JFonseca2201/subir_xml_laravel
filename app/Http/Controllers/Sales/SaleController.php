@@ -481,7 +481,7 @@ class SaleController extends Controller
     public function generateSinglePDF(int $id)
     {
         try {
-            $sale = Sale::with(['client', 'vehicle', 'user', 'details', 'technicians', 'financeRecord.paymentDistributions.account'])->find($id);
+            $sale = Sale::with(['client', 'vehicle', 'user', 'details.product', 'technicians', 'financeRecord.paymentDistributions.account'])->find($id);
 
             if (!$sale) {
                 return response()->json([

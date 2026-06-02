@@ -704,8 +704,11 @@
                     <tr>
                         <td class="center">{{ $cont = $cont + 1 }}</td>
                         <td>
-
                             {{ $detail->description }}
+                            @if ($detail->product?->sku)
+                                <br>
+                                <small style="color: #666;">SKU: {{ $detail->product->sku }}</small>
+                            @endif
                         </td>
                         <td class="right">{{ $detail->quantity }}</td>
                         <td class="right">${{ $detail->price }}</td>

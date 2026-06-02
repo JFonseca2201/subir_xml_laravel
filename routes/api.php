@@ -30,6 +30,7 @@ use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
 use App\Http\Controllers\Api\Geographic\GeographicController;
 use App\Http\Controllers\ExcelImportController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(
@@ -207,5 +208,10 @@ Route::group(
         // ============= RUTAS DE KARDEX INTEGRAL ==========
         Route::get('kardex/productos', [KardexController::class, 'indexByProduct']);
         Route::get('kardex', [KardexController::class, 'index']);
+
+        // ============= RUTAS DE DASHBOARD GENERAL ==========
+        Route::get('dashboard/search', [DashboardController::class, 'search']);
+        Route::get('dashboard', [DashboardController::class, 'index']);
     },
 );
+
