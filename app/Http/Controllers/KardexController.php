@@ -235,6 +235,80 @@ class KardexController extends Controller
                 // Caso 3: Otros movimientos financieros (nómina, adelantos, transferencias, logística, etc.)
                 $concepto = $this->getConceptoDisplay($movimiento->movable_type, $movimiento->description);
 
+                if ($movimiento->type === 'transfer' || $movimiento->movable_type === 'App\Models\Finance\InternalTransfer') {
+                    $toAccountId = $movimiento->metadata['to_account'] ?? null;
+                    $fromAccountId = $movimiento->metadata['from_account'] ?? null;
+                    
+                    // fetch both names if needed
+                    $toAccountName = null;
+                    if ($toAccountId) {
+                        $toAccount = \App\Models\Finance\Account::find($toAccountId);
+                        $toAccountName = $toAccount ? $toAccount->name : 'Cuenta Destino';
+                    }
+
+                    // 1. Salida (Gasto) - From Account
+                    $movimientosFormateados[] = [
+                        'id' => $movimiento->id . '_out',
+                        'fecha' => $movimiento->entry_date->format('Y-m-d'),
+                        'fecha_formateada' => $movimiento->entry_date->format('d/m/Y'),
+                        'movimiento_tipo' => 'salida',
+                        'concepto_tipo' => 'transferencia',
+                        'concepto' => 'TRANSFERENCIA (SALIDA)',
+                        'codigo_aux' => null,
+                        'producto' => null,
+                        'servicio' => null,
+                        'user' => null,
+                        'cantidad_anterior' => null,
+                        'cantidad_movida' => null,
+                        'cantidad_posterior' => null,
+                        'precio_unitario' => null,
+                        'subtotal' => null,
+                        'total' => null,
+                        'monto_financiero' => (float) $movimiento->amount,
+                        'referencia_id' => $movimiento->movable_id,
+                        'referencia_tipo' => $movimiento->movable_type,
+                        'descripcion' => $movimiento->description . ' (Hacia: ' . $toAccountName . ')',
+                        'afecta_stock' => false,
+                        'account' => $movimiento->account ? [
+                            'id' => $movimiento->account->id,
+                            'name' => $movimiento->account->name,
+                        ] : null,
+                        'metadata' => $movimiento->metadata,
+                    ];
+
+                    // 2. Entrada (Ingreso) - To Account
+                    $movimientosFormateados[] = [
+                        'id' => $movimiento->id . '_in',
+                        'fecha' => $movimiento->entry_date->format('Y-m-d'),
+                        'fecha_formateada' => $movimiento->entry_date->format('d/m/Y'),
+                        'movimiento_tipo' => 'entrada',
+                        'concepto_tipo' => 'transferencia',
+                        'concepto' => 'TRANSFERENCIA (INGRESO)',
+                        'codigo_aux' => null,
+                        'producto' => null,
+                        'servicio' => null,
+                        'user' => null,
+                        'cantidad_anterior' => null,
+                        'cantidad_movida' => null,
+                        'cantidad_posterior' => null,
+                        'precio_unitario' => null,
+                        'subtotal' => null,
+                        'total' => null,
+                        'monto_financiero' => (float) $movimiento->amount,
+                        'referencia_id' => $movimiento->movable_id,
+                        'referencia_tipo' => $movimiento->movable_type,
+                        'descripcion' => $movimiento->description . ' (Desde: ' . ($movimiento->account ? $movimiento->account->name : 'Desconocido') . ')',
+                        'afecta_stock' => false,
+                        'account' => $toAccountName ? [
+                            'id' => $toAccountId,
+                            'name' => $toAccountName,
+                        ] : null,
+                        'metadata' => $movimiento->metadata,
+                    ];
+
+                    continue;
+                }
+
                 $movimientosFormateados[] = [
                     'id' => $movimiento->id,
                     'fecha' => $movimiento->entry_date->format('Y-m-d'),

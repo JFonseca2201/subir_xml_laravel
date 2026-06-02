@@ -204,7 +204,7 @@ class SaleController extends Controller
             $paymentMethod = $this->resolveSalePaymentMethod($request);
 
             // 4. Iniciamos la transacción para asegurar consistencia atómica
-            $sale = DB::transaction(function () use ($request, $linkedWorkOrder, $paymentMethod) {
+            $sale = DB::transaction(function () use ($request, $linkedWorkOrder, $paymentMethod, $isDraft) {
 
                 // A. Crear la cabecera de la venta
                 $sale = Sale::create([
