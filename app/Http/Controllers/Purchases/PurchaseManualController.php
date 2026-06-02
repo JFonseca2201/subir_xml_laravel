@@ -20,7 +20,7 @@ class PurchaseManualController extends Controller
     public function store(Request $request)
     {
         //Corregir la compra manual y al ingresar productos.
-        
+
         $request->validate([
             'supplier_id' => 'required|integer|exists:suppliers,id',
             'invoice_number' => 'required|string',
@@ -37,6 +37,7 @@ class PurchaseManualController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.01',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.subtotal' => 'required|numeric|min:0',
+            'items.*.discount' => 'nullable|numeric|min:0',
             'items.*.tax' => 'required|numeric|min:0',
             'items.*.total' => 'required|numeric|min:0',
             'items.*.item_type' => 'required|integer',
@@ -72,7 +73,7 @@ class PurchaseManualController extends Controller
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'subtotal' => $item['subtotal'],
-                    'discount' => 0,
+                    'discount' => $item['discount'] ?? 0,
                     'tax' => $item['tax'],
                     'total' => $item['total'],
                     'item_type' => $item['item_type'],
@@ -126,7 +127,7 @@ class PurchaseManualController extends Controller
                     'type' => FinanceRecord::TYPE_EXPENSE,
                     'amount' => $request->total,
                     'invoice_number' => $request->invoice_number,
-                    'description' => 'Pago por Compra Manual a Proveedor ' . $supplierName,
+                    'description' => 'Pago por Compra Manual a Proveedor ' . $supplierName . ' - Costo de Ventas',
                     'user_id' => auth()->id() ?? 1,
                 ]);
 
@@ -144,7 +145,7 @@ class PurchaseManualController extends Controller
                     if (!$request->partner_id) {
                         throw new \Exception('Se requiere seleccionar un socio para el pago con aporte.');
                     }
-                    
+
                     // Buscar la cuenta ligada a los aportes de capital del socio
                     $aporte = AporteCapital::where('partner_id', $request->partner_id)->latest()->first();
                     if (!$aporte || !$aporte->cuenta_id) {

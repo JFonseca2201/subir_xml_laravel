@@ -423,7 +423,7 @@ class InvoiceXmlImportController extends Controller
             // --- REGISTRAR MOVIMIENTO FINANCIERO POR DEFECTO (CAJA CHICA/EFECTIVO) ---
             // Solo si no existe ya un registro para evitar duplicados
             $exists = \App\Models\Finance\FinanceRecord::where('invoice_number', $invoiceModel->invoice_number)->exists();
-            
+
             if (!$exists) {
                 $supplierName = $invoiceModel->supplier ? ($invoiceModel->supplier->trade_name ?? $invoiceModel->supplier->name) : ('#' . $invoiceModel->supplier_id);
                 $financeRecord = \App\Models\Finance\FinanceRecord::create([
@@ -512,7 +512,7 @@ class InvoiceXmlImportController extends Controller
                 // 2. Revertir Cuentas por Pagar (Compras a Crédito)
                 $accountPayable = \App\Models\Finance\AccountPayable::where('invoice_id', $invoice->id)->first();
                 if ($accountPayable) {
-                    if ((float)$accountPayable->amount_paid > 0) {
+                    if ((float) $accountPayable->amount_paid > 0) {
                         return response()->json([
                             'status' => 400,
                             'message' => 'No se puede eliminar la factura porque ya existen abonos o pagos asociados a la cuenta por pagar.'
@@ -532,7 +532,7 @@ class InvoiceXmlImportController extends Controller
                                 if (method_exists($distribution, 'financialMovement')) {
                                     $distribution->financialMovement()->delete();
                                 }
-                                
+
                                 // Revertir saldo en la cuenta bancaria / efectivo
                                 $account = \App\Models\Finance\Account::find($distribution->account_id);
                                 if ($account) {

@@ -31,12 +31,13 @@ class ProductController extends Controller
             $unit_id = $request->get('unit_id');
             $disponibilidad = $request->get('disponibilidad');
             $is_gift = $request->get('is_gift');
+            $supplier_id = $request->get('supplier_id');
             $page = $request->get('page', 1);
             $per_page = $request->get('per_page', 10);
 
             // Aplicar filtros usando el scope
             $products = Product::with(['categorie', 'warehouse', 'unit', 'supplier'])
-                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift)
+                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id)
                 ->orderBy('id', 'desc')
                 ->paginate($per_page, ['*'], 'page', $page);
 
@@ -223,6 +224,7 @@ class ProductController extends Controller
                 'tax_rate' => 'required|numeric|min:0|max:100',
                 'max_discount' => 'required|numeric|min:0',
                 'discount_percentage' => 'required|numeric|min:0|max:100',
+                'discount' => 'nullable|numeric|min:0',
                 'brand' => 'nullable|string|max:100',
                 'stock' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'item_type' => 'required|integer|min:1|max:99',
@@ -237,6 +239,10 @@ class ProductController extends Controller
 
             // Sanitizar valores si es servicio (item_type = 2)
             $data = $request->all();
+            
+            if (!isset($data['discount']) || $data['discount'] === null) {
+                $data['discount'] = 0.00;
+            }
             if ($request->input('item_type') == 2) {
                 $data['stock'] = 0.00;
                 $data['min_stock'] = 0.00;
@@ -363,6 +369,7 @@ class ProductController extends Controller
                 'tax_rate' => 'required|numeric|min:0|max:100',
                 'max_discount' => 'required|numeric|min:0',
                 'discount_percentage' => 'required|numeric|min:0|max:100',
+                'discount' => 'nullable|numeric|min:0',
                 'brand' => 'nullable|string|max:100',
                 'stock' => 'required_if:item_type,1|nullable|numeric|min:0',
                 'item_type' => 'required|integer|min:1|max:99',
@@ -377,6 +384,10 @@ class ProductController extends Controller
 
             // Sanitizar valores si es servicio (item_type = 2)
             $data = $request->all();
+            
+            if (!isset($data['discount']) || $data['discount'] === null) {
+                $data['discount'] = 0.00;
+            }
             if ($request->input('item_type') == 2) {
                 $data['stock'] = 0.00;
                 $data['min_stock'] = 0.00;

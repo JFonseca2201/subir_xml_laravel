@@ -37,6 +37,7 @@ class Product extends Model
         'tax_rate',
         'max_discount',
         'discount_percentage',
+        'discount',
         'brand',
         'stock',
         'item_type',
@@ -87,7 +88,7 @@ class Product extends Model
         return $link;
     }
 
-    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift)
+    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id = null)
     {
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -109,6 +110,9 @@ class Product extends Model
         }
         if ($is_gift) {
             $query->where('is_gift', $is_gift);
+        }
+        if ($supplier_id) {
+            $query->where('supplier_id', $supplier_id);
         }
 
         return $query;
