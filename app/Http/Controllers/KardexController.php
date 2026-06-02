@@ -43,34 +43,34 @@ class KardexController extends Controller
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'LIKE', '%' . $search . '%')
-                      ->orWhere(function ($subQuery) use ($search) {
-                          $subQuery->whereHasMorph('movable', ['App\Models\Sales\Sale', 'App\Models\Sale\Sale'], function ($saleQuery) use ($search) {
-                              $saleQuery->whereHas('details', function ($detailQuery) use ($search) {
-                                  $detailQuery->where('description', 'LIKE', '%' . $search . '%')
-                                              ->orWhereHas('product', function ($prodQuery) use ($search) {
-                                                  $prodQuery->where('sku', 'LIKE', '%' . $search . '%')
-                                                            ->orWhere('code_aux', 'LIKE', '%' . $search . '%')
-                                                            ->orWhere('description', 'LIKE', '%' . $search . '%');
-                                              });
-                              });
-                          });
-                      })
-                      ->orWhere(function ($subQuery) use ($search) {
-                          $subQuery->whereHasMorph('movable', ['App\Models\Finance\PaymentDistribution', 'App\Models\PaymentDistribution'], function ($distQuery) use ($search) {
-                              $distQuery->whereHas('financeRecord', function ($recordQuery) use ($search) {
-                                  $recordQuery->whereIn('invoice_number', function ($invoiceQuery) use ($search) {
-                                      $invoiceQuery->select('invoice_number')
-                                                   ->from('invoices')
-                                                   ->whereIn('id', function ($itemSubQuery) use ($search) {
-                                                       $itemSubQuery->select('invoice_id')
-                                                                    ->from('invoice_items')
-                                                                    ->where('description', 'LIKE', '%' . $search . '%')
-                                                                    ->orWhere('code', 'LIKE', '%' . $search . '%');
-                                                   });
-                                  });
-                              });
-                          });
-                      });
+                        ->orWhere(function ($subQuery) use ($search) {
+                            $subQuery->whereHasMorph('movable', ['App\Models\Sales\Sale', 'App\Models\Sale\Sale'], function ($saleQuery) use ($search) {
+                                $saleQuery->whereHas('details', function ($detailQuery) use ($search) {
+                                    $detailQuery->where('description', 'LIKE', '%' . $search . '%')
+                                        ->orWhereHas('product', function ($prodQuery) use ($search) {
+                                            $prodQuery->where('sku', 'LIKE', '%' . $search . '%')
+                                                ->orWhere('code_aux', 'LIKE', '%' . $search . '%')
+                                                ->orWhere('description', 'LIKE', '%' . $search . '%');
+                                        });
+                                });
+                            });
+                        })
+                        ->orWhere(function ($subQuery) use ($search) {
+                            $subQuery->whereHasMorph('movable', ['App\Models\Finance\PaymentDistribution', 'App\Models\PaymentDistribution'], function ($distQuery) use ($search) {
+                                $distQuery->whereHas('financeRecord', function ($recordQuery) use ($search) {
+                                    $recordQuery->whereIn('invoice_number', function ($invoiceQuery) use ($search) {
+                                        $invoiceQuery->select('invoice_number')
+                                            ->from('invoices')
+                                            ->whereIn('id', function ($itemSubQuery) use ($search) {
+                                                $itemSubQuery->select('invoice_id')
+                                                    ->from('invoice_items')
+                                                    ->where('description', 'LIKE', '%' . $search . '%')
+                                                    ->orWhere('code', 'LIKE', '%' . $search . '%');
+                                            });
+                                    });
+                                });
+                            });
+                        });
                 });
             }
 
@@ -113,11 +113,11 @@ class KardexController extends Controller
                         foreach ($sale->details as $detail) {
                             if ($search) {
                                 $matchesSearch = stripos($detail->description, $search) !== false ||
-                                                 ($detail->product && (
-                                                     stripos($detail->product->sku, $search) !== false ||
-                                                     stripos($detail->product->code_aux, $search) !== false ||
-                                                     stripos($detail->product->description, $search) !== false
-                                                 ));
+                                    ($detail->product && (
+                                        stripos($detail->product->sku, $search) !== false ||
+                                        stripos($detail->product->code_aux, $search) !== false ||
+                                        stripos($detail->product->description, $search) !== false
+                                    ));
                                 $matchesGeneral = stripos($movimiento->description, $search) !== false;
                                 if (!$matchesSearch && !$matchesGeneral) {
                                     continue;
@@ -154,7 +154,7 @@ class KardexController extends Controller
                                 'monto_financiero' => (float) $detail->total,
                                 'referencia_id' => $movimiento->movable_id,
                                 'referencia_tipo' => $movimiento->movable_type,
-                                'descripcion' => $detail->description /* . ' (Cantidad: ' . $detail->quantity . ') - Venta #' . $sale->document_number */,
+                                'descripcion' => $detail->description /* . ' (Cantidad: ' . $detail->quantity . ') - Venta #' . $sale->document_number */ ,
                                 'afecta_stock' => true,
                                 'account' => $movimiento->account ? [
                                     'id' => $movimiento->account->id,
@@ -181,7 +181,7 @@ class KardexController extends Controller
                             foreach ($invoice->invoice_items as $item) {
                                 if ($search) {
                                     $matchesSearch = stripos($item->description, $search) !== false ||
-                                                     stripos($item->code, $search) !== false;
+                                        stripos($item->code, $search) !== false;
                                     $matchesGeneral = stripos($movimiento->description, $search) !== false;
                                     if (!$matchesSearch && !$matchesGeneral) {
                                         continue;
@@ -190,7 +190,7 @@ class KardexController extends Controller
 
                                 $codigo = $item->code;
                                 $concepto = $codigo ?: 'COMPRA';
-                                
+
                                 $product = \App\Models\Product\Product::where('sku', $item->code)->first();
                                 $codigoAux = $product ? $product->code_aux : null;
 
@@ -218,7 +218,7 @@ class KardexController extends Controller
                                     'monto_financiero' => (float) $item->total,
                                     'referencia_id' => $movimiento->movable_id,
                                     'referencia_tipo' => $movimiento->movable_type,
-                                    'descripcion' => $item->description /* . ' (Cantidad: ' . $item->quantity . ') - Compra #' . $invoiceNumber */,
+                                    'descripcion' => $item->description /* . ' (Cantidad: ' . $item->quantity . ') - Compra #' . $invoiceNumber */ ,
                                     'afecta_stock' => true,
                                     'account' => $movimiento->account ? [
                                         'id' => $movimiento->account->id,
@@ -334,7 +334,7 @@ class KardexController extends Controller
 
             foreach ($movimientos as $movimiento) {
                 $monthKey = $movimiento->entry_date->format('Y-m');
-                $monthName = $this->getMonthNameInSpanish((int)$movimiento->entry_date->format('n')) . ' ' . $movimiento->entry_date->format('Y');
+                $monthName = $this->getMonthNameInSpanish((int) $movimiento->entry_date->format('n')) . ' ' . $movimiento->entry_date->format('Y');
 
                 // Caso 1: Ventas por artículo (Sale)
                 if ($movimiento->movable_type === 'App\Models\Sales\Sale' || $movimiento->movable_type === 'App\Models\Sale\Sale') {
@@ -349,8 +349,8 @@ class KardexController extends Controller
                             // Filtro de búsqueda en memoria
                             if ($search) {
                                 $matches = stripos($description, $search) !== false ||
-                                           ($sku && stripos($sku, $search) !== false) ||
-                                           ($codeAux && stripos($codeAux, $search) !== false);
+                                    ($sku && stripos($sku, $search) !== false) ||
+                                    ($codeAux && stripos($codeAux, $search) !== false);
                                 if (!$matches) {
                                     continue;
                                 }
@@ -399,8 +399,8 @@ class KardexController extends Controller
                             // Filtro de búsqueda en memoria
                             if ($search) {
                                 $matches = stripos($description, $search) !== false ||
-                                           ($sku && stripos($sku, $search) !== false) ||
-                                           ($codeAux && stripos($codeAux, $search) !== false);
+                                    ($sku && stripos($sku, $search) !== false) ||
+                                    ($codeAux && stripos($codeAux, $search) !== false);
                                 if (!$matches) {
                                     continue;
                                 }
@@ -456,8 +456,8 @@ class KardexController extends Controller
                                 // Filtro de búsqueda en memoria
                                 if ($search) {
                                     $matches = stripos($description, $search) !== false ||
-                                               ($sku && stripos($sku, $search) !== false) ||
-                                               ($codeAux && stripos($codeAux, $search) !== false);
+                                        ($sku && stripos($sku, $search) !== false) ||
+                                        ($codeAux && stripos($codeAux, $search) !== false);
                                     if (!$matches) {
                                         continue;
                                     }
@@ -530,9 +530,18 @@ class KardexController extends Controller
     private function getMonthNameInSpanish(int $monthNum)
     {
         $months = [
-            1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
-            5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
-            9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre'
+            1 => 'Enero',
+            2 => 'Febrero',
+            3 => 'Marzo',
+            4 => 'Abril',
+            5 => 'Mayo',
+            6 => 'Junio',
+            7 => 'Julio',
+            8 => 'Agosto',
+            9 => 'Septiembre',
+            10 => 'Octubre',
+            11 => 'Noviembre',
+            12 => 'Diciembre'
         ];
         return $months[$monthNum] ?? '';
     }
