@@ -58,6 +58,11 @@ class Client extends Model
         return $this->belongsTo(Sucursale::class , 'sucursale_id');
     }
 
+    public function directVehicles()
+    {
+        return $this->hasMany(\App\Models\Vehicles\Vehicle::class, 'client_id');
+    }
+
     public function vehicles()
     {
         return $this->belongsToMany(\App\Models\Vehicles\Vehicle::class, 'work_orders', 'client_id', 'vehicle_id')->distinct();

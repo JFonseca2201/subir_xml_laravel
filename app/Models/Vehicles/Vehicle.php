@@ -11,6 +11,7 @@ class Vehicle extends Model
 
     protected $fillable = [
         'user_id', // <--- Añadido
+        'client_id',
         'license_plate',
         'brand',
         'model',
@@ -32,6 +33,11 @@ class Vehicle extends Model
     public function creator()
     {
         return $this->belongsTo(\App\Models\User::class , 'user_id');
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(\App\Models\Client\Client::class, 'client_id');
     }
 
     public function clients()

@@ -50,7 +50,7 @@ class VehicleController extends Controller
         }
 
         $per_page = $request->get('per_page', 10);
-        $vehicles = $query->orderBy('id', 'desc')->paginate($per_page);
+        $vehicles = $query->with('client')->orderBy('id', 'desc')->paginate($per_page);
 
         return response()->json($vehicles);
     }
@@ -87,6 +87,7 @@ class VehicleController extends Controller
         // 2. Validación Robusta
         $validator = Validator::make($requestData, [
             'user_id' => 'required|exists:users,id',
+            'client_id' => 'required|exists:clients,id',
             'license_plate' => [
                 'required',
                 'string',
@@ -125,7 +126,7 @@ class VehicleController extends Controller
         return response()->json([
             'status' => 201,
             'message' => 'Vehículo registrado exitosamente',
-            'vehicle' => $vehicle,
+            'vehicle' => $vehicle->load('client'),
         ], 201);
     }
 
@@ -151,6 +152,7 @@ class VehicleController extends Controller
 
         $validator = Validator::make($requestData, [
             'user_id' => 'required|exists:users,id',
+            'client_id' => 'required|exists:clients,id',
             'license_plate' => [
                 'required',
                 'string',
@@ -178,7 +180,7 @@ class VehicleController extends Controller
         return response()->json([
             'status' => 200,
             'message' => 'Vehículo actualizado',
-            'vehicle' => $vehicle->fresh(),
+            'vehicle' => $vehicle->fresh('client'),
         ]);
     }
 
