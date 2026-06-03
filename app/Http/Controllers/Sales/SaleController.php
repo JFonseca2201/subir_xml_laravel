@@ -900,7 +900,7 @@ class SaleController extends Controller
                     } else {
                         $sale->details()->delete();
                     }
-
+//comentario
                     // Actualizar o crear items
                     foreach ($request->items as $item) {
                         $itemTotal = ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
