@@ -177,6 +177,7 @@ Route::group(
         Route::get('returns', [ProductReturnController::class, 'index']);
         Route::post('returns', [ProductReturnController::class, 'store']);
         Route::get('returns/{id}', [ProductReturnController::class, 'show']);
+        Route::delete('returns/{id}', [ProductReturnController::class, 'destroy']);
 
         // ============= RUTAS DE ÓRDENES DE TRABAJO ==========
         Route::get('work-orders/next-number', [WorkOrderController::class, 'getNextNumber']);

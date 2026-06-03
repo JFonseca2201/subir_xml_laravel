@@ -26,22 +26,22 @@ class ProductReturnController extends Controller
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = $request->search;
                 $query->where('return_number', 'like', "%{$searchTerm}%")
-                      ->orWhereHas('sale', function ($q) use ($searchTerm) {
-                          $q->where('document_number', 'like', "%{$searchTerm}%");
-                      });
+                    ->orWhereHas('sale', function ($q) use ($searchTerm) {
+                        $q->where('document_number', 'like', "%{$searchTerm}%");
+                    });
             }
 
             $returns = $query->orderBy('created_at', 'desc')->paginate(10);
 
             return response()->json([
                 'success' => true,
-                'data'    => $returns
+                'data' => $returns
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener las devoluciones.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -52,15 +52,15 @@ class ProductReturnController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'sale_id'       => 'required|exists:sales,id',
-            'type'          => 'required|in:total,partial',
-            'reason'        => 'required|string',
+            'sale_id' => 'required|exists:sales,id',
+            'type' => 'required|in:total,partial',
+            'reason' => 'required|string',
             'refund_amount' => 'required|numeric|min:0',
-            'account_id'    => 'nullable|exists:accounts,id', // Cuenta de donde sale el dinero si se devuelve en efectivo
-            'items'         => 'required|array|min:1',
+            'account_id' => 'nullable|exists:accounts,id', // Cuenta de donde sale el dinero si se devuelve en efectivo
+            'items' => 'required|array|min:1',
             'items.*.product_id' => 'nullable|exists:products,id',
-            'items.*.quantity'   => 'required|integer|min:1',
-            'items.*.price'      => 'required|numeric',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.price' => 'required|numeric',
         ]);
 
         try {
@@ -101,11 +101,11 @@ class ProductReturnController extends Controller
 
                 $return = ProductReturn::create([
                     'return_number' => $returnNumber,
-                    'sale_id'       => $sale->id,
-                    'user_id'       => $request->user_id ?? auth()->id() ?? 1,
-                    'type'          => $request->type,
+                    'sale_id' => $sale->id,
+                    'user_id' => $request->user_id ?? auth()->id() ?? 1,
+                    'type' => $request->type,
                     'refund_amount' => $request->refund_amount,
-                    'reason'        => $request->reason,
+                    'reason' => $request->reason,
                 ]);
 
                 // 2. Registrar Detalles y Devolver Stock
@@ -113,11 +113,11 @@ class ProductReturnController extends Controller
                     $itemTotal = $item['quantity'] * $item['price'];
 
                     $return->details()->create([
-                        'product_id'  => $item['product_id'] ?? null,
+                        'product_id' => $item['product_id'] ?? null,
                         'description' => $item['description'] ?? 'Producto devuelto',
-                        'quantity'    => $item['quantity'],
-                        'price'       => $item['price'],
-                        'total'       => $itemTotal,
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                        'total' => $itemTotal,
                     ]);
 
                     // Deducir stock (reincorporar inventario)
@@ -141,7 +141,7 @@ class ProductReturnController extends Controller
                         // Calcular descuento proporcional a la cantidad que queda
                         $oldQuantity = $originalItem->quantity;
                         $newQuantity = $oldQuantity - $item['quantity'];
-                        
+
                         if ($newQuantity <= 0) {
                             $originalItem->delete();
                         } else {
@@ -157,7 +157,7 @@ class ProductReturnController extends Controller
                 // Recalcular los totales de la venta original
                 // Necesitamos volver a cargar los detalles frescos desde la BD porque algunos fueron borrados o actualizados
                 $sale->load('details');
-                
+
                 $subtotal = $sale->details->sum('total');
                 $taxAmount = $sale->document_type === 'invoice' ? $subtotal * 0.15 : 0;
                 $total = $subtotal + $taxAmount;
@@ -170,28 +170,28 @@ class ProductReturnController extends Controller
                 if ($request->refund_amount > 0) {
                     // Si la venta fue pagada o tiene abonos, retiramos el dinero de la cuenta
                     if (in_array($sale->payment_status, ['paid', 'partial'])) {
-                        
+
                         $accountId = $request->account_id ?? 1; // Default a Caja Chica
-                        
+
                         // Crear el registro de egreso (EXPENSE)
                         $financeRecord = FinanceRecord::create([
-                            'entry_date'        => now()->format('Y-m-d'),
-                            'type'              => FinanceRecord::TYPE_EXPENSE,
-                            'account_id'        => $accountId,
-                            'payment_method'    => $accountId == 1 ? 'cash' : 'transfer',
-                            'amount'            => $request->refund_amount,
+                            'entry_date' => now()->format('Y-m-d'),
+                            'type' => FinanceRecord::TYPE_EXPENSE,
+                            'account_id' => $accountId,
+                            'payment_method' => $accountId == 1 ? 'cash' : 'transfer',
+                            'amount' => $request->refund_amount,
                             'work_order_number' => $sale->document_number,
-                            'invoice_number'    => $returnNumber,
-                            'description'       => 'Devolución de Venta: ' . $sale->document_number . ' - ' . $request->reason,
-                            'user_id'           => $request->user_id ?? auth()->id() ?? 1,
+                            'invoice_number' => $returnNumber,
+                            'description' => 'Devolución de Venta: ' . $sale->document_number . ' - ' . $request->reason,
+                            'user_id' => $request->user_id ?? auth()->id() ?? 1,
                         ]);
 
                         // Crear distribución de pago
                         PaymentDistribution::create([
                             'finance_record_id' => $financeRecord->id,
-                            'account_id'        => $accountId,
-                            'amount'            => $request->refund_amount,
-                            'payment_method'    => $accountId == 1 ? 'cash' : 'transfer',
+                            'account_id' => $accountId,
+                            'amount' => $request->refund_amount,
+                            'payment_method' => $accountId == 1 ? 'cash' : 'transfer',
                         ]);
 
                         // Actualizar el saldo de la cuenta
@@ -214,7 +214,7 @@ class ProductReturnController extends Controller
                                 ]
                             );
                         }
-                    } 
+                    }
                 }
 
                 // 4. Marcar la venta como que tiene devoluciones
@@ -227,14 +227,14 @@ class ProductReturnController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'La devolución se ha procesado correctamente.',
-                'data'    => $productReturn->load('details')
+                'data' => $productReturn->load('details')
             ], 201);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al procesar la devolución.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -245,7 +245,7 @@ class ProductReturnController extends Controller
     public function show($id)
     {
         try {
-            $return = ProductReturn::with(['details.product', 'sale', 'user'])->find((int)$id);
+            $return = ProductReturn::with(['details.product', 'sale', 'user'])->find((int) $id);
 
             if (!$return) {
                 return response()->json([
@@ -256,13 +256,35 @@ class ProductReturnController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $return
+                'data' => $return
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener el detalle de la devolución.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove the specified return from storage.
+     */
+    public function destroy($id)
+    {
+        try {
+            $return = ProductReturn::findOrFail((int) $id);
+            $return->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Devolución eliminada exitosamente.'
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar la devolución.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
