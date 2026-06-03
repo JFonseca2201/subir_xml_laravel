@@ -348,6 +348,15 @@
             color: #fb7578;
         }
 
+        .total_cancelar {
+            font-size: 1.45em;
+            font-weight: bold;
+        }
+
+        .total_cancelar_value {
+            color: #d32f2f;
+        }
+
         .logo-container {
             margin: 20px 0 30px 0;
         }
@@ -554,7 +563,7 @@
             </tr>
             <div class="" style="display: block;width:100%;border:1px solid black;height:1px;"></div>
             <tr>
-                <td class="">
+                <td style="text-transform: uppercase;">
                     <h3 style="margin:0;">DATOS DEL CLIENTE: </h3>
                     <br>
                     <br>
@@ -704,8 +713,11 @@
                     <tr>
                         <td class="center">{{ $cont = $cont + 1 }}</td>
                         <td>
-
                             {{ $detail->description }}
+                            @if ($detail->product?->sku)
+                                <br>
+                                <small style="color: #666;">SKU: {{ $detail->product->sku }}</small>
+                            @endif
                         </td>
                         <td class="right">{{ $detail->quantity }}</td>
                         <td class="right">${{ $detail->price }}</td>
@@ -818,7 +830,7 @@
                                         </td>
                                         <td colspan="1"
                                             style="padding-top:10px; text-align:left; white-space:nowrap; border:none;">
-                                            <span class="total_cancelar">${{ number_format($sale->total, 2) }}</span>
+                                            <span class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
                                         </td>
                                     </tr>
 
@@ -945,7 +957,7 @@
                                                 <td colspan="1"
                                                     style="padding-top:10px; text-align:left; white-space:nowrap; border:none;">
                                                     <span
-                                                        class="total_cancelar">${{ number_format($sale->total, 2) }}</span>
+                                                        class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
                                                 </td>
                                             </tr>
 
@@ -1018,8 +1030,8 @@
                                         </span>
                                     </td>
                                     <td colspan="1"
-                                        style="padding-top:10px; text-align:left; width:16.66%; white-space:nowrap; border:none;">
-                                        <span class="total_cancelar">
+                                        style="padding-top:10px; text-align:left; width:45.66%; white-space:nowrap; border:none;">
+                                        <span class="total_cancelar total_cancelar_value">
                                             ${{ number_format($sale->total, 2) }}
                                         </span>
                                     </td>

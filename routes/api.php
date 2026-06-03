@@ -30,6 +30,7 @@ use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
 use App\Http\Controllers\Api\Geographic\GeographicController;
 use App\Http\Controllers\ExcelImportController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(
@@ -168,6 +169,7 @@ Route::group(
 
         // ============= RUTAS DE SALES ==========
         Route::get('sales/next-number', [SaleController::class, 'getNextNumber']);
+        Route::delete('sales/details/{id}', [SaleController::class, 'destroyDetail']);
         Route::resource('sales', SaleController::class);
         Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
@@ -176,6 +178,7 @@ Route::group(
         Route::get('returns', [ProductReturnController::class, 'index']);
         Route::post('returns', [ProductReturnController::class, 'store']);
         Route::get('returns/{id}', [ProductReturnController::class, 'show']);
+        Route::delete('returns/{id}', [ProductReturnController::class, 'destroy']);
 
         // ============= RUTAS DE ÓRDENES DE TRABAJO ==========
         Route::get('work-orders/next-number', [WorkOrderController::class, 'getNextNumber']);
@@ -207,5 +210,10 @@ Route::group(
         // ============= RUTAS DE KARDEX INTEGRAL ==========
         Route::get('kardex/productos', [KardexController::class, 'indexByProduct']);
         Route::get('kardex', [KardexController::class, 'index']);
+
+        // ============= RUTAS DE DASHBOARD GENERAL ==========
+        Route::get('dashboard/search', [DashboardController::class, 'search']);
+        Route::get('dashboard', [DashboardController::class, 'index']);
     },
 );
+

@@ -33,4 +33,10 @@ class Vehicle extends Model
     {
         return $this->belongsTo(\App\Models\User::class , 'user_id');
     }
+
+    public function clients()
+    {
+        return $this->belongsToMany(\App\Models\Client\Client::class, 'work_orders', 'vehicle_id', 'client_id')->distinct();
+    }
 }
+

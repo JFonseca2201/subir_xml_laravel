@@ -102,8 +102,8 @@ class ClientController extends Controller
 
         $validator = Validator::make($request->all(), [
             'type_client' => 'required|integer|in:1,2',
-            'name' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
-            'surname' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
+            'name' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
+            'surname' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'full_name' => 'required_if:type_client,2|string|max:255|unique:clients',
             'phone' => ['required', 'string', 'max:20', 'unique:clients', 'regex:/^[0-9+\-\s()]+$/'],
             'email' => 'nullable|email|max:255|unique:clients',
@@ -235,8 +235,8 @@ class ClientController extends Controller
         $this->normalizeRequest($request);
 
         $validator = Validator::make($request->all(), [
-            'name' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
-            'surname' => ['nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
+            'name' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
+            'surname' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'full_name' => 'required|string|max:255|unique:clients,full_name,' . $id,
             'phone' => ['required', 'string', 'max:20', 'unique:clients,phone,' . $id, 'regex:/^[0-9+\-\s()]+$/'],
             'email' => 'nullable|email|max:255|unique:clients,email,' . $id,
@@ -342,32 +342,37 @@ class ClientController extends Controller
     {
         $input = $request->all();
 
-        // Si es pasaporte (3), no aplicar normalización de cédula/RUC
-        $typeDoc = isset($input['type_document']) ? (string)$input['type_document'] : null;
-        if ($typeDoc === '3') {
-            return;
+        // Si es compañía (type_client = 2), remover name y surname de la validación
+        if (isset($input['type_client']) && (int)$input['type_client'] === 2) {
+            unset($input['name']);
+            unset($input['surname']);
         }
 
-        // Normalizar documento ecuatoriano si es aplicable
-        if (isset($input['n_document'])) {
-            $n_document = trim((string)$input['n_document']);
-            $length = strlen($n_document);
-            if ($length <= 10 && $length > 0) {
-                $n_document = str_pad($n_document, 10, "0", STR_PAD_LEFT);
-                $thirdDigit = (int) substr($n_document, 2, 1);
-                if (in_array($thirdDigit, [6, 9])) {
-                    $n_document .= '001';
+        // Si es pasaporte (3), no aplicar normalización de cédula/RUC
+        $typeDoc = isset($input['type_document']) ? (string)$input['type_document'] : null;
+        if ($typeDoc !== '3') {
+            // Normalizar documento ecuatoriano si es aplicable
+            if (isset($input['n_document'])) {
+                $n_document = trim((string)$input['n_document']);
+                $length = strlen($n_document);
+                if ($length <= 10 && $length > 0) {
+                    $n_document = str_pad($n_document, 10, "0", STR_PAD_LEFT);
+                    $thirdDigit = (int) substr($n_document, 2, 1);
+                    if (in_array($thirdDigit, [6, 9])) {
+                        $n_document .= '001';
+                        $input['type_document'] = '2'; // RUC
+                    } else {
+                        $input['type_document'] = isset($input['type_document']) ? (string)$input['type_document'] : '1';
+                    }
+                } else if ($length > 10) {
+                    $n_document = str_pad($n_document, 13, "0", STR_PAD_LEFT);
                     $input['type_document'] = '2'; // RUC
-                } else {
-                    $input['type_document'] = isset($input['type_document']) ? (string)$input['type_document'] : '1';
                 }
-            } else if ($length > 10) {
-                $n_document = str_pad($n_document, 13, "0", STR_PAD_LEFT);
-                $input['type_document'] = '2'; // RUC
+                $input['n_document'] = $n_document;
             }
-            $input['n_document'] = $n_document;
-            $request->replace($input); // Reemplaza los datos del request con los normalizados
         }
+
+        $request->replace($input); // Reemplaza los datos del request con los normalizados
     }
 
     private function validateEcuadorianDocument($numero)

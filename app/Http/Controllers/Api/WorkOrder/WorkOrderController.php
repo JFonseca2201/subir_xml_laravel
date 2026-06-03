@@ -81,7 +81,7 @@ class WorkOrderController extends Controller
                 foreach ($validated['items'] as $item) {
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = Product::find($item['product_id']);
-                        if ($product && $product->max_discount !== null) {
+                        if ($product && $product->item_type == 1 && $product->max_discount !== null) {
                             $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
                             $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
                             if ($itemDiscount > $maxDiscountAmount) {
@@ -180,7 +180,7 @@ class WorkOrderController extends Controller
                 foreach ($validated['items'] as $item) {
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = Product::find($item['product_id']);
-                        if ($product && $product->max_discount !== null) {
+                        if ($product && $product->item_type == 1 && $product->max_discount !== null) {
                             $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
                             $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
                             if ($itemDiscount > $maxDiscountAmount) {
