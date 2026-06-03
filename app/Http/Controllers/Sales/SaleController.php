@@ -67,8 +67,12 @@ class SaleController extends Controller
             }
 
             // 4. Filtro por rango de fechas de atención (Muy útil para cierres de caja)
-            if ($request->has('start_date') && $request->has('end_date')) {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
                 $query->whereBetween('service_date', [$request->start_date, $request->end_date]);
+            } elseif ($request->filled('start_date')) {
+                $query->where('service_date', '>=', $request->start_date);
+            } elseif ($request->filled('end_date')) {
+                $query->where('service_date', '<=', $request->end_date);
             }
 
             // 5. Filtro por estado de pago (paid, partial, pending)
@@ -140,6 +144,37 @@ class SaleController extends Controller
             }
 
             $isDraft = $request->boolean('is_draft');
+
+            // Validar pagos distribuidos solo si no es cotización y no es borrador
+            if ($request->document_type !== 'quote' && !$isDraft) {
+                if (!$request->has('payment_distributions') || !is_array($request->payment_distributions) || count($request->payment_distributions) === 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Debe registrar al menos un pago para la venta.',
+                        'error' => 'validation_error'
+                    ], 400);
+                }
+
+                $totalDist = array_sum(array_column($request->payment_distributions, 'amount'));
+                if ($totalDist <= 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Debe registrar al menos un pago para la venta.',
+                        'error' => 'validation_error'
+                    ], 400);
+                }
+
+                if ($totalDist > $request->total + 0.01) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'La suma de los pagos no puede ser mayor al total.',
+                        'error' => 'validation_error'
+                    ], 400);
+                }
+
+                $paymentStatus = (abs($totalDist - $request->total) <= 0.01) ? 'paid' : 'pending';
+                $request->merge(['payment_status' => $paymentStatus]);
+            }
 
             // 2. Validar stock antes de procesar la venta (solo si no es cotización y es producto físico)
             if ($request->document_type !== 'quote' && !$isDraft) {
@@ -287,24 +322,51 @@ class SaleController extends Controller
      */
     private function processFinancialRecord($sale, Request $request)
     {        
+        // 1. Buscar si ya existe un registro financiero para esta venta
+        $financeRecord = FinanceRecord::where('invoice_number', $sale->document_number)->first();
 
-        // Crear el registro financiero principal
-        $financeRecord = FinanceRecord::create([
-            'entry_date' => $sale->service_date ?? now()->format('Y-m-d'),
+        // 2. Si ya existe, revertir los saldos de las distribuciones anteriores
+        if ($financeRecord) {
+            foreach ($financeRecord->paymentDistributions as $distribution) {
+                $account = Account::find($distribution->account_id);
+                if ($account) {
+                    $account->updateBalance($distribution->amount, FinanceRecord::TYPE_EXPENSE); // Restar
+                }
+            }
+            // Eliminar las distribuciones y los movimientos financieros anteriores
+            $financeRecord->paymentDistributions()->delete();
+            
+            if (method_exists($sale, 'financialMovement')) {
+                $sale->financialMovement()->delete();
+            }
+        } else {
+            $financeRecord = new FinanceRecord();
+        }
+
+        $entryDate = $sale->service_date instanceof \Carbon\Carbon 
+            ? $sale->service_date->format('Y-m-d') 
+            : (is_string($sale->service_date) ? substr($sale->service_date, 0, 10) : now()->format('Y-m-d'));
+        
+        $paymentMethod = $request->payment_method ?? $sale->payment_method ?? 'Efectivo';
+
+        // 3. Crear/Actualizar el registro financiero principal
+        $financeRecord->fill([
+            'entry_date' => $entryDate,
             'type' => FinanceRecord::TYPE_INCOME,
-            'account_id' => 1, // Default, se sobrescribe con payment_distributions
-            'payment_method' => $request->payment_method,
-            'amount' => $request->total,
+            'account_id' => 1, // Default
+            'payment_method' => $paymentMethod,
+            'amount' => $sale->total,
             'work_order_number' => WorkOrderSaleSync::resolveFinanceWorkOrderNumber(
                 $sale->work_order_id,
-                $request->document_number
+                $sale->document_number
             ),
-            'invoice_number' => $request->document_number,
-            'description' => 'Venta: ' . $request->document_type . ' - ' . $request->document_number,
-            'user_id' => $request->user_id,
+            'invoice_number' => $sale->document_number,
+            'description' => 'Venta: ' . $sale->document_type . ' - ' . $sale->document_number,
+            'user_id' => $sale->user_id ?? auth()->id() ?? 1,
         ]);
+        $financeRecord->save();
 
-        // Procesar pagos distribuidos si existen
+        // 4. Procesar pagos distribuidos si existen
         if ($request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0) {
             foreach ($request->payment_distributions as $distribution) {
                 // Crear la distribución de pago
@@ -326,11 +388,11 @@ class SaleController extends Controller
                     $distribution['account_id'],
                     'income',
                     $distribution['amount'],
-                    'Venta: ' . $request->document_type . ' - ' . $request->document_number . ' - ' . $distribution['payment_method'],
-                    $sale->service_date ?? now()->format('Y-m-d'),
+                    'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'],
+                    $entryDate,
                     [
-                        'document_type' => $request->document_type,
-                        'document_number' => $request->document_number,
+                        'document_type' => $sale->document_type,
+                        'document_number' => $sale->document_number,
                         'payment_method' => $distribution['payment_method'],
                         'finance_record_id' => $financeRecord->id,
                     ]
@@ -338,37 +400,36 @@ class SaleController extends Controller
             }
         } else {
             // Si no hay pagos distribuidos, usar el método de pago único
-            // Determinar la cuenta según el método de pago
             $accountId = 1; // Default: Caja chica (Efectivo)
-            if (strtolower($request->payment_method) === 'transferencia' || strtolower($request->payment_method) === 'transfer') {
-                $accountId = 2; // Banco Pichincha (default para transferencias)
+            if (strtolower($paymentMethod) === 'transferencia' || strtolower($paymentMethod) === 'transfer') {
+                $accountId = 2; // Banco Pichincha
             }
 
             // Crear distribución de pago única
             PaymentDistribution::create([
                 'finance_record_id' => $financeRecord->id,
                 'account_id' => $accountId,
-                'amount' => $request->total,
-                'payment_method' => $request->payment_method,
+                'amount' => $sale->total,
+                'payment_method' => $paymentMethod,
             ]);
 
             // Actualizar el saldo de la cuenta
             $account = Account::find($accountId);
             if ($account) {
-                $account->updateBalance($request->total, FinanceRecord::TYPE_INCOME);
+                $account->updateBalance($sale->total, FinanceRecord::TYPE_INCOME);
             }
 
             // Registrar movimiento financiero en financial_movements
             $sale->registerMovement(
                 $accountId,
                 'income',
-                $request->total,
-                'Venta: ' . $request->document_type . ' - ' . $request->document_number . ' - ' . $request->payment_method,
-                $sale->service_date ?? now()->format('Y-m-d'),
+                $sale->total,
+                'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $paymentMethod,
+                $entryDate,
                 [
-                    'document_type' => $request->document_type,
-                    'document_number' => $request->document_number,
-                    'payment_method' => $request->payment_method,
+                    'document_type' => $sale->document_type,
+                    'document_number' => $sale->document_number,
+                    'payment_method' => $paymentMethod,
                     'finance_record_id' => $financeRecord->id,
                 ]
             );
@@ -440,8 +501,12 @@ class SaleController extends Controller
             }
 
             // Filtro por rango de fechas
-            if ($request->has('start_date') && $request->has('end_date')) {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
                 $query->whereBetween('service_date', [$request->start_date, $request->end_date]);
+            } elseif ($request->filled('start_date')) {
+                $query->where('service_date', '>=', $request->start_date);
+            } elseif ($request->filled('end_date')) {
+                $query->where('service_date', '<=', $request->end_date);
             }
 
             // Filtro por estado de pago
@@ -519,7 +584,7 @@ class SaleController extends Controller
     {
         try {
             // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente, el vehículo y los registros financieros con pagos distribuidos y cuentas
-            $sale = Sale::with(['details', 'client', 'vehicle', 'technicians', 'financeRecord.paymentDistributions.account'])->find((int)$id);
+            $sale = Sale::with(['details.product', 'client', 'vehicle', 'technicians', 'financeRecord.paymentDistributions.account'])->find((int)$id);
 
             if (!$sale) {
                 return response()->json([
@@ -608,6 +673,74 @@ class SaleController extends Controller
             $isDraft = $request->boolean('is_draft');
             $isFinishingDraft = $wasDraft && !$isDraft;
 
+            // Validar pagos distribuidos solo si no es cotización y no es borrador
+            $docType = $request->has('document_type') ? $request->document_type : $sale->document_type;
+            if ($docType !== 'quote' && !$isDraft) {
+                $hasDistributions = $request->has('payment_distributions');
+                
+                // Recalcular el total esperado de los items
+                $finalTotal = $sale->total;
+                if ($request->has('items')) {
+                    $subtotal = 0;
+                    foreach ($request->items as $item) {
+                        $subtotal += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
+                    }
+                    $taxAmount = $docType === 'invoice' ? $subtotal * 0.15 : 0;
+                    $finalTotal = $subtotal + $taxAmount;
+                }
+
+                if ($hasDistributions) {
+                    $distributions = $request->payment_distributions;
+                    if (!is_array($distributions) || count($distributions) === 0) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Debe registrar al menos un pago para la venta.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    $totalDist = array_sum(array_column($distributions, 'amount'));
+                    if ($totalDist <= 0) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Debe registrar al menos un pago para la venta.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    if ($totalDist > $finalTotal + 0.01) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'La suma de los pagos no puede ser mayor al total.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    $paymentStatus = (abs($totalDist - $finalTotal) <= 0.01) ? 'paid' : 'pending';
+                    $request->merge(['payment_status' => $paymentStatus]);
+                } else {
+                    $totalDist = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : 0;
+                    if ($totalDist <= 0) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Debe registrar al menos un pago para la venta.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    if ($totalDist > $finalTotal + 0.01) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'La suma de los pagos no puede ser mayor al total.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    $paymentStatus = (abs($totalDist - $finalTotal) <= 0.01) ? 'paid' : 'pending';
+                    $request->merge(['payment_status' => $paymentStatus]);
+                }
+            }
+
             // Validar stock si se convierte a venta o si ya es venta
             if ($isNowSale || ($sale->document_type !== 'quote' && !$isDraft)) {
                 if ($request->has('items')) {
@@ -691,60 +824,61 @@ class SaleController extends Controller
                 $status = 'draft';
             }
 
-            // Actualizar campos operativos básicos
-            $sale->update($request->only([
-                'document_number',
-                'vehicle_id',
-                'mileage',
-                'service_date',
-                'observations',
-                'payment_method',
-                'document_type',
-                'payment_status',
-                'is_credited'
-            ]) + ['status' => $status]);
+            // Ejecutar la actualización completa dentro de una transacción para garantizar consistencia atómica
+            DB::transaction(function () use ($sale, $request, $status, $oldDocumentNumber, $wasQuote, $isNowSale, $wasDraft, $isFinishingDraft) {
+                // Actualizar campos operativos básicos
+                $sale->update($request->only([
+                    'document_number',
+                    'vehicle_id',
+                    'mileage',
+                    'service_date',
+                    'observations',
+                    'payment_method',
+                    'document_type',
+                    'payment_status',
+                    'is_credited'
+                ]) + ['status' => $status]);
 
-            // Si el número de documento cambió, actualizar el registro financiero y movimientos asociados
-            if ($request->has('document_number') && $request->document_number !== $oldDocumentNumber) {
-                $financeRecord = \App\Models\Finance\FinanceRecord::where('invoice_number', $oldDocumentNumber)->first();
-                if ($financeRecord) {
-                    $financeRecord->update([
-                        'work_order_number' => WorkOrderSaleSync::resolveFinanceWorkOrderNumber(
-                            $sale->work_order_id,
-                            $request->document_number
-                        ),
-                        'invoice_number' => $request->document_number,
-                        'description' => 'Venta: ' . $sale->document_type . ' - ' . $request->document_number,
-                    ]);
-                }
-
-                // También actualizar descripciones de movimientos financieros asociados si existieran
-                if (method_exists($sale, 'financialMovement')) {
-                    $movements = \App\Models\Finance\FinancialMovement::where('movable_id', $sale->id)
-                        ->where('movable_type', get_class($sale))
-                        ->get();
-
-                    foreach ($movements as $movement) {
-                        $newDesc = str_replace($oldDocumentNumber, $request->document_number, $movement->description);
-                        
-                        $metadata = $movement->metadata ?? [];
-                        if (isset($metadata['document_number']) && $metadata['document_number'] === $oldDocumentNumber) {
-                            $metadata['document_number'] = $request->document_number;
-                        }
-
-                        $movement->update([
-                            'description' => $newDesc,
-                            'metadata' => $metadata
+                // Si el número de documento cambió, actualizar el registro financiero y movimientos asociados
+                if ($request->has('document_number') && $request->document_number !== $oldDocumentNumber) {
+                    $financeRecord = \App\Models\Finance\FinanceRecord::where('invoice_number', $oldDocumentNumber)->first();
+                    if ($financeRecord) {
+                        $financeRecord->update([
+                            'work_order_number' => WorkOrderSaleSync::resolveFinanceWorkOrderNumber(
+                                $sale->work_order_id,
+                                $request->document_number
+                            ),
+                            'invoice_number' => $request->document_number,
+                            'description' => 'Venta: ' . $sale->document_type . ' - ' . $request->document_number,
                         ]);
                     }
-                }
-            }
 
-            // Si se proporcionan items, actualizar el detalle
-            if ($request->has('items')) {
-                DB::transaction(function () use ($sale, $request, $wasQuote, $isNowSale) {
+                    // También actualizar descripciones de movimientos financieros asociados si existieran
+                    if (method_exists($sale, 'financialMovement')) {
+                        $movements = \App\Models\Finance\FinancialMovement::where('movable_id', $sale->id)
+                            ->where('movable_type', get_class($sale))
+                            ->get();
+
+                        foreach ($movements as $movement) {
+                            $newDesc = str_replace($oldDocumentNumber, $request->document_number, $movement->description);
+                            
+                            $metadata = $movement->metadata ?? [];
+                            if (isset($metadata['document_number']) && $metadata['document_number'] === $oldDocumentNumber) {
+                                $metadata['document_number'] = $request->document_number;
+                            }
+
+                            $movement->update([
+                                'description' => $newDesc,
+                                'metadata' => $metadata
+                            ]);
+                        }
+                    }
+                }
+
+                // Si se proporcionan items, actualizar el detalle
+                if ($request->has('items')) {
                     // Obtener IDs de los items enviados
-                    $itemIds = array_filter(array_column($request->items, 'id'));
+                    $itemIds = array_filter(array_map('intval', array_column($request->items, 'id')));
 
                     // Si ya era una venta, restauramos el stock de los items que van a ser eliminados
                     if (!$wasQuote && !$wasDraft) {
@@ -761,7 +895,11 @@ class SaleController extends Controller
                     }
 
                     // Eliminar items que no están en la solicitud
-                    $sale->details()->whereNotIn('id', $itemIds)->delete();
+                    if (!empty($itemIds)) {
+                        $sale->details()->whereNotIn('id', $itemIds)->delete();
+                    } else {
+                        $sale->details()->delete();
+                    }
 
                     // Actualizar o crear items
                     foreach ($request->items as $item) {
@@ -844,6 +982,11 @@ class SaleController extends Controller
                         'total' => $total,
                     ]);
 
+                    // Actualizar registro financiero y distribuciones si ya existían (venta ya activa)
+                    if (!$wasQuote && !$wasDraft && $sale->document_type !== 'quote' && $sale->status !== 'draft') {
+                        $this->processFinancialRecord($sale, $request);
+                    }
+
                     // Si se convierte de cotización a venta, procesar el stock y finanzas
                     if (($wasQuote && $isNowSale) || $isFinishingDraft) {
                         $sale->status = 'completed';
@@ -862,7 +1005,6 @@ class SaleController extends Controller
 
                         // Procesar registro financiero
                         if ($request->document_type !== 'quote') {
-                            $request->merge(['payment_method' => $sale->payment_method]);
                             $this->processFinancialRecord($sale, $request);
                             
                             if ($sale->work_order_id) {
@@ -873,8 +1015,8 @@ class SaleController extends Controller
                             }
                         }
                     }
-                });
-            }
+                }
+            });
 
             return response()->json([
                 'success' => true,
@@ -997,7 +1139,7 @@ class SaleController extends Controller
             foreach ($request->items as $item) {
                 if (isset($item['product_id']) && $item['product_id']) {
                     $product = ModelsProduct::find($item['product_id']);
-                    if ($product && $product->stock < $item['quantity']) {
+                    if ($product && $product->item_type == 1 && $product->stock < $item['quantity']) {
                         return response()->json([
                             'success' => false,
                             'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
@@ -1011,7 +1153,7 @@ class SaleController extends Controller
             foreach ($request->items as $item) {
                 if (isset($item['product_id']) && $item['product_id']) {
                     $product = ModelsProduct::find($item['product_id']);
-                    if ($product && $product->max_discount !== null) {
+                    if ($product && $product->item_type == 1 && $product->max_discount !== null) {
                         $maxDiscountAmount = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
                         if ($item['discount'] > $maxDiscountAmount) {
                             return response()->json([
@@ -1153,6 +1295,79 @@ class SaleController extends Controller
                 'success' => false,
                 'message' => 'Error al registrar el pago.',
                 'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a single sale detail.
+     */
+    public function destroyDetail(int $id)
+    {
+        try {
+            $detail = \App\Models\Sales\SaleDetail::find($id);
+
+            if (!$detail) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El ítem de venta no existe.'
+                ], 404);
+            }
+
+            $sale = $detail->sale;
+            if (!$sale) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Venta asociada no encontrada.'
+                ], 404);
+            }
+
+            // Regla de seguridad: Si la venta ya está anulada, no debería editarse
+            if ($sale->status === 'canceled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede modificar una venta que ya ha sido anulada.'
+                ], 400);
+            }
+
+            DB::transaction(function () use ($detail, $sale) {
+                // Si la venta no es cotización ni borrador, devolvemos el stock del producto físico
+                if ($sale->document_type !== 'quote' && $sale->status !== 'draft') {
+                    if ($detail->product_id) {
+                        $product = ModelsProduct::find($detail->product_id);
+                        if ($product && $product->item_type == 1) { // Solo si es Producto Físico
+                            $product->stock += $detail->quantity;
+                            $product->save();
+                        }
+                    }
+                }
+
+                // Eliminar el detalle
+                $detail->delete();
+
+                // Recalcular los totales de la venta
+                $subtotal = $sale->details()->sum('total');
+                $taxAmount = $sale->document_type === 'invoice' ? $subtotal * 0.15 : 0;
+                $total = $subtotal + $taxAmount;
+
+                $sale->update([
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'total' => $total,
+                ]);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'El ítem fue eliminado de la base de datos correctamente.',
+                'sale' => $sale->fresh()
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar el ítem de la venta.',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

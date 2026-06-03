@@ -169,6 +169,7 @@ Route::group(
 
         // ============= RUTAS DE SALES ==========
         Route::get('sales/next-number', [SaleController::class, 'getNextNumber']);
+        Route::delete('sales/details/{id}', [SaleController::class, 'destroyDetail']);
         Route::resource('sales', SaleController::class);
         Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
