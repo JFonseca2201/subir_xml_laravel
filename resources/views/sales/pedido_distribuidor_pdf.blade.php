@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <title>Pedido a Distribuidor #{{ str_pad($pedido->id, 5, '0', STR_PAD_LEFT) }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="format-detection" content="telephone=no">
 
     <style>
         *,
@@ -23,10 +24,18 @@
             -webkit-text-size-adjust: 100%;
         }
 
+        @page {
+            margin: 18mm 15mm 18mm 15mm;
+        }
+
         body {
             margin: 0;
             font-family: 'Helvetica', 'Arial', sans-serif;
-            font-size: 13px;
+            font-size: 10px;
+        }
+        a {
+            color: inherit !important;
+            text-decoration: none !important;
         }
 
         table {
@@ -127,9 +136,150 @@
             margin: 10px 0;
         }
     </style>
+    @if(request()->has('print'))
+    <style>
+        @page {
+            margin: 0 !important;
+        }
+
+        /* Modern print preview control bar */
+        .print-preview-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: #1e1e2d;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 999999;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .print-preview-info {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+        }
+        .preview-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #ffffff;
+            line-height: 1.2;
+        }
+        .preview-subtitle {
+            font-size: 11px;
+            color: #a1a5b7;
+            margin-top: 2px;
+            line-height: 1.2;
+        }
+        .print-preview-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .print-preview-actions .btn {
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-print {
+            background-color: #009ef7;
+            color: #ffffff;
+        }
+        .btn-print:hover {
+            background-color: #0095e8;
+        }
+        .btn-close {
+            background-color: #323248;
+            color: #a1a5b7;
+        }
+        .btn-close:hover {
+            background-color: #434360;
+            color: #ffffff;
+        }
+
+        /* Screen Preview Styling */
+        @media screen {
+            body {
+                background-color: #f5f5f9 !important;
+                padding: 90px 20px 40px 20px !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: flex-start !important;
+                min-height: 100vh !important;
+            }
+            .print-container {
+                background: white !important;
+                width: 100% !important;
+                max-width: 800px !important;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+                border-radius: 8px !important;
+                padding: 60px 45px !important;
+                box-sizing: border-box !important;
+            }
+        }
+
+        /* Printing Styles */
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            body {
+                display: block !important;
+                min-height: auto !important;
+                background-color: white !important;
+                padding: 25mm 20mm 25mm 20mm !important;
+                margin: 0 !important;
+            }
+            .print-container {
+                padding: 0 !important;
+                box-shadow: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
+    </style>
+    @endif
 </head>
 
 <body>
+    @if(request()->has('print'))
+    <!-- Action Bar -->
+    <div class="no-print print-preview-bar">
+        <div class="print-preview-info">
+            <span class="preview-title">Previsualización de Pedido a Distribuidor #{{ str_pad($pedido->id, 5, '0', STR_PAD_LEFT) }}</span>
+            <span class="preview-subtitle">Revisa el documento antes de imprimir</span>
+        </div>
+        <div class="print-preview-actions">
+            <button onclick="window.print()" class="btn btn-print">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 6px;">
+                    <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1"/>
+                    <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1"/>
+                </svg>
+                Imprimir
+            </button>
+            <button onclick="window.close()" class="btn btn-close">
+                Cerrar
+            </button>
+        </div>
+    </div>
+
+    <div class="print-container">
+    @endif
 
     <div class="web-container" style="padding-bottom: 90px; padding-left: 20px; padding-right: 20px;">
 
@@ -139,7 +289,7 @@
                     <tr>
                         <td style="padding: 0 !important; border-bottom: none; text-align: left;">
                             <img style="height: 125px; background: black;"
-                                src="{{ public_path('assets/img/brand/logo.jpeg') }}">
+                                src="{{ request()->has('print') ? asset('assets/img/brand/logo.jpeg') : public_path('assets/img/brand/logo.jpeg') }}">
                         </td>
 
                         <td style="padding: 0 !important; border-bottom: none; text-align: right; line-height: 1.4;">
@@ -266,6 +416,18 @@
             <p>Documento de control interno generado automáticamente Luxury Evys Cia. Ltda.</p>
         </div>
     </div>
+
+    @if(request()->has('print'))
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                window.print();
+            }, 600);
+        });
+    </script>
+    @endif
 </body>
 
 </html>

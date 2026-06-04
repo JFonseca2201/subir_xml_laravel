@@ -214,16 +214,15 @@ class PedidoDistribuidorController extends Controller
         }
     }
 
-    /**
-     * Generar PDF del pedido (sin precios ni usuario).
-     */
-    public function generatePDF($id)
+    public function generatePDF(Request $request, $id)
     {
         try {
             $pedido = PedidoDistribuidor::with(['distribuidor', 'detalles.producto'])->findOrFail($id);
 
+            if ($request->has('print')) {
+                return view('sales.pedido_distribuidor_pdf', compact('pedido'));
+            }
             $pdf = Pdf::loadView('sales.pedido_distribuidor_pdf', compact('pedido'));
-
             return $pdf->stream('pedido_' . str_pad($pedido->id, 5, '0', STR_PAD_LEFT) . '.pdf');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -409,6 +408,63 @@ class PedidoDistribuidorController extends Controller
                 'status' => 500,
                 'message' => 'Error al actualizar el estado del pedido.',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Print PDF directly to the configured Windows printer.
+     */
+    public function printDirect(int $id)
+    {
+        try {
+            $pedido = PedidoDistribuidor::with(['distribuidor', 'detalles.producto'])->findOrFail($id);
+
+            // 1. Generar el PDF y guardarlo en un archivo temporal
+            $pdf = Pdf::loadView('sales.pedido_distribuidor_pdf', compact('pedido'));
+            $tempFileName = 'temp_pedido_' . $pedido->id . '_' . time() . '.pdf';
+            $tempPath = storage_path('app/' . $tempFileName);
+            $pdf->save($tempPath);
+
+            // 2. Obtener configuración
+            $printerName = env('PRINTER_NAME', 'L5290 Series(Network)');
+            $edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+
+            // 3. Ejecutar comando de impresión en Windows usando msedge
+            if (file_exists($edgePath)) {
+                $command = sprintf(
+                    'start /B "" "%s" --headless --print-to-printer="%s" "%s"',
+                    $edgePath,
+                    $printerName,
+                    $tempPath
+                );
+                pclose(popen($command, 'r'));
+            } else {
+                return response()->json([
+                    'status' => 500,
+                    'success' => false,
+                    'message' => 'No se encontró Microsoft Edge en el servidor para realizar la impresión directa.'
+                ], 500);
+            }
+
+            // 4. Borrar el archivo temporal después de 15 segundos en segundo plano
+            dispatch(function () use ($tempPath) {
+                sleep(15);
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+            })->afterResponse();
+
+            return response()->json([
+                'status' => 200,
+                'success' => true,
+                'message' => 'Impresión directa enviada a: ' . $printerName
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 500,
+                'success' => false,
+                'message' => 'Error al procesar la impresión directa: ' . $e->getMessage()
             ], 500);
         }
     }

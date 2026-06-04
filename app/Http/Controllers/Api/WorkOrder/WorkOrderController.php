@@ -301,17 +301,10 @@ class WorkOrderController extends Controller
     /**
      * Generate PDF for a work order.
      */
-    public function generatePDF(int $id)
+    public function generatePDF(Request $request, int $id)
     {
         $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'technicians', 'items', 'sale'])
             ->findOrFail($id);
-
-        // Verificar que la orden de trabajo tenga una venta asociada
-        if (!$workOrder->sale) {
-            return response()->json([
-                'message' => 'La orden de trabajo no tiene una venta asociada'
-            ], 400);
-        }
 
         // Calcular totales
         $grossSubtotal = $workOrder->items->sum(function ($item) {
@@ -334,7 +327,87 @@ class WorkOrderController extends Controller
             'total' => $total,
         ];
 
-        $pdf = Pdf::loadView('work-orders.pdf', $data);
-        return $pdf->download('orden-trabajo-' . $workOrder->number . '.pdf');
+        if ($request->has('print')) {
+            return view('work-orders.work_order_pdf', $data);
+        }
+
+        $pdf = Pdf::loadView('work-orders.work_order_pdf', $data);
+        return $pdf->stream('orden-trabajo-' . $workOrder->number . '.pdf');
+    }
+
+    /**
+     * Print PDF directly to the configured Windows printer.
+     */
+    public function printDirect(int $id)
+    {
+        try {
+            $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'technicians', 'items', 'sale'])
+                ->findOrFail($id);
+
+            // Calcular totales
+            $grossSubtotal = $workOrder->items->sum(function ($item) {
+                return $item->quantity * $item->unit_price;
+            });
+            $totalDiscount = $workOrder->items->sum('discount');
+            $total = $grossSubtotal - $totalDiscount;
+
+            // Mapear el ID de la marca al nombre de la marca para el PDF
+            $vehicleBrands = config('vehicle_brands', []);
+            if ($workOrder->vehicle && isset($workOrder->vehicle->brand)) {
+                $brandId = $workOrder->vehicle->brand;
+                $workOrder->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
+            }
+
+            $data = [
+                'workOrder' => $workOrder,
+                'grossSubtotal' => $grossSubtotal,
+                'totalDiscount' => $totalDiscount,
+                'total' => $total,
+            ];
+
+            // 1. Generar el PDF y guardarlo en un archivo temporal
+            $pdf = Pdf::loadView('work-orders.work_order_pdf', $data);
+            $tempFileName = 'temp_order_' . $workOrder->id . '_' . time() . '.pdf';
+            $tempPath = storage_path('app/' . $tempFileName);
+            $pdf->save($tempPath);
+
+            // 2. Obtener configuración
+            $printerName = env('PRINTER_NAME', 'L5290 Series(Network)');
+            $edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+
+            // 3. Ejecutar comando de impresión en Windows usando msedge
+            if (file_exists($edgePath)) {
+                $command = sprintf(
+                    'start /B "" "%s" --headless --print-to-printer="%s" "%s"',
+                    $edgePath,
+                    $printerName,
+                    $tempPath
+                );
+                pclose(popen($command, 'r'));
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró Microsoft Edge en el servidor para realizar la impresión directa.'
+                ], 500);
+            }
+
+            // 4. Borrar el archivo temporal después de 15 segundos en segundo plano
+            dispatch(function () use ($tempPath) {
+                sleep(15);
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+            })->afterResponse();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Impresión directa enviada a: ' . $printerName
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar la impresión directa: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

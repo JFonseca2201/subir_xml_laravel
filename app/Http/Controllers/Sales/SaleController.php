@@ -540,10 +540,7 @@ class SaleController extends Controller
         }
     }
 
-    /**
-     * Generate PDF for a single sale
-     */
-    public function generateSinglePDF(int $id)
+    public function generateSinglePDF(Request $request, int $id)
     {
         try {
             $sale = Sale::with(['client', 'vehicle', 'user', 'details.product', 'technicians', 'financeRecord.paymentDistributions.account'])->find($id);
@@ -562,7 +559,10 @@ class SaleController extends Controller
                 $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
             }
 
-            $pdf = Pdf::loadView('sales.pdf', compact('sale'));
+            if ($request->has('print')) {
+                return view('sales.pdf_sale', compact('sale'));
+            }
+            $pdf = Pdf::loadView('sales.pdf_sale', compact('sale'));
             return $pdf->stream($sale->document_type . '_' . $sale->document_number . '.pdf');
         } catch (Exception $e) {
             return response()->json([
@@ -636,6 +636,8 @@ class SaleController extends Controller
             'payment_distributions.*.account_id' => 'required|exists:accounts,id',
             'payment_distributions.*.payment_method' => 'required|string',
             'is_draft' => 'nullable|boolean',
+            'technicians' => 'nullable|array',
+            'technicians.*' => 'exists:employees,id',
         ]);
 
         try {
@@ -838,6 +840,11 @@ class SaleController extends Controller
                     'payment_status',
                     'is_credited'
                 ]) + ['status' => $status]);
+
+                if ($request->has('technicians')) {
+                    $technicianIds = WorkOrderSaleSync::resolveTechnicianIds($request, null);
+                    WorkOrderSaleSync::syncTechniciansToSale($sale, $technicianIds);
+                }
 
                 // Si el número de documento cambió, actualizar el registro financiero y movimientos asociados
                 if ($request->has('document_number') && $request->document_number !== $oldDocumentNumber) {
@@ -1368,6 +1375,74 @@ class SaleController extends Controller
                 'success' => false,
                 'message' => 'Error al eliminar el ítem de la venta.',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Print PDF directly to the configured Windows printer.
+     */
+    public function printDirect(int $id)
+    {
+        try {
+            $sale = Sale::with(['client', 'vehicle', 'user', 'details.product', 'technicians', 'financeRecord.paymentDistributions.account'])->find($id);
+
+            if (!$sale) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Venta no encontrada'
+                ], 404);
+            }
+
+            // Mapear el ID de la marca al nombre de la marca para el PDF
+            $vehicleBrands = config('vehicle_brands', []);
+            if ($sale->vehicle && isset($sale->vehicle->brand)) {
+                $brandId = $sale->vehicle->brand;
+                $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
+            }
+
+            // 1. Generar el PDF y guardarlo en un archivo temporal
+            $pdf = Pdf::loadView('sales.pdf_sale', compact('sale'));
+            $tempFileName = 'temp_sale_' . $sale->id . '_' . time() . '.pdf';
+            $tempPath = storage_path('app/' . $tempFileName);
+            $pdf->save($tempPath);
+
+            // 2. Obtener configuración
+            $printerName = env('PRINTER_NAME', 'L5290 Series(Network)');
+            $edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+
+            // 3. Ejecutar comando de impresión en Windows usando msedge
+            if (file_exists($edgePath)) {
+                $command = sprintf(
+                    'start /B "" "%s" --headless --print-to-printer="%s" "%s"',
+                    $edgePath,
+                    $printerName,
+                    $tempPath
+                );
+                pclose(popen($command, 'r'));
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró Microsoft Edge en el servidor para realizar la impresión directa.'
+                ], 500);
+            }
+
+            // 4. Borrar el archivo temporal después de 15 segundos en segundo plano
+            dispatch(function () use ($tempPath) {
+                sleep(15);
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+            })->afterResponse();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Impresión directa enviada a: ' . $printerName
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar la impresión directa: ' . $e->getMessage()
             ], 500);
         }
     }

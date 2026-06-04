@@ -185,6 +185,7 @@ Route::group(
         Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);
         Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/{id}/pdf', [WorkOrderController::class, 'generatePDF']);
+        Route::post('work-orders/{id}/print', [WorkOrderController::class, 'printDirect']);
         Route::resource('work-orders', WorkOrderController::class);
 
 
@@ -194,6 +195,7 @@ Route::group(
 
         Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
         Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
+        Route::post('sales/{id}/print', [SaleController::class, 'printDirect']);
 
         // ============= RUTAS DE PEDIDOS A DISTRIBUIDOR ========== 
         Route::get('pedidos-distribuidor/next-number', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getNextNumber']);
@@ -202,6 +204,7 @@ Route::group(
         Route::get('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'index']);
         Route::get('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'show']);
         Route::get('pedidos-distribuidor/{id}/pdf', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'generatePDF']);
+        Route::post('pedidos-distribuidor/{id}/print', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'printDirect']);
         Route::put('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'update']);
         Route::delete('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'destroy']);
         Route::put('pedidos-distribuidor/{id}/status', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'updateStatus']);
