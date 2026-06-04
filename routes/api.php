@@ -186,8 +186,7 @@ Route::group(
         Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/{id}/pdf', [WorkOrderController::class, 'generatePDF']);
         Route::resource('work-orders', WorkOrderController::class);
-        Route::get('products-excel', [ProductController::class, 'download_excel']);
-        Route::post('products/import-excel', [ProductController::class, 'import_excel']);
+
 
         // Excel Import Routes para Clientes y Vehículos
         Route::post('import/clients', [ExcelImportController::class, 'importClients']);
@@ -215,5 +214,7 @@ Route::group(
         Route::get('dashboard/search', [DashboardController::class, 'search']);
         Route::get('dashboard', [DashboardController::class, 'index']);
     },
-);
 
+);
+Route::get('products-excel', [ProductController::class, 'download_excel']);
+Route::post('products/import-excel', [ProductController::class, 'import_excel']);

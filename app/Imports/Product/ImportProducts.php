@@ -57,9 +57,17 @@ class ImportProducts implements ToModel, WithHeadingRow, WithValidation
             ]);
         }
         
-        $warehouse = Warehouse::where('name', 'like', '%' . trim($row['almacen'] ?? '') . '%')->first();
+        $warehouse = null;
+        $almacenName = trim($row['almacen'] ?? '');
+        if (!empty($almacenName)) {
+            $warehouse = Warehouse::where('name', 'like', '%' . $almacenName . '%')->first();
+        }
 
-        $unit = Unit::where('name', 'like', '%' . trim($row['unidad'] ?? '') . '%')->first();
+        $unit = null;
+        $unitName = trim($row['unidad'] ?? '');
+        if (!empty($unitName)) {
+            $unit = Unit::where('name', 'like', '%' . $unitName . '%')->first();
+        }
 
         $distribuidor = !empty($row['supplier_id']) ? Supplier::find($row['supplier_id']) : null;
 
@@ -104,31 +112,30 @@ class ImportProducts implements ToModel, WithHeadingRow, WithValidation
      }
      public function rules(): array
      {
-         return [             
-             '*.description' => 'required|string',
-             '*.sku' => 'required',
-             '*.imagen' => 'nullable|string',
-             '*.code_aux' => 'nullable|string',
-             '*.uses' => 'nullable|string',
-             '*.categoria' => 'required|string',
-             '*.almacen' => 'nullable|exists:warehouses,name',
-             '*.unidad' => 'nullable|exists:units,name',
-             '*.supplier_id' => 'nullable|exists:suppliers,id',
-             '*.price' => 'required|numeric',
-             '*.price_sale' => 'nullable|numeric',
-             '*.purchase_price' => 'nullable|numeric',
-             '*.tax_rate' => 'nullable|numeric',
-             '*.max_discount' => 'nullable|numeric',
-             '*.discount_percentage' => 'nullable|numeric',
-             '*.marca' => 'nullable|string',
-             '*.stock' => 'nullable|integer',
-             '*.item_type' => 'nullable|string',
-             '*.min_stock' => 'nullable|integer',
-             '*.max_stock' => 'nullable|integer',
-             '*.is_taxable' => 'nullable|string',
-             '*.is_gift' => 'nullable|string',
-             '*.notes' => 'nullable|string',
-             '*.state' => 'nullable|string',
+         return [                          '*.description' => 'required|string',
+              '*.sku' => 'nullable',
+              '*.imagen' => 'nullable|string',
+              '*.code_aux' => 'nullable|string',
+              '*.uses' => 'nullable|string',
+              '*.categoria' => 'required|string',
+              '*.almacen' => 'nullable|exists:warehouses,name',
+              '*.unidad' => 'nullable|exists:units,name',
+              '*.supplier_id' => 'nullable|exists:suppliers,id',
+              '*.price' => 'required|numeric',
+              '*.price_sale' => 'nullable|numeric',
+              '*.purchase_price' => 'nullable|numeric',
+              '*.tax_rate' => 'nullable|numeric',
+              '*.max_discount' => 'nullable|numeric',
+              '*.discount_percentage' => 'nullable|numeric',
+              '*.marca' => 'nullable|string',
+              '*.stock' => 'nullable|numeric',
+              '*.item_type' => 'nullable|string',
+              '*.min_stock' => 'nullable|numeric',
+              '*.max_stock' => 'nullable|numeric',
+              '*.is_taxable' => 'nullable|string',
+              '*.is_gift' => 'nullable|string',
+              '*.notes' => 'nullable|string',
+              '*.state' => 'nullable|string',
          ];
      }
 }

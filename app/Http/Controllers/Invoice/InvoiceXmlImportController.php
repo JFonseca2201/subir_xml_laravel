@@ -248,7 +248,7 @@ class InvoiceXmlImportController extends Controller
 
     public function show($id)
     {
-        $invoice = Invoice::with(['supplier', 'invoice_items'])->findOrFail($id);
+        $invoice = Invoice::with(['supplier', 'invoice_items', 'financeRecords.paymentDistributions.account', 'accountPayable'])->findOrFail($id);
 
         return response()->json(
             [
@@ -264,12 +264,15 @@ class InvoiceXmlImportController extends Controller
                         'ruc' => $invoice->supplier->ruc,
                     ],
                     'invoice_number' => $invoice->invoice_number,
+                    'invoice_process' => $invoice->invoice_process,
                     'issue_date' => $invoice->issue_date,
                     'subtotal' => $invoice->subtotal,
                     'discount' => $invoice->discount,
                     'tax' => $invoice->tax,
                     'total' => $invoice->total,
                     'invoice_items' => $invoice->invoice_items,
+                    'finance_records' => $invoice->financeRecords,
+                    'account_payable' => $invoice->accountPayable,
                 ],
             ],
             200,
@@ -337,6 +340,13 @@ class InvoiceXmlImportController extends Controller
             $validated = $request->validate([
                 'invoice' => 'required|integer|exists:invoices,id',
                 'categorie_id' => 'nullable|int|exists:product_categories,id',
+                'payment_type' => 'required|string|in:efectivo,credito,aporte',
+                'account_id' => 'nullable|integer|exists:accounts,id',
+                'partner_id' => 'nullable|integer|exists:partners,id',
+                'payment_distributions' => 'nullable|array',
+                'payment_distributions.*.account_id' => 'required|integer|exists:accounts,id',
+                'payment_distributions.*.amount' => 'required|numeric|min:0.01',
+                'payment_distributions.*.payment_method' => 'required|string',
             ]);
 
             // Obtener la factura actual
@@ -356,6 +366,16 @@ class InvoiceXmlImportController extends Controller
                     'status' => 404,
                     'message' => 'No se encontraron ítems en esta factura',
                 ], 404);
+            }
+
+            // Validar que todos los ítems de tipo producto físico (1) tengan categoría asignada
+            foreach ($invoiceItems as $invoiceItem) {
+                if ($invoiceItem->item_type == 1 && empty($invoiceItem->product_categorie_id)) {
+                    return response()->json([
+                        'status' => 422,
+                        'message' => 'No se puede procesar la factura porque hay productos físicos sin categoría asignada. Por favor, asigne categorías en el detalle de la factura antes de procesarla.',
+                    ], 422);
+                }
             }
 
             $processedCount = 0;
@@ -420,47 +440,171 @@ class InvoiceXmlImportController extends Controller
                 'invoice_process' => 1
             ]);
 
-            // --- REGISTRAR MOVIMIENTO FINANCIERO POR DEFECTO (CAJA CHICA/EFECTIVO) ---
-            // Solo si no existe ya un registro para evitar duplicados
+            // --- REGISTRAR MOVIMIENTO FINANCIERO / CUENTA POR PAGAR ---
+            // Solo si no existe ya un registro para evitar duplicados en la parte financiera y cuentas por pagar
             $exists = \App\Models\Finance\FinanceRecord::where('invoice_number', $invoiceModel->invoice_number)->exists();
+            $payableExists = \App\Models\Finance\AccountPayable::where('invoice_id', $invoiceModel->id)->exists();
 
-            if (!$exists) {
-                $supplierName = $invoiceModel->supplier ? ($invoiceModel->supplier->trade_name ?? $invoiceModel->supplier->name) : ('#' . $invoiceModel->supplier_id);
-                $financeRecord = \App\Models\Finance\FinanceRecord::create([
-                    'type' => \App\Models\Finance\FinanceRecord::TYPE_EXPENSE, // 1 = Egreso
-                    'amount' => $invoiceModel->total,
-                    'invoice_number' => $invoiceModel->invoice_number,
-                    'description' => 'Pago por Compra XML a Proveedor ' . $supplierName,
-                    'user_id' => auth()->id() ?? 1,
-                    'entry_date' => \Carbon\Carbon::now('America/Guayaquil')->toDateString()
-                ]);
+            if (!$exists && !$payableExists) {
+                if ($validated['payment_type'] === 'efectivo') {
+                    $hasDistributions = !empty($validated['payment_distributions']);
 
-                $accountId = 1; // Default a Caja Efectivo
-                $distribution = \App\Models\Finance\PaymentDistribution::create([
-                    'finance_record_id' => $financeRecord->id,
-                    'account_id' => $accountId,
-                    'amount' => $invoiceModel->total,
-                    'payment_method' => 'cash',
-                ]);
+                    if ($hasDistributions) {
+                        $totalDist = array_sum(array_column($validated['payment_distributions'], 'amount'));
+                        if (abs($totalDist - $invoiceModel->total) > 0.01) {
+                            return response()->json([
+                                'status' => 422,
+                                'message' => 'La suma de los montos de pago ($' . number_format($totalDist, 2) . ') debe coincidir con el total de la factura ($' . number_format($invoiceModel->total, 2) . ').',
+                            ], 422);
+                        }
+                    } else {
+                        if (empty($validated['account_id'])) {
+                            return response()->json([
+                                'status' => 422,
+                                'message' => 'Se requiere seleccionar al menos una cuenta para registrar el pago.',
+                            ], 422);
+                        }
+                    }
 
-                // Registrar el movimiento en el Dashboard
-                $distribution->registerMovement(
-                    $accountId,
-                    'expense',
-                    $invoiceModel->total,
-                    $financeRecord->description,
-                    $financeRecord->entry_date,
-                    [
+                    $supplierName = $invoiceModel->supplier ? ($invoiceModel->supplier->trade_name ?? $invoiceModel->supplier->name) : ('#' . $invoiceModel->supplier_id);
+                    $financeRecord = new \App\Models\Finance\FinanceRecord([
+                        'type' => \App\Models\Finance\FinanceRecord::TYPE_EXPENSE, // 1 = Egreso
+                        'amount' => $invoiceModel->total,
+                        'invoice_number' => $invoiceModel->invoice_number,
+                        'description' => 'Pago por Compra XML a Proveedor ' . $supplierName,
+                        'user_id' => auth()->id() ?? 1,
+                        'entry_date' => \Carbon\Carbon::now('America/Guayaquil')->toDateString()
+                    ]);
+
+                    if (!$hasDistributions) {
+                        $financeRecord->account_id = $validated['account_id'];
+                    } else {
+                        $financeRecord->account_id = $validated['payment_distributions'][0]['account_id'];
+                    }
+
+                    $financeRecord->save();
+
+                    if ($hasDistributions) {
+                        foreach ($validated['payment_distributions'] as $dist) {
+                            $distribution = \App\Models\Finance\PaymentDistribution::create([
+                                'finance_record_id' => $financeRecord->id,
+                                'account_id' => $dist['account_id'],
+                                'amount' => $dist['amount'],
+                                'payment_method' => $dist['payment_method'],
+                            ]);
+
+                            $distribution->registerMovement(
+                                $dist['account_id'],
+                                'expense',
+                                $dist['amount'],
+                                $financeRecord->description . ' - ' . ($dist['payment_method'] === 'cash' ? 'Efectivo' : 'Transferencia'),
+                                $financeRecord->entry_date instanceof \Carbon\Carbon ? $financeRecord->entry_date->toDateString() : $financeRecord->entry_date,
+                                [
+                                    'finance_record_id' => $financeRecord->id,
+                                    'record_type' => 1,
+                                    'invoice' => $financeRecord->invoice_number,
+                                ]
+                            );
+
+                            $account = \App\Models\Finance\Account::find($dist['account_id']);
+                            if ($account) {
+                                $account->updateBalance($dist['amount'], 1); // 1 = Egreso
+                            }
+                        }
+                    } else {
+                        $accountId = $validated['account_id'];
+                        $distribution = \App\Models\Finance\PaymentDistribution::create([
+                            'finance_record_id' => $financeRecord->id,
+                            'account_id' => $accountId,
+                            'amount' => $invoiceModel->total,
+                            'payment_method' => $financeRecord->payment_method ?? 'cash',
+                        ]);
+
+                        $distribution->registerMovement(
+                            $accountId,
+                            'expense',
+                            $invoiceModel->total,
+                            $financeRecord->description,
+                            $financeRecord->entry_date instanceof \Carbon\Carbon ? $financeRecord->entry_date->toDateString() : $financeRecord->entry_date,
+                            [
+                                'finance_record_id' => $financeRecord->id,
+                                'record_type' => 1,
+                                'invoice' => $financeRecord->invoice_number,
+                            ]
+                        );
+
+                        $account = \App\Models\Finance\Account::find($accountId);
+                        if ($account) {
+                            $account->updateBalance($invoiceModel->total, 1);
+                        }
+                    }
+
+                } else if ($validated['payment_type'] === 'aporte') {
+                    if (empty($validated['partner_id'])) {
+                        return response()->json([
+                            'status' => 422,
+                            'message' => 'Se requiere seleccionar un socio para el pago con aporte.',
+                        ], 422);
+                    }
+
+                    // Buscar la cuenta ligada a los aportes de capital del socio
+                    $aporte = \App\Models\Partner\AporteCapital::where('partner_id', $validated['partner_id'])->latest()->first();
+                    if (!$aporte || !$aporte->cuenta_id) {
+                        return response()->json([
+                            'status' => 422,
+                            'message' => 'El socio seleccionado no tiene aportes de capital ni cuenta asociada.',
+                        ], 422);
+                    }
+                    
+                    $accountId = $aporte->cuenta_id;
+
+                    $supplierName = $invoiceModel->supplier ? ($invoiceModel->supplier->trade_name ?? $invoiceModel->supplier->name) : ('#' . $invoiceModel->supplier_id);
+                    $financeRecord = new \App\Models\Finance\FinanceRecord([
+                        'type' => \App\Models\Finance\FinanceRecord::TYPE_EXPENSE, // 1 = Egreso
+                        'amount' => $invoiceModel->total,
+                        'invoice_number' => $invoiceModel->invoice_number,
+                        'description' => 'Pago por Compra XML a Proveedor ' . $supplierName . ' (Financiado por Aporte de Socio)',
+                        'user_id' => auth()->id() ?? 1,
+                        'account_id' => $accountId,
+                        'entry_date' => \Carbon\Carbon::now('America/Guayaquil')->toDateString()
+                    ]);
+
+                    $financeRecord->save();
+
+                    $distribution = \App\Models\Finance\PaymentDistribution::create([
                         'finance_record_id' => $financeRecord->id,
-                        'record_type' => 1,
-                        'invoice' => $financeRecord->invoice_number,
-                    ]
-                );
+                        'account_id' => $accountId,
+                        'amount' => $invoiceModel->total,
+                        'payment_method' => $financeRecord->payment_method ?? 'cash',
+                    ]);
 
-                // Descontar saldo de la cuenta
-                $account = \App\Models\Finance\Account::find($accountId);
-                if ($account) {
-                    $account->updateBalance($invoiceModel->total, 1);
+                    $distribution->registerMovement(
+                        $accountId,
+                        'expense',
+                        $invoiceModel->total,
+                        $financeRecord->description,
+                        $financeRecord->entry_date instanceof \Carbon\Carbon ? $financeRecord->entry_date->toDateString() : $financeRecord->entry_date,
+                        [
+                            'finance_record_id' => $financeRecord->id,
+                            'record_type' => 1,
+                            'invoice' => $financeRecord->invoice_number,
+                        ]
+                    );
+
+                    $account = \App\Models\Finance\Account::find($accountId);
+                    if ($account) {
+                        $account->updateBalance($invoiceModel->total, 1);
+                    }
+
+                } else if ($validated['payment_type'] === 'credito') {
+                    \App\Models\Finance\AccountPayable::create([
+                        'supplier_id' => $invoiceModel->supplier_id,
+                        'invoice_id' => $invoiceModel->id,
+                        'total_amount' => $invoiceModel->total,
+                        'amount_paid' => 0,
+                        'status' => 'pending',
+                        'due_date' => \Carbon\Carbon::now()->addDays(30), // Por defecto 30 días
+                    ]);
                 }
             }
 

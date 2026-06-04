@@ -95,13 +95,13 @@ class VehicleController extends Controller
                 // Regex de Ecuador: soporta los 4 formatos que pusimos en Vue
                 'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3})$/'
             ],
-            'brand'        => 'required',
-            'model'        => 'required|string|max:100',
-            'year'         => 'required|integer|min:1900|max:' . (date('Y') + 5),
-            'color'        => 'required',
+            'brand' => 'required',
+            'model' => 'required|string|max:100',
+            'year' => 'required|integer|min:1900|max:' . (date('Y') + 5),
+            'color' => 'required',
             'vehicle_type' => 'required',
-            'description'  => 'nullable|string|max:1000',
-            'status'       => 'required|integer|in:1,2',
+            'description' => 'nullable|string|max:1000',
+            'status' => 'required|integer|in:1,2',
         ], [
             'license_plate.regex' => 'El formato de la placa es inválido para Ecuador.',
             'license_plate.unique' => 'Esta placa ya está registrada en el sistema.'
@@ -128,6 +128,23 @@ class VehicleController extends Controller
             'message' => 'Vehículo registrado exitosamente',
             'vehicle' => $vehicle->load('client'),
         ], 201);
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(string $id)
+    {
+        $vehicle = Vehicle::with('client')->find($id);
+
+        if (!$vehicle) {
+            return response()->json([
+                'status' => 404,
+                'message' => 'Vehículo no encontrado'
+            ], 404);
+        }
+
+        return response()->json($vehicle);
     }
 
     /**
@@ -159,13 +176,13 @@ class VehicleController extends Controller
                 Rule::unique('vehicles')->ignore($id),
                 'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3})$/'
             ],
-            'brand'        => 'required',
-            'model'        => 'required|string|max:100',
-            'year'         => 'required|integer|min:1900|max:' . (date('Y') + 5),
-            'color'        => 'required',
+            'brand' => 'required',
+            'model' => 'required|string|max:100',
+            'year' => 'required|integer|min:1900|max:' . (date('Y') + 5),
+            'color' => 'required',
             'vehicle_type' => 'required',
-            'description'  => 'nullable|string|max:1000',
-            'status'       => 'required|integer|in:1,2',
+            'description' => 'nullable|string|max:1000',
+            'status' => 'required|integer|in:1,2',
         ]);
 
         if ($validator->fails()) {

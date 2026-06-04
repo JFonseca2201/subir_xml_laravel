@@ -83,6 +83,16 @@ class Invoice extends Model
         return $this->belongsTo(Supplier::class , 'supplier_id');
     }
 
+    public function financeRecords()
+    {
+        return $this->hasMany(\App\Models\Finance\FinanceRecord::class, 'invoice_number', 'invoice_number');
+    }
+
+    public function accountPayable()
+    {
+        return $this->hasOne(\App\Models\Finance\AccountPayable::class, 'invoice_id');
+    }
+
     public function getFormattedTotalAttribute()
     {
         return '$' . number_format($this->total, 2);

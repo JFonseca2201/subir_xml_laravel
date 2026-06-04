@@ -84,6 +84,52 @@ class KardexController extends Controller
                 'App\Models\Finance\PaymentDistribution' => ['financeRecord']
             ]);
 
+            // Pre-calcular el mapa de movimientos más antiguos para evitar duplicar productos en facturas con pagos múltiples
+            $invoiceNumbers = [];
+            foreach ($movimientos as $m) {
+                if ($m->movable_type === 'App\Models\Finance\PaymentDistribution') {
+                    $dist = $m->movable;
+                    if ($dist && $dist->financeRecord) {
+                        $invoiceNumbers[] = $dist->financeRecord->invoice_number;
+                    }
+                }
+            }
+            $invoiceNumbers = array_unique(array_filter($invoiceNumbers));
+
+            $earliestMovementsMap = [];
+            if (!empty($invoiceNumbers)) {
+                $allMovementsForInvoices = FinancialMovement::whereHasMorph(
+                    'movable',
+                    ['App\Models\Finance\PaymentDistribution', 'App\Models\PaymentDistribution'],
+                    function ($q) use ($invoiceNumbers) {
+                        $q->whereHas('financeRecord', function ($subQ) use ($invoiceNumbers) {
+                            $subQ->whereIn('invoice_number', $invoiceNumbers);
+                        });
+                    }
+                )->get();
+
+                $groupedMovements = [];
+                foreach ($allMovementsForInvoices as $m) {
+                    $dist = $m->movable;
+                    if ($dist && $dist->financeRecord) {
+                        $invNum = $dist->financeRecord->invoice_number;
+                        $groupedMovements[$invNum][] = $m;
+                    }
+                }
+
+                foreach ($groupedMovements as $invNum => $movs) {
+                    usort($movs, function ($a, $b) {
+                        $dateA = $a->entry_date->format('Y-m-d');
+                        $dateB = $b->entry_date->format('Y-m-d');
+                        if ($dateA === $dateB) {
+                            return $a->id <=> $b->id;
+                        }
+                        return strcmp($dateA, $dateB);
+                    });
+                    $earliestMovementsMap[$invNum] = $movs[0]->id;
+                }
+            }
+
             // Agrupar movimientos por fecha para la vista
             $movimientosAgrupadosRaw = $movimientos->getCollection()->groupBy(function ($item) {
                 return $item->entry_date->format('Y-m-d');
@@ -172,61 +218,114 @@ class KardexController extends Controller
                     $distribution = $movimiento->movable;
                     if ($distribution && $distribution->financeRecord) {
                         $invoiceNumber = $distribution->financeRecord->invoice_number;
-                        // Buscar la Factura de compra correspondiente
-                        $invoice = \App\Models\Invoice\Invoice::with('invoice_items')
-                            ->where('invoice_number', $invoiceNumber)
-                            ->first();
 
-                        if ($invoice && $invoice->invoice_items->isNotEmpty()) {
-                            foreach ($invoice->invoice_items as $item) {
-                                if ($search) {
-                                    $matchesSearch = stripos($item->description, $search) !== false ||
-                                        stripos($item->code, $search) !== false;
-                                    $matchesGeneral = stripos($movimiento->description, $search) !== false;
-                                    if (!$matchesSearch && !$matchesGeneral) {
-                                        continue;
+                        // Verificar si este movimiento es el más antiguo/primero para esta factura
+                        $isEarliest = isset($earliestMovementsMap[$invoiceNumber]) && $earliestMovementsMap[$invoiceNumber] == $movimiento->id;
+
+                        if ($isEarliest) {
+                            // Buscar la Factura de compra correspondiente
+                            $invoice = \App\Models\Invoice\Invoice::with('invoice_items')
+                                ->where('invoice_number', $invoiceNumber)
+                                ->first();
+
+                            if ($invoice && $invoice->invoice_items->isNotEmpty()) {
+                                // Calcular factor de escala para asociar proporcionalmente el pago a los artículos
+                                $paymentAmount = (float) $movimiento->amount;
+                                $invoiceTotal = (float) $invoice->total;
+                                $scaleFactor = $invoiceTotal > 0 ? ($paymentAmount / $invoiceTotal) : 1.0;
+
+                                foreach ($invoice->invoice_items as $item) {
+                                    if ($search) {
+                                        $matchesSearch = stripos($item->description, $search) !== false ||
+                                            stripos($item->code, $search) !== false;
+                                        $matchesGeneral = stripos($movimiento->description, $search) !== false;
+                                        if (!$matchesSearch && !$matchesGeneral) {
+                                            continue;
+                                        }
                                     }
+
+                                    $codigo = $item->code;
+                                    $concepto = $codigo ?: 'COMPRA';
+
+                                    $product = \App\Models\Product\Product::where('sku', $item->code)->first();
+                                    $codigoAux = $product ? $product->code_aux : null;
+
+                                    $scaledAmount = (float) ($item->total * $scaleFactor);
+
+                                    $movimientosFormateados[] = [
+                                        'id' => $movimiento->id . '_invoice_item_' . $item->id,
+                                        'fecha' => $movimiento->entry_date->format('Y-m-d'),
+                                        'fecha_formateada' => $movimiento->entry_date->format('d/m/Y'),
+                                        'movimiento_tipo' => 'salida',
+                                        'concepto_tipo' => 'compra_inventario',
+                                        'concepto' => $concepto,
+                                        'codigo_aux' => $codigoAux,
+                                        'producto' => [
+                                            'id' => $product ? $product->id : null,
+                                            'description' => $item->description,
+                                            'sku' => $item->code,
+                                        ],
+                                        'servicio' => null,
+                                        'user' => null,
+                                        'cantidad_anterior' => null,
+                                        'cantidad_movida' => (float) $item->quantity,
+                                        'cantidad_posterior' => null,
+                                        'precio_unitario' => (float) $item->unit_price,
+                                        'subtotal' => (float) $item->subtotal,
+                                        'total' => (float) $item->total,
+                                        'monto_financiero' => $scaledAmount,
+                                        'referencia_id' => $movimiento->movable_id,
+                                        'referencia_tipo' => $movimiento->movable_type,
+                                        'descripcion' => $item->description,
+                                        'afecta_stock' => true,
+                                        'account' => $movimiento->account ? [
+                                            'id' => $movimiento->account->id,
+                                            'name' => $movimiento->account->name,
+                                        ] : null,
+                                        'metadata' => $movimiento->metadata,
+                                    ];
                                 }
-
-                                $codigo = $item->code;
-                                $concepto = $codigo ?: 'COMPRA';
-
-                                $product = \App\Models\Product\Product::where('sku', $item->code)->first();
-                                $codigoAux = $product ? $product->code_aux : null;
-
-                                $movimientosFormateados[] = [
-                                    'id' => $movimiento->id . '_invoice_item_' . $item->id,
-                                    'fecha' => $movimiento->entry_date->format('Y-m-d'),
-                                    'fecha_formateada' => $movimiento->entry_date->format('d/m/Y'),
-                                    'movimiento_tipo' => 'salida',
-                                    'concepto_tipo' => 'compra_inventario',
-                                    'concepto' => $concepto,
-                                    'codigo_aux' => $codigoAux,
-                                    'producto' => [
-                                        'id' => null,
-                                        'description' => $item->description,
-                                        'sku' => $item->code,
-                                    ],
-                                    'servicio' => null,
-                                    'user' => null,
-                                    'cantidad_anterior' => null,
-                                    'cantidad_movida' => (float) $item->quantity,
-                                    'cantidad_posterior' => null,
-                                    'precio_unitario' => (float) $item->unit_price,
-                                    'subtotal' => (float) $item->subtotal,
-                                    'total' => (float) $item->total,
-                                    'monto_financiero' => (float) $item->total,
-                                    'referencia_id' => $movimiento->movable_id,
-                                    'referencia_tipo' => $movimiento->movable_type,
-                                    'descripcion' => $item->description /* . ' (Cantidad: ' . $item->quantity . ') - Compra #' . $invoiceNumber */ ,
-                                    'afecta_stock' => true,
-                                    'account' => $movimiento->account ? [
-                                        'id' => $movimiento->account->id,
-                                        'name' => $movimiento->account->name,
-                                    ] : null,
-                                    'metadata' => $movimiento->metadata,
-                                ];
+                                continue;
                             }
+                        } else {
+                            // Si hay búsqueda activa, validar si coincide con la descripción del pago o el número de factura
+                            if ($search) {
+                                $matchesSearch = stripos($movimiento->description, $search) !== false ||
+                                    stripos($invoiceNumber, $search) !== false;
+                                if (!$matchesSearch) {
+                                    continue;
+                                }
+                            }
+
+                            // Egresos subsecuentes únicamente como abono financiero
+                            $movimientosFormateados[] = [
+                                'id' => $movimiento->id . '_financial_payment',
+                                'fecha' => $movimiento->entry_date->format('Y-m-d'),
+                                'fecha_formateada' => $movimiento->entry_date->format('d/m/Y'),
+                                'movimiento_tipo' => 'salida',
+                                'concepto_tipo' => 'gasto_general',
+                                'concepto' => 'PAGO COMPRA',
+                                'codigo_aux' => null,
+                                'producto' => null,
+                                'servicio' => null,
+                                'user' => null,
+                                'cantidad_anterior' => null,
+                                'cantidad_movida' => null,
+                                'cantidad_posterior' => null,
+                                'precio_unitario' => null,
+                                'subtotal' => null,
+                                'total' => null,
+                                'monto_financiero' => (float) $movimiento->amount,
+                                'referencia_id' => $movimiento->movable_id,
+                                'referencia_tipo' => $movimiento->movable_type,
+                                'descripcion' => $movimiento->description ?: ('Pago de factura de compra #' . $invoiceNumber),
+                                'afecta_stock' => false,
+                                'account' => $movimiento->account ? [
+                                    'id' => $movimiento->account->id,
+                                    'name' => $movimiento->account->name,
+                                ] : null,
+                                'metadata' => $movimiento->metadata,
+                            ];
                             continue;
                         }
                     }
@@ -404,6 +503,7 @@ class KardexController extends Controller
                 'App\Models\WorkOrder\WorkOrder' => ['items.product']
             ]);
 
+            $processedProductInvoiceNumbers = [];
             $aggregated = [];
 
             foreach ($movimientos as $movimiento) {
@@ -515,50 +615,55 @@ class KardexController extends Controller
                     $distribution = $movimiento->movable;
                     if ($distribution && $distribution->financeRecord) {
                         $invoiceNumber = $distribution->financeRecord->invoice_number;
-                        $invoice = \App\Models\Invoice\Invoice::with('invoice_items')
-                            ->where('invoice_number', $invoiceNumber)
-                            ->first();
 
-                        if ($invoice && $invoice->invoice_items->isNotEmpty()) {
-                            foreach ($invoice->invoice_items as $item) {
-                                $sku = $item->code;
-                                $description = $item->description;
+                        if (!in_array($invoiceNumber, $processedProductInvoiceNumbers)) {
+                            $processedProductInvoiceNumbers[] = $invoiceNumber;
 
-                                $product = \App\Models\Product\Product::where('sku', $sku)->first();
-                                $codeAux = $product ? $product->code_aux : null;
+                            $invoice = \App\Models\Invoice\Invoice::with('invoice_items')
+                                ->where('invoice_number', $invoiceNumber)
+                                ->first();
 
-                                // Filtro de búsqueda en memoria
-                                if ($search) {
-                                    $matches = stripos($description, $search) !== false ||
-                                        ($sku && stripos($sku, $search) !== false) ||
-                                        ($codeAux && stripos($codeAux, $search) !== false);
-                                    if (!$matches) {
-                                        continue;
+                            if ($invoice && $invoice->invoice_items->isNotEmpty()) {
+                                foreach ($invoice->invoice_items as $item) {
+                                    $sku = $item->code;
+                                    $description = $item->description;
+
+                                    $product = \App\Models\Product\Product::where('sku', $sku)->first();
+                                    $codeAux = $product ? $product->code_aux : null;
+
+                                    // Filtro de búsqueda en memoria
+                                    if ($search) {
+                                        $matches = stripos($description, $search) !== false ||
+                                            ($sku && stripos($sku, $search) !== false) ||
+                                            ($codeAux && stripos($codeAux, $search) !== false);
+                                        if (!$matches) {
+                                            continue;
+                                        }
                                     }
+
+                                    $tipo = ($product && $product->item_type == 2) ? 'servicio' : 'producto';
+                                    $productId = $product ? $product->id : 0;
+                                    $key = $monthKey . '_' . $tipo . '_' . $productId . '_' . md5($description);
+
+                                    if (!isset($aggregated[$key])) {
+                                        $aggregated[$key] = [
+                                            'month_key' => $monthKey,
+                                            'month_name' => $monthName,
+                                            'item_id' => $productId,
+                                            'sku' => $sku,
+                                            'code_aux' => $codeAux,
+                                            'description' => $description,
+                                            'tipo' => $tipo,
+                                            'cantidad_vendida' => 0.0,
+                                            'monto_vendido' => 0.0,
+                                            'cantidad_comprada' => 0.0,
+                                            'monto_comprado' => 0.0,
+                                        ];
+                                    }
+
+                                    $aggregated[$key]['cantidad_comprada'] += (float) $item->quantity;
+                                    $aggregated[$key]['monto_comprado'] += (float) $item->total;
                                 }
-
-                                $tipo = ($product && $product->item_type == 2) ? 'servicio' : 'producto';
-                                $productId = $product ? $product->id : 0;
-                                $key = $monthKey . '_' . $tipo . '_' . $productId . '_' . md5($description);
-
-                                if (!isset($aggregated[$key])) {
-                                    $aggregated[$key] = [
-                                        'month_key' => $monthKey,
-                                        'month_name' => $monthName,
-                                        'item_id' => $productId,
-                                        'sku' => $sku,
-                                        'code_aux' => $codeAux,
-                                        'description' => $description,
-                                        'tipo' => $tipo,
-                                        'cantidad_vendida' => 0.0,
-                                        'monto_vendido' => 0.0,
-                                        'cantidad_comprada' => 0.0,
-                                        'monto_comprado' => 0.0,
-                                    ];
-                                }
-
-                                $aggregated[$key]['cantidad_comprada'] += (float) $item->quantity;
-                                $aggregated[$key]['monto_comprado'] += (float) $item->total;
                             }
                         }
                     }
