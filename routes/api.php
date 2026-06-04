@@ -196,7 +196,7 @@ Route::group(
         Route::post('sales/pdf', [SaleController::class, 'generatePDF']);
         Route::get('sales/{id}/pdf', [SaleController::class, 'generateSinglePDF']);
 
-        // ============= RUTAS DE PEDIDOS A DISTRIBUIDOR ==========
+        // ============= RUTAS DE PEDIDOS A DISTRIBUIDOR ========== 
         Route::get('pedidos-distribuidor/next-number', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getNextNumber']);
         Route::get('pedidos-distribuidor/productos/{distribuidor_id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getProductsBySupplier']);
         Route::post('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'store']);
