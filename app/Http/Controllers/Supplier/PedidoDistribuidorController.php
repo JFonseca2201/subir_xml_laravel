@@ -80,8 +80,17 @@ class PedidoDistribuidorController extends Controller
             $query = PedidoDistribuidor::with(['distribuidor', 'usuario', 'detalles.producto']);
 
             if (!empty($search)) {
-                $query->whereHas('distribuidor', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
+                $query->where(function ($q) use ($search) {
+                    $cleanSearch = ltrim($search, '#');
+                    if (is_numeric($cleanSearch)) {
+                        $q->where('id', intval($cleanSearch));
+                    }
+                    
+                    $q->orWhere('number', 'like', "%{$search}%")
+                      ->orWhereHas('distribuidor', function ($subQ) use ($search) {
+                          $subQ->where('name', 'like', "%{$search}%")
+                               ->orWhere('ruc', 'like', "%{$search}%");
+                      });
                 });
             }
 

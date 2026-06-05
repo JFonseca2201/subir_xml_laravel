@@ -3,13 +3,13 @@
 use App\Http\Controllers\Api\Finance\AccountController;
 use App\Http\Controllers\Api\Aporte\AporteController;
 use App\Http\Controllers\Api\Employee\EmployeeExpenseController;
-use App\Http\Controllers\Api\Employee\EmployeePaymentController;
+//use App\Http\Controllers\Api\Employee\EmployeePaymentController;
 use App\Http\Controllers\Api\Finance\FinanceRecordController;
 use App\Http\Controllers\Api\Finance\FinanzasController;
 use App\Http\Controllers\Api\Finance\InternalTransferController;
 use App\Http\Controllers\Api\Partner\PartnerContributionController;
 use App\Http\Controllers\Api\Partner\PartnerController;
-use App\Http\Controllers\Api\Finance\TransferController;
+//use App\Http\Controllers\Api\Finance\TransferController;
 use App\Http\Controllers\Api\WorkOrder\WorkOrderController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\ClientController;

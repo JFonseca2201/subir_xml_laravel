@@ -337,7 +337,7 @@ class KardexController extends Controller
                 if ($movimiento->type === 'transfer' || $movimiento->movable_type === 'App\Models\Finance\InternalTransfer') {
                     $toAccountId = $movimiento->metadata['to_account'] ?? null;
                     $fromAccountId = $movimiento->metadata['from_account'] ?? null;
-                    
+
                     // fetch both names if needed
                     $toAccountName = null;
                     if ($toAccountId) {

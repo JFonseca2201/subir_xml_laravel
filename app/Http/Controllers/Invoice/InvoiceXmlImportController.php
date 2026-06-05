@@ -555,7 +555,7 @@ class InvoiceXmlImportController extends Controller
                             'message' => 'El socio seleccionado no tiene aportes de capital ni cuenta asociada.',
                         ], 422);
                     }
-                    
+
                     $accountId = $aporte->cuenta_id;
 
                     $supplierName = $invoiceModel->supplier ? ($invoiceModel->supplier->trade_name ?? $invoiceModel->supplier->name) : ('#' . $invoiceModel->supplier_id);

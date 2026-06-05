@@ -39,9 +39,9 @@ class SucursaleController extends Controller
             $sucursal = Sucursale::findOrFail($id);
 
             $request->validate([
-                'name' => 'required|string|max:255',
+                'name' => 'required|string|max:255|unique:sucursales,name,' . $id,
                 'address' => 'required|string|max:500',
-                'ruc' => 'required|string|max:13|unique:sucursales,ruc,' . $id,
+                'ruc' => 'required|string|max:13',
                 'phone' => 'nullable|string|max:15',
                 'email' => 'nullable|string|max:255',
                 'trade_name' => 'nullable|string|max:255',

@@ -26,7 +26,7 @@ class DashboardController extends Controller
         // 1. Core KPIs
         $totalClients = Client::count();
         $totalVehicles = Vehicle::count();
-        
+
         // Count products under minimum stock (physical products only)
         $lowStockCount = Product::where('item_type', 1)
             ->whereRaw('stock <= min_stock')
@@ -63,16 +63,16 @@ class DashboardController extends Controller
 
         // 3. Top 5 Products / Services Sold in Current Month
         $topProducts = SaleDetail::select(
-                'product_id',
-                'description',
-                DB::raw('SUM(quantity) as total_quantity'),
-                DB::raw('SUM(total) as total_revenue')
-            )
+            'product_id',
+            'description',
+            DB::raw('SUM(quantity) as total_quantity'),
+            DB::raw('SUM(total) as total_revenue')
+        )
             ->whereHas('sale', function ($q) use ($startOfMonth, $endOfMonth) {
                 $q->where('status', '!=', 'draft')
-                  ->where('status', '!=', 'canceled')
-                  ->where('document_type', '!=', 'quote')
-                  ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+                    ->where('status', '!=', 'canceled')
+                    ->where('document_type', '!=', 'quote')
+                    ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
             })
             ->groupBy('product_id', 'description')
             ->orderByDesc('total_quantity')
@@ -81,25 +81,25 @@ class DashboardController extends Controller
 
         // 3.5 Products vs Services Revenue in Current Month
         $serviceRevenue = (float) SaleDetail::whereHas('sale', function ($q) use ($startOfMonth, $endOfMonth) {
-                $q->where('status', '!=', 'draft')
-                  ->where('status', '!=', 'canceled')
-                  ->where('document_type', '!=', 'quote')
-                  ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
-            })
+            $q->where('status', '!=', 'draft')
+                ->where('status', '!=', 'canceled')
+                ->where('document_type', '!=', 'quote')
+                ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+        })
             ->where(function ($query) {
                 $query->whereNull('product_id')
-                      ->orWhereHas('product', function ($q) {
-                          $q->where('item_type', 2);
-                      });
+                    ->orWhereHas('product', function ($q) {
+                        $q->where('item_type', 2);
+                    });
             })
             ->sum('total');
 
         $productRevenue = (float) SaleDetail::whereHas('sale', function ($q) use ($startOfMonth, $endOfMonth) {
-                $q->where('status', '!=', 'draft')
-                  ->where('status', '!=', 'canceled')
-                  ->where('document_type', '!=', 'quote')
-                  ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
-            })
+            $q->where('status', '!=', 'draft')
+                ->where('status', '!=', 'canceled')
+                ->where('document_type', '!=', 'quote')
+                ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+        })
             ->whereHas('product', function ($q) {
                 $q->where('item_type', 1);
             })
@@ -124,9 +124,18 @@ class DashboardController extends Controller
 
         // Helper structure to format 12 months YTD
         $months = [
-            1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
-            5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
-            9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre'
+            1 => 'Enero',
+            2 => 'Febrero',
+            3 => 'Marzo',
+            4 => 'Abril',
+            5 => 'Mayo',
+            6 => 'Junio',
+            7 => 'Julio',
+            8 => 'Agosto',
+            9 => 'Septiembre',
+            10 => 'Octubre',
+            11 => 'Noviembre',
+            12 => 'Diciembre'
         ];
 
         $salesTrendArray = [];
@@ -184,7 +193,7 @@ class DashboardController extends Controller
                 }
                 return [
                     'name' => $clientName ?: 'Cliente Desconocido',
-                    'total' => round((float)$item->total_sales, 2)
+                    'total' => round((float) $item->total_sales, 2)
                 ];
             });
 
@@ -203,7 +212,7 @@ class DashboardController extends Controller
                 }
                 return [
                     'name' => $supplierName ?: 'Proveedor Desconocido',
-                    'total' => round((float)$item->total_purchases, 2)
+                    'total' => round((float) $item->total_purchases, 2)
                 ];
             });
 

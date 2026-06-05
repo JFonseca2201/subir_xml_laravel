@@ -116,10 +116,13 @@ class Invoice extends Model
                     ->orWhere('access_key', 'like', "%{$search}%")
                     ->orWhere('total', 'like', "%{$search}%")
                     ->orWhereHas('invoice_items', function ($itemQuery) use ($search) {
-                    $itemQuery->where('code', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%");
-                }
-                );
+                        $itemQuery->where('code', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('supplier', function ($supplierQuery) use ($search) {
+                        $supplierQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('ruc', 'like', "%{$search}%");
+                    });
             });
         }
 
