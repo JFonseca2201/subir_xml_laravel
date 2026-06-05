@@ -306,16 +306,16 @@
     @endif
 
     <!-- Encabezado -->
-    <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse; border: none !important;">
+    <table style="width: 100%; margin-bottom: 15px; border-collapse: collapse; border: none !important;">
         <tr style="border: none !important;">
             <td style="width: 20%; vertical-align: middle; text-align: center; border: none !important;">
-                <img style="height: 60px; border: none !important; outline: none !important;" src="{{ $logoSrc }}">
+                <img style="height: 80px; border: none !important; outline: none !important;" src="{{ $logoSrc }}">
             </td>
-            <td style="width: 60%; vertical-align: middle; text-align: center; font-weight: bold; border: none !important;">
+            <td style="width: 80%; vertical-align: middle; text-align: center; font-weight: bold; font-size: 18px; border: none !important;">
                 ORDEN DE TRABAJO
             </td>
             <td style="width: 40%; vertical-align: middle; text-align: center; white-space: nowrap; border: none !important;">
-                <div style="font-size: 13px; font-weight: bold; color: #d11f008e; white-space: nowrap;">
+                <div style="font-size: 18px; font-weight: bold; color: #d11f008e; white-space: nowrap;">
                     #{{ str_pad(str_replace('OT-', '', $workOrder->number), 6, '0', STR_PAD_LEFT) }}</div>
 
             </td>
@@ -414,16 +414,16 @@
                 <div class="info-title">RESUMEN</div>
                 <table style="width: 100%; border-collapse: collapse; border: none !important; margin-top: 5px;">
                     <tr style="border: none !important;">
-                        <td style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold;">Subtotal:</td>
-                        <td style="text-align: right; padding: 4px 0 !important; border: none !important;">${{ number_format($grossSubtotal, 2) }}</td>
+                        <td style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold; font-size: 10px;">Subtotal:</td>
+                        <td style="text-align: right; padding: 4px 0 !important; border: none !important; font-size: 10px;">${{ number_format($grossSubtotal, 2) }}</td>
                     </tr>
                     <tr style="border: none !important;">
-                        <td style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold;">Descuentos:</td>
-                        <td style="text-align: right; padding: 4px 0 !important; border: none !important;">${{ number_format($totalDiscount, 2) }}</td>
+                        <td style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold; font-size: 10px;">Descuentos:</td>
+                        <td style="text-align: right; padding: 4px 0 !important; border: none !important; font-size: 10px;">${{ number_format($totalDiscount, 2) }}</td>
                     </tr>
                     <tr style="font-size: 14px; font-weight: bold; border: none !important;">
                         <td style="text-align: left; padding: 8px 0 !important; border: none !important; border-top: 0.8px solid #8a8888ff !important;">TOTAL:</td>
-                        <td style="text-align: right; padding: 8px 0 !important; border: none !important; border-top: 0.8px solid #8a8888ff !important; color: #d11f008e;">${{ number_format($total, 2) }}</td>
+                        <td style="text-align: right; padding: 8px 0 !important; border: none !important; border-top: 0.8px solid #8a8888ff !important; color: #d11f008e; font-size: 16px;">${{ number_format($total, 2) }}</td>
                     </tr>
                 </table>
             </td>
@@ -460,11 +460,16 @@
     </div>
 
     <script>
-        window.addEventListener('DOMContentLoaded', () => {
+        function triggerPrint() {
             setTimeout(() => {
                 window.print();
             }, 600);
-        });
+        }
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            triggerPrint();
+        } else {
+            window.addEventListener('DOMContentLoaded', triggerPrint);
+        }
     </script>
     @endif
 </body>

@@ -1196,11 +1196,16 @@
     </div>
 
     <script>
-        window.addEventListener('DOMContentLoaded', () => {
+        function triggerPrint() {
             setTimeout(() => {
                 window.print();
             }, 600);
-        });
+        }
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            triggerPrint();
+        } else {
+            window.addEventListener('DOMContentLoaded', triggerPrint);
+        }
     </script>
     @endif
 </body>
