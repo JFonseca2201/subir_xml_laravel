@@ -39,7 +39,7 @@ class SaleController extends Controller
         try {
             // Iniciamos la consulta cargando las relaciones clave (Eager Loading)
             // Esto evita el problema de consultas N+1 y hace que la API vuele
-            $query = Sale::with(['client', 'vehicle', 'user']);
+            $query = Sale::with(['client', 'vehicle', 'user', 'workOrder']);
 
             // 1. Filtro por búsqueda (nombre, cédula del cliente, placa de vehículo o número de documento)
             if ($request->has('search') && $request->search != '') {
@@ -584,7 +584,7 @@ class SaleController extends Controller
     {
         try {
             // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente, el vehículo y los registros financieros con pagos distribuidos y cuentas
-            $sale = Sale::with(['details.product', 'client', 'vehicle', 'technicians', 'financeRecord.paymentDistributions.account'])->find((int)$id);
+            $sale = Sale::with(['details.product', 'client', 'vehicle', 'technicians', 'financeRecord.paymentDistributions.account', 'workOrder'])->find((int)$id);
 
             if (!$sale) {
                 return response()->json([

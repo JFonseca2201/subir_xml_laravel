@@ -666,7 +666,7 @@
     <div class="print-container">
     @endif
 
-    <div class="web-container" style="padding-bottom: 90px;">
+    <div class="web-container" style="padding-bottom: 50px;">
 
         <!-- See invoice.html! It is injected here... -->
         <div class="page-container">
@@ -1182,12 +1182,7 @@
         font-size: 11px;
         border-top: 1px solid #ddd;
         letter-spacing: 0.3px;
-    ">
-
-        <p style="margin: 3px 0; font-weight: 700; font-size: 11px; color: #1e1e2d;">
-            CONTACTOS: <span style="color: #555555; font-weight: normal;">{{ $sucursal->phone ?? '0999179988 / 0963089601' }}</span>
-        </p>
-
+    ">    
         <p style="margin: 3px 0; color: #666666; font-weight: 500; font-size: 10.5px;">
             UBICACIÓN: {{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}
         </p>
