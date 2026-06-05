@@ -275,6 +275,12 @@
 </head>
 
 <body>
+    @php
+        $sucursal = \App\Models\Config\Sucursale::find($workOrder->user->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+        $logoSrc = ($sucursal && $sucursal->logo) 
+            ? (request()->has('print') ? asset($sucursal->logo) : public_path($sucursal->logo)) 
+            : (request()->has('print') ? asset('assets/img/brand/logo.jpeg') : public_path('assets/img/brand/logo.jpeg'));
+    @endphp
     @if(request()->has('print'))
     <!-- Action Bar -->
     <div class="no-print print-preview-bar">
@@ -303,7 +309,7 @@
     <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse; border: none !important;">
         <tr style="border: none !important;">
             <td style="width: 20%; vertical-align: middle; text-align: center; border: none !important;">
-                <img style="height: 60px; border: none !important; outline: none !important;" src="{{ request()->has('print') ? asset('assets/img/brand/logo.jpeg') : public_path('assets/img/brand/logo.jpeg') }}">
+                <img style="height: 60px; border: none !important; outline: none !important;" src="{{ $logoSrc }}">
             </td>
             <td style="width: 60%; vertical-align: middle; text-align: center; font-weight: bold; border: none !important;">
                 ORDEN DE TRABAJO

@@ -257,6 +257,12 @@
 </head>
 
 <body>
+    @php
+        $sucursal = \App\Models\Config\Sucursale::find($pedido->usuario->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+        $logoSrc = ($sucursal && $sucursal->logo) 
+            ? (request()->has('print') ? asset($sucursal->logo) : public_path($sucursal->logo)) 
+            : (request()->has('print') ? asset('assets/img/brand/logo.jpeg') : public_path('assets/img/brand/logo.jpeg'));
+    @endphp
     @if(request()->has('print'))
     <!-- Action Bar -->
     <div class="no-print print-preview-bar">
@@ -288,8 +294,8 @@
                 <tbody>
                     <tr>
                         <td style="padding: 0 !important; border-bottom: none; text-align: left;">
-                            <img style="height: 125px; background: black;"
-                                src="{{ request()->has('print') ? asset('assets/img/brand/logo.jpeg') : public_path('assets/img/brand/logo.jpeg') }}">
+                            <img style="height: 125px; border: none !important; outline: none !important;"
+                                src="{{ $logoSrc }}">
                         </td>
 
                         <td style="padding: 0 !important; border-bottom: none; text-align: right; line-height: 1.4;">
@@ -297,13 +303,13 @@
                             <br>
                             <span style="font-weight: bold;">#{{ str_pad($pedido->id, 5, '0', STR_PAD_LEFT) }}</span>
                             <br>
-                            <small>RUC: 1793192550001</small>
+                            <small>RUC: {{ $sucursal->ruc ?? '1793192550001' }}</small>
                             <br>
                             <small>https://www.luxuryevys.com</small>
                             <br>
-                            <small>comp.luxuryevys@gmail.com</small>
+                            <small>{{ $sucursal->email ?? 'comp.luxuryevys@gmail.com' }}</small>
                             <br>
-                            <small>Telf: 0999179988 / 0963089601</small>
+                            <small>Telf: {{ $sucursal->phone ?? '0999179988 / 0963089601' }}</small>
                         </td>
                     </tr>
                 </tbody>
@@ -347,11 +353,11 @@
                     <table style="width: 100%;">
                         <tr>
                             <td style="text-align: left;"><b>SUCURSAL:</b></td>
-                            <td style="text-align: right;">LUXURY EVYS CIA. LTDA.</td>
+                            <td style="text-align: right;">{{ $sucursal->trade_name ?? ($sucursal->name ?? 'LUXURY EVYS CIA. LTDA.') }}</td>
                         </tr>
                         <tr>
                             <td style="text-align: left;"><b>DIRECCIÓN:</b></td>
-                            <td style="text-align: right;">SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C</td>
+                            <td style="text-align: right;">{{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}</td>
                         </tr>
                     </table>
                 </td>
@@ -413,7 +419,7 @@
         @endif
 
         <div class="footer">
-            <p>Documento de control interno generado automáticamente Luxury Evys Cia. Ltda.</p>
+            <p>Documento de control interno generado automáticamente {{ $sucursal->trade_name ?? 'Luxury Evys Cia. Ltda.' }}</p>
         </div>
     </div>
 
