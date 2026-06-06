@@ -83,14 +83,14 @@ class ClientController extends Controller
                 'errors' => ['email' => 'El correo electrónico ya existe'],
             ], 422);
         }
-        $exists = Client::where('phone', $request->get('phone'))->first();
+        /* $exists = Client::where('phone', $request->get('phone'))->first();
         if ($exists) {
             return response()->json([
                 'status' => 422,
                 'message' => 'El número de teléfono ya existe',
                 'errors' => ['phone' => 'El número de teléfono ya existe'],
             ], 422);
-        }
+        } */
         $exists = Client::where('full_name', $request->get('full_name'))->first();
         if ($exists) {
             return response()->json([
@@ -105,7 +105,7 @@ class ClientController extends Controller
             'name' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'surname' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'full_name' => 'required_if:type_client,2|string|max:255|unique:clients',
-            'phone' => ['required', 'string', 'max:20', 'unique:clients', 'regex:/^[0-9+\-\s()]+$/'],
+            'phone' => ['required', 'string', 'max:20', 'regex:/^[0-9+\-\s()]+$/'],
             'email' => 'nullable|email|max:255|unique:clients',
             'type_document' => 'nullable|string|max:10',
             'n_document' => [

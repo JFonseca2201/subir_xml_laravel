@@ -57,7 +57,7 @@
 
         .info-title {
             font-weight: bold;
-            font-size: 11px;
+            font-size: 10px;
             margin-bottom: 10px;
             background-color: #f5f5f5;
             padding: 5px;
@@ -65,12 +65,12 @@
 
         .info-row {
             margin-bottom: 5px;
-            font-size: 10px;
+            font-size: 9px;
         }
 
         .info-label {
             font-weight: bold;
-            font-size: 10px;
+            font-size: 9px;
         }
 
         .items-section {
@@ -79,7 +79,7 @@
 
         .items-title {
             font-weight: bold;
-            font-size: 11px;
+            font-size: 9px;
             margin-bottom: 10px;
             background-color: #f5f5f5;
             padding: 5px;
@@ -158,7 +158,7 @@
             text-align: center;
         }
     </style>
-    @if(request()->has('print'))
+    @if (request()->has('print'))
         <style>
             @page {
                 margin: 0 !important;
@@ -268,7 +268,8 @@
                     print-color-adjust: exact !important;
                 }
 
-                html, body {
+                html,
+                body {
                     height: auto !important;
                 }
 
@@ -298,12 +299,19 @@
 
 <body>
     @php
-        $sucursal = \App\Models\Config\Sucursale::find($workOrder->user->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
-        $logoSrc = ($sucursal && $sucursal->logo)
-            ? (request()->has('print') ? asset($sucursal->logo) : public_path($sucursal->logo))
-            : (request()->has('print') ? asset('assets/img/brand/logo.jpeg') : public_path('assets/img/brand/logo.jpeg'));
+        $sucursal =
+            \App\Models\Config\Sucursale::find($workOrder->user->sucursale_id ?? 1) ??
+            \App\Models\Config\Sucursale::first();
+        $logoSrc =
+            $sucursal && $sucursal->logo
+                ? (request()->has('print')
+                    ? asset($sucursal->logo)
+                    : public_path($sucursal->logo))
+                : (request()->has('print')
+                    ? asset('assets/img/brand/logo.jpeg')
+                    : public_path('assets/img/brand/logo.jpeg'));
     @endphp
-    @if(request()->has('print'))
+    @if (request()->has('print'))
         <!-- Action Bar -->
         <div class="no-print print-preview-bar">
             <div class="print-preview-info">
@@ -313,8 +321,8 @@
             </div>
             <div class="print-preview-actions">
                 <button onclick="window.print()" class="btn btn-print">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"
-                        style="margin-right: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor"
+                        viewBox="0 0 16 16" style="margin-right: 6px;">
                         <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1" />
                         <path
                             d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1" />
@@ -330,187 +338,187 @@
         <div class="print-container">
     @endif
 
-        <!-- Encabezado -->
-        <table style="width: 100%; margin-bottom: 10px; border-collapse: collapse; border: none !important;">
-            <tr style="border: none !important;">
-                <td style="width: 40%; vertical-align: left; text-align: left; border: none !important;">
-                    <img style="height: 80px; border: none !important; outline: none !important;" src="{{ $logoSrc }}">
-                </td>
-                <td
-                    style="width: 60%; vertical-align: middle; text-align: center; font-weight: bold; font-size: 16px; border: none !important;">
-                    ORDEN DE TRABAJO
-                </td>
-                <td
-                    style="width: 40%; vertical-align: middle; text-align: right; white-space: nowrap; border: none !important;">
-                    <div style="font-size: 18px; font-weight: bold; color: #d11f008e; white-space: nowrap;">
-                        #{{ str_pad(str_replace('OT-', '', $workOrder->number), 6, '0', STR_PAD_LEFT) }}</div>
+    <!-- Encabezado -->
+    <table style="width: 100%; margin-bottom: 10px; border-collapse: collapse; border: none !important;">
+        <tr style="border: none !important;">
+            <td style="width: 40%; vertical-align: left; text-align: left; border: none !important;">
+                <img style="height: 70px; border: none !important; outline: none !important;" src="{{ $logoSrc }}">
+            </td>
+            <td
+                style="width: 30%; vertical-align: middle; text-align: center; font-weight: bold; font-size: 14px; border: none !important;">
+                ORDEN DE TRABAJO
+            </td>
+            <td
+                style="width: 30%; vertical-align: middle; text-align: right; white-space: nowrap; border: none !important;">
+                <div style="font-size: 16px; font-weight: bold; color: #d11f008e; white-space: nowrap;">
+                    #{{ str_pad(str_replace('OT-', '', $workOrder->number), 6, '0', STR_PAD_LEFT) }}</div>
 
-                </td>
-            </tr>
-        </table>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Información del vehículo y cliente -->
-        <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse; text-transform: uppercase;">
-            <tr>
-                <td style="width: 48%; vertical-align: top; padding-right: 20px;">
-                    <div class="info-title">DATOS DEL VEHÍCULO</div>
-                    <div class="info-row">
-                        <span class="info-label">Fecha:</span>
-                        {{ $workOrder->created_at ? date('d/m/Y', strtotime($workOrder->created_at)) : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Placa:</span>
-                        {{ $workOrder->vehicle ? $workOrder->vehicle->license_plate : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Modelo:</span>
-                        {{ $workOrder->vehicle ? $workOrder->vehicle->brand . ' ' . $workOrder->vehicle->model : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Kilometraje:</span>
-                        {{ $workOrder->mileage ? $workOrder->mileage . ' km' : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Tipo:</span>
-                        {{ $workOrder->vehicle ? $workOrder->vehicle->vehicle_type : 'N/A' }}
-                    </div>
-                </td>
-                <td style="width: 48%; vertical-align: top; padding-left: 20px;">
-                    <div class="info-title">DATOS DEL CLIENTE</div>
-                    <div class="info-row">
-                        <span class="info-label">Cédula/RUC:</span>
-                        {{ $workOrder->client ? $workOrder->client->n_document : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Nombre:</span>
-                        {{ $workOrder->client ? $workOrder->client->full_name : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Dirección:</span>
-                        {{ $workOrder->client ? $workOrder->client->address : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Teléfono:</span>
-                        {{ $workOrder->client ? $workOrder->client->phone : 'N/A' }}
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Correo:</span>
-                        {{ $workOrder->client ? $workOrder->client->email : 'N/A' }}
-                    </div>
-                </td>
-            </tr>
-        </table>
+    <!-- Información del vehículo y cliente -->
+    <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse; text-transform: uppercase;">
+        <tr>
+            <td style="width: 48%; vertical-align: top; padding-right: 20px;">
+                <div class="info-title">DATOS DEL VEHÍCULO</div>
+                <div class="info-row">
+                    <span class="info-label">Fecha:</span>
+                    {{ $workOrder->created_at ? date('d/m/Y', strtotime($workOrder->created_at)) : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Placa:</span>
+                    {{ $workOrder->vehicle ? $workOrder->vehicle->license_plate : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Modelo:</span>
+                    {{ $workOrder->vehicle ? $workOrder->vehicle->brand . ' ' . $workOrder->vehicle->model : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Kilometraje:</span>
+                    {{ $workOrder->mileage ? $workOrder->mileage . ' km' : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo:</span>
+                    {{ $workOrder->vehicle ? $workOrder->vehicle->vehicle_type : 'N/A' }}
+                </div>
+            </td>
+            <td style="width: 48%; vertical-align: top; padding-left: 20px;">
+                <div class="info-title">DATOS DEL CLIENTE</div>
+                <div class="info-row">
+                    <span class="info-label">Cédula/RUC:</span>
+                    {{ $workOrder->client ? $workOrder->client->n_document : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Nombre:</span>
+                    {{ $workOrder->client ? $workOrder->client->full_name : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dirección:</span>
+                    {{ $workOrder->client ? $workOrder->client->address : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Teléfono:</span>
+                    {{ $workOrder->client ? $workOrder->client->phone : 'N/A' }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Correo:</span>
+                    {{ $workOrder->client ? $workOrder->client->email : 'N/A' }}
+                </div>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Lista de trabajos -->
-        <div class="items-section">
-            <div class="items-title">TRABAJOS REALIZADOS</div>
-            <table style="text-transform: uppercase;">
-                <thead>
+    <!-- Lista de trabajos -->
+    <div class="items-section">
+        <div class="items-title">TRABAJOS REALIZADOS</div>
+        <table style="text-transform: uppercase;">
+            <thead>
+                <tr>
+                    <th class="info-title">Descripción</th>
+                    <th class="info-title">Cantidad</th>
+                    <th class="info-title">Precio Unit.</th>
+                    <th class="info-title">Descuento</th>
+                    <th class="info-title">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($workOrder->items as $item)
                     <tr>
-                        <th>Descripción</th>
-                        <th>Cantidad</th>
-                        <th>Precio Unit.</th>
-                        <th>Descuento</th>
-                        <th>Subtotal</th>
+                        <td class="info-row">{{ $item->description }}</td>
+                        <td class="info-row">{{ $item->quantity }}</td>
+                        <td class="info-row">${{ number_format($item->unit_price, 2) }}</td>
+                        <td class="info-row">${{ number_format($item->discount, 2) }}</td>
+                        <td class="info-row">${{ number_format($item->subtotal, 2) }}</td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach ($workOrder->items as $item)
-                        <tr>
-                            <td class="info-row">{{ $item->description }}</td>
-                            <td class="info-row">{{ $item->quantity }}</td>
-                            <td class="info-row">${{ number_format($item->unit_price, 2) }}</td>
-                            <td class="info-row">${{ number_format($item->discount, 2) }}</td>
-                            <td class="info-row">${{ number_format($item->subtotal, 2) }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Totales y observaciones -->
+    <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
+        <tr>
+            <td style="width: 48%; vertical-align: top; padding-right: 20px;">
+                <div class="observations-title">OBSERVACIONES</div>
+                <div class="observations-text" style="text-transform: uppercase;">
+                    {{ $workOrder->observations ?? 'Sin observaciones' }}
+                </div>
+            </td>
+            <td style="width: 48%; vertical-align: top; padding-left: 20px;">
+                <div class="info-title">RESUMEN</div>
+                <table style="width: 100%; border-collapse: collapse; border: none !important; margin-top: 5px;">
+                    <tr style="border: none !important;">
+                        <td
+                            style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold; font-size: 10px;">
+                            Subtotal:</td>
+                        <td
+                            style="text-align: right; padding: 4px 0 !important; border: none !important; font-size: 10px;">
+                            ${{ number_format($grossSubtotal, 2) }}</td>
+                    </tr>
+                    <tr style="border: none !important;">
+                        <td
+                            style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold; font-size: 10px;">
+                            Descuentos:</td>
+                        <td
+                            style="text-align: right; padding: 4px 0 !important; border: none !important; font-size: 10px;">
+                            ${{ number_format($totalDiscount, 2) }}</td>
+                    </tr>
+                    <tr style="font-size: 14px; font-weight: bold; border: none !important;">
+                        <td
+                            style="text-align: left; padding: 8px 0 !important; border: none !important; border-top: 0.8px solid #8a8888ff !important;">
+                            TOTAL:</td>
+                        <td
+                            style="text-align: right; padding: 8px 0 !important; border: none !important; border-top: 0.8px solid #8a8888ff !important; color: #d11f008e; font-size: 16px;">
+                            ${{ number_format($total, 2) }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Pie de página -->
+    <table style="width: 100%; margin-top: 10px; border-top: 1px solid #eaeaea; border-collapse: collapse;">
+        <tr>
+            <td style="width: 50%; vertical-align: top; padding-top: 20px; text-align: center;">
+                <div class="signature-line">
+                    <strong>{{ $workOrder->client ? $workOrder->client->full_name : 'Cliente' }}</strong>
+                    <br>{{ $workOrder->client ? $workOrder->client->n_document : 'S/N' }}
+                </div>
+            </td>
+            <td style="width: 50%; vertical-align: top; padding-top: 20px; text-align: center;">
+                <div class="signature-line">
+                    @if ($workOrder->technicians && $workOrder->technicians->count() > 0)
+                        @foreach ($workOrder->technicians as $technician)
+                            {{ $technician->first_name }} {{ $technician->last_name }}@if (!$loop->last)
+                                {{ ', ' }}
+                            @endif
+                        @endforeach
+                    @else
+                        Técnico
+                    @endif
+                    <br>Técnico(s)
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    @if (request()->has('print'))
         </div>
 
-        <!-- Totales y observaciones -->
-        <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
-            <tr>
-                <td style="width: 48%; vertical-align: top; padding-right: 20px;">
-                    <div class="observations-title">OBSERVACIONES</div>
-                    <div class="observations-text" style="text-transform: uppercase;">
-                        {{ $workOrder->observations ?? 'Sin observaciones' }}
-                    </div>
-                </td>
-                <td style="width: 48%; vertical-align: top; padding-left: 20px;">
-                    <div class="info-title">RESUMEN</div>
-                    <table style="width: 100%; border-collapse: collapse; border: none !important; margin-top: 5px;">
-                        <tr style="border: none !important;">
-                            <td
-                                style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold; font-size: 10px;">
-                                Subtotal:</td>
-                            <td
-                                style="text-align: right; padding: 4px 0 !important; border: none !important; font-size: 10px;">
-                                ${{ number_format($grossSubtotal, 2) }}</td>
-                        </tr>
-                        <tr style="border: none !important;">
-                            <td
-                                style="text-align: left; padding: 4px 0 !important; border: none !important; font-weight: bold; font-size: 10px;">
-                                Descuentos:</td>
-                            <td
-                                style="text-align: right; padding: 4px 0 !important; border: none !important; font-size: 10px;">
-                                ${{ number_format($totalDiscount, 2) }}</td>
-                        </tr>
-                        <tr style="font-size: 14px; font-weight: bold; border: none !important;">
-                            <td
-                                style="text-align: left; padding: 8px 0 !important; border: none !important; border-top: 0.8px solid #8a8888ff !important;">
-                                TOTAL:</td>
-                            <td
-                                style="text-align: right; padding: 8px 0 !important; border: none !important; border-top: 0.8px solid #8a8888ff !important; color: #d11f008e; font-size: 16px;">
-                                ${{ number_format($total, 2) }}</td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-
-        <!-- Pie de página -->
-        <table style="width: 100%; margin-top: 10px; border-top: 1px solid #eaeaea; border-collapse: collapse;">
-            <tr>
-                <td style="width: 50%; vertical-align: top; padding-top: 20px; text-align: center;">
-                    <div class="signature-line">
-                        <strong>{{ $workOrder->client ? $workOrder->client->full_name : 'Cliente' }}</strong>
-                        <br>{{ $workOrder->client ? $workOrder->client->n_document : 'S/N' }}
-                    </div>
-                </td>
-                <td style="width: 50%; vertical-align: top; padding-top: 20px; text-align: center;">
-                    <div class="signature-line">
-                        @if ($workOrder->technicians && $workOrder->technicians->count() > 0)
-                            @foreach ($workOrder->technicians as $technician)
-                                {{ $technician->first_name }} {{ $technician->last_name }}@if (!$loop->last)
-                                    {{ ', ' }}
-                                @endif
-                            @endforeach
-                        @else
-                            Técnico
-                        @endif
-                        <br>Técnico(s)
-                    </div>
-                </td>
-            </tr>
-        </table>
-
-        @if(request()->has('print'))
-            </div>
-
-            <script>
-                function triggerPrint() {
-                    setTimeout(() => {
-                        window.print();
-                    }, 600);
-                }
-                if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                    triggerPrint();
-                } else {
-                    window.addEventListener('DOMContentLoaded', triggerPrint);
-                }
-            </script>
-        @endif
+        <script>
+            function triggerPrint() {
+                setTimeout(() => {
+                    window.print();
+                }, 600);
+            }
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                triggerPrint();
+            } else {
+                window.addEventListener('DOMContentLoaded', triggerPrint);
+            }
+        </script>
+    @endif
 </body>
 
 </html>

@@ -349,6 +349,10 @@
             text-align: right;
         }
 
+        .center {
+            text-align: center;
+        }
+
         .large {
             font-size: 1.2em;
         }
@@ -372,7 +376,9 @@
         }
 
         .invoice-info-container {
-            font-size: 0.875em;
+            /* font-size: 0.875em; */
+            font-size: 8px;
+
         }
 
         .invoice-info-container td {
@@ -386,7 +392,8 @@
 
         .line-items-container {
             margin: 15px 0;
-            font-size: 0.875em;
+            /* font-size: 0.875em; */
+            font-size: 8px;
         }
 
         .line-items-container th {
@@ -420,19 +427,22 @@
         }
 
         .line-items-container th.heading-quantity {
-            width: 50px;
+            width: 70px;
+            text-align: center;
         }
 
         .line-items-container th.heading-item {
-            width: 50px;
+            width: 30px;
+            text-align: center;
         }
 
         .line-items-container th.heading-price {
             text-align: right;
-            width: 100px;
+            width: 80px;
         }
 
         .line-items-container th.heading-subtotal {
+            text-align: right;
             width: 100px;
         }
 
@@ -517,7 +527,7 @@
             font-size: 0.6rem;
         }
     </style>
-    @if(request()->has('print'))
+    @if (request()->has('print'))
         <style>
             @page {
                 margin: 0 !important;
@@ -627,7 +637,8 @@
                     print-color-adjust: exact !important;
                 }
 
-                html, body {
+                html,
+                body {
                     height: auto !important;
                 }
 
@@ -657,12 +668,18 @@
 
 <body>
     @php
-        $sucursal = \App\Models\Config\Sucursale::find($sale->user->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
-        $logoSrc = ($sucursal && $sucursal->logo)
-            ? (request()->has('print') ? asset($sucursal->logo) : public_path($sucursal->logo))
-            : (request()->has('print') ? asset('assets/img/brand/logo.jpeg') : public_path('assets/img/brand/logo.jpeg'));
+        $sucursal =
+            \App\Models\Config\Sucursale::find($sale->user->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+        $logoSrc =
+            $sucursal && $sucursal->logo
+                ? (request()->has('print')
+                    ? asset($sucursal->logo)
+                    : public_path($sucursal->logo))
+                : (request()->has('print')
+                    ? asset('assets/img/brand/logo.jpeg')
+                    : public_path('assets/img/brand/logo.jpeg'));
     @endphp
-    @if(request()->has('print'))
+    @if (request()->has('print'))
         <!-- Action Bar -->
         <div class="no-print print-preview-bar">
             <div class="print-preview-info">
@@ -673,8 +690,8 @@
             </div>
             <div class="print-preview-actions">
                 <button onclick="window.print()" class="btn btn-print">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"
-                        style="margin-right: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor"
+                        viewBox="0 0 16 16" style="margin-right: 6px;">
                         <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1" />
                         <path
                             d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1" />
@@ -690,474 +707,266 @@
         <div class="print-container">
     @endif
 
-        <div class="web-container" style="padding-bottom: 50px;">
+    <div class="web-container" style="padding-bottom: 50px;">
 
-            <!-- See invoice.html! It is injected here... -->
-            <div class="page-container">
-                Page
-                <span class="page"></span>
-                of
-                <span class="pages"></span>
-            </div>
+        <!-- See invoice.html! It is injected here... -->
+        <div class="page-container">
+            Page
+            <span class="page"></span>
+            of
+            <span class="pages"></span>
+        </div>
 
-            <div class="logo-container">
-                <table style="width: 100%; border-collapse: collapse; border: none !important;">
-                    <tbody>
-                        <tr style="border: none !important;">
-                            <td style="padding: 0 !important; border: none !important;">
-                                <img style="height: 80px; border: none !important; outline: none !important;"
-                                    src="{{ $logoSrc }}">
-                            </td>
+        <div class="logo-container">
+            <table style="width: 100%; border-collapse: collapse; border: none !important;">
+                <tbody>
+                    <tr style="border: none !important;">
+                        <td style="padding: 0 !important; border: none !important;">
+                            <img style="height: 80px; border: none !important; outline: none !important;"
+                                src="{{ $logoSrc }}">
+                        </td>
 
-                            <td style="padding: 0 !important; border: none !important;">
-                                <strong>{{ $sale->document_number }}</strong>
-                                <br>
-                                <img style="width:60px; border: none !important; outline: none !important;"
-                                    src="{{ request()->has('print') ? asset('assets/img/brand/qr.png') : public_path('assets/img/brand/qr.png') }}">
-                                <br>
-                                <small>RUC: {{ $sucursal->ruc ?? '1793192550001' }}</small>
-                                <br>
-                                <small>https://www.luxuryevys.com</small>
-                                <br>
-                                <small>{{ $sucursal->email ?? 'comp.luxuryevys@gmail.com' }}</small>
-                                <br>
-                                <small>Telf: {{ $sucursal->phone ?? '0999179988 / 0963089601' }}</small>
-                                <br>
+                        <td style="padding: 0 !important; border: none !important;">
+                            <strong>{{ $sale->document_number }}</strong>
+                            <br>
+                            <img style="width:60px; border: none !important; outline: none !important;"
+                                src="{{ request()->has('print') ? asset('assets/img/brand/qr.png') : public_path('assets/img/brand/qr.png') }}">
+                            <br>
+                            <small>RUC: {{ $sucursal->ruc ?? '1793192550001' }}</small>
+                            <br>
+                            <small>https://www.luxuryevys.com</small>
+                            <br>
+                            <small>{{ $sucursal->email ?? 'comp.luxuryevys@gmail.com' }}</small>
+                            <br>
+                            <small>Telf: {{ $sucursal->phone ?? '0999179988 / 0963089601' }}</small>
+                            <br>
 
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div style="clear:both;"></div>
-            <table class="invoice-info-container"
-                style="width: 100%; margin-bottom: 10px; border-collapse: collapse; text-transform: uppercase;">
-                <tr style="border-bottom: 0.8px solid #949494;">
-                    <td style="width: 50%; padding-bottom: 8px; font-size: 12px; text-align: left; border: none;">
-                        {{ $sale->document_type === 'quote' ? 'COTIZACIÓN' : ($sale->document_type === 'invoice' ? 'FACTURA' : 'NOTA DE VENTA') }}#
-                        {{ $sale->id }}-{{ $sale->document_number }}
-                    </td>
-                    <td style="width: 50%; padding-bottom: 8px; text-align: right; font-size: 12px; border: none;">
-                        FECHA: {{ $sale->service_date->format('d/m/Y') }}
-                    </td>
-                </tr>
-                <tr>
-                    <td style="width: 48%; vertical-align: top; padding-right: 15px; padding-top: 15px; border: none;">
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="clear:both;"></div>
+        <table class="invoice-info-container"
+            style="width: 100%; margin-bottom: 10px; border-collapse: collapse; text-transform: uppercase;">
+            <tr style="border-bottom: 0.8px solid #949494;">
+                <td style="width: 50%; padding-bottom: 8px; font-size: 12px; text-align: left; border: none;">
+                    {{ $sale->document_type === 'quote' ? 'COTIZACIÓN' : ($sale->document_type === 'invoice' ? 'FACTURA' : 'NOTA DE VENTA') }}#
+                    {{ $sale->id }}-{{ $sale->document_number }}
+                </td>
+                <td style="width: 50%; padding-bottom: 8px; text-align: right; font-size: 12px; border: none;">
+                    FECHA: {{ $sale->service_date->format('d/m/Y') }}
+                </td>
+            </tr>
+            <tr>
+                <td style="width: 48%; vertical-align: top; padding-right: 15px; padding-top: 15px; border: none;">
+                    <div
+                        style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
+                        DATOS DEL CLIENTE</div>
+                    <div style="margin-bottom: 5px; font-size: 9.5px;">
+                        <span style="font-weight: bold;">NOMBRE:</span> {{ $sale->client->full_name }}
+                    </div>
+                    <div style="margin-bottom: 5px; font-size: 9.5px;">
+                        <span style="font-weight: bold;">
+                            @if ($sale->client->type_document == 1)
+                                CI #:
+                            @elseif($sale->client->type_document == 2)
+                                RUC #:
+                            @endif
+                        </span> {{ $sale->client->n_document }}
+                    </div>
+                    <div style="margin-bottom: 5px; font-size: 9.5px;">
+                        <span style="font-weight: bold;">EMAIL:</span>
+                        <span style="text-transform: lowercase;">{{ $sale->client->email ?? 'Sin información' }}</span>
+                    </div>
+                    <div style="margin-bottom: 5px; font-size: 9.5px;">
+                        <span style="font-weight: bold;">TELÉFONO:</span>
+                        {{ $sale->client->phone ?? 'Sin información' }}
+                    </div>
+                    <div style="margin-bottom: 5px; font-size: 9.5px;">
+                        <span style="font-weight: bold;">DIRECCIÓN:</span>
+                        {{ $sale->client->address ?? 'Sin información' }}
+                    </div>
+                    <div style="margin-bottom: 5px; font-size: 9.5px;">
+                        <span style="font-weight: bold;">CIUDAD/PROVINCIA:</span>
+                        @if ($sale->client->ubigeo_provincia || $sale->client->ubigeo_distrito)
+                            {{ $sale->client->ubigeo_provincia ?? 'PICHINCHA' }}/{{ $sale->client->ubigeo_distrito ?? 'QUITO' }}
+                        @else
+                            QUITO/PICHINCHA
+                        @endif
+                    </div>
+                </td>
+                <td
+                    style="width: 48%; vertical-align: top; padding-left: 15px; padding-top: 15px; border: none; text-align: left;">
+                    @if ($sale->vehicle)
                         <div
                             style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
-                            DATOS DEL CLIENTE</div>
+                            DATOS DEL VEHÍCULO</div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
-                            <span style="font-weight: bold;">NOMBRE:</span> {{ $sale->client->full_name }}
+                            <span style="font-weight: bold;">PLACA:</span>
+                            {{ $sale->vehicle->license_plate ?? 'Sin información' }}
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
-                            <span style="font-weight: bold;">
-                                @if ($sale->client->type_document == 1)
-                                    CI #:
-                                @elseif($sale->client->type_document == 2)
-                                    RUC #:
-                                @endif
-                            </span> {{ $sale->client->n_document }}
+                            <span style="font-weight: bold;">MARCA:</span>
+                            {{ $sale->vehicle->brand ?? 'Sin información' }}
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
-                            <span style="font-weight: bold;">EMAIL:</span>
-                            <span
-                                style="text-transform: lowercase;">{{ $sale->client->email ?? 'Sin información' }}</span>
+                            <span style="font-weight: bold;">MODELO:</span> {{ $sale->vehicle->brand }}
+                            {{ $sale->vehicle->model ?? 'Sin información' }}
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
-                            <span style="font-weight: bold;">TELÉFONO:</span>
-                            {{ $sale->client->phone ?? 'Sin información' }}
+                            <span style="font-weight: bold;">AÑO:</span>
+                            {{ $sale->vehicle->year ?? 'Sin información' }}
+                        </div>
+                        <div style="margin-bottom: 5px; font-size: 9.5px;">
+                            <span style="font-weight: bold;">TIPO:</span>
+                            {{ $sale->vehicle->vehicle_type ?? 'Sin información' }}
+                        </div>
+                        <div style="margin-bottom: 5px; font-size: 9.5px;">
+                            <span style="font-weight: bold;">KILOMETRAJE:</span>
+                            {{ $sale->mileage ? $sale->mileage . ' km' : 'Sin información' }}
+                        </div>
+                        <div style="margin-bottom: 5px; font-size: 9.5px;">
+                            <span style="font-weight: bold;">COLOR:</span>
+                            {{ $sale->vehicle->color ?? 'Sin información' }}
+                        </div>
+                    @else
+                        <div
+                            style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
+                            INFORMACIÓN ADICIONAL</div>
+                        <div style="margin-bottom: 5px; font-size: 9.5px;">
+                            <span style="font-weight: bold;">SUCURSAL:</span>
+                            {{ $sucursal->trade_name ?? ($sucursal->name ?? 'LUXURY EVYS CIA. LTDA.') }}
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">DIRECCIÓN:</span>
-                            {{ $sale->client->address ?? 'Sin información' }}
+                            {{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}
                         </div>
-                        <div style="margin-bottom: 5px; font-size: 9.5px;">
-                            <span style="font-weight: bold;">CIUDAD/PROVINCIA:</span>
-                            @if ($sale->client->ubigeo_provincia || $sale->client->ubigeo_distrito)
-                                {{ $sale->client->ubigeo_provincia ?? 'PICHINCHA' }}/{{ $sale->client->ubigeo_distrito ?? 'QUITO' }}
-                            @else
-                                QUITO/PICHINCHA
+                    @endif
+                </td>
+            </tr>
+            <tr style="border-top: 0.8px solid #949494ff;">
+                <td style="padding-top: 8px; border: none; font-size: 9.5px; text-align: left;">
+                    VENDEDOR: <strong>{{ $sale->user->name }}</strong>
+                </td>
+                <td style="padding-top: 8px; text-align: right; border: none; font-size: 9.5px;">
+                    TELÉFONO: {{ $sale->user->phone ?? '022698134' }}
+                </td>
+            </tr>
+            @if ($sale->technicians && $sale->technicians->count() > 0)
+                <tr>
+                    <td colspan="2" style="padding-top: 4px; border: none; font-size: 9.5px; text-align: left;">
+                        TÉCNICO(S):
+                        @foreach ($sale->technicians as $technician)
+                            <b>{{ $technician->first_name }} {{ $technician->last_name }}</b>
+                            @if (!$loop->last)
+                                ,
                             @endif
-                        </div>
-                    </td>
-                    <td
-                        style="width: 48%; vertical-align: top; padding-left: 15px; padding-top: 15px; border: none; text-align: left;">
-                        @if ($sale->vehicle)
-                            <div
-                                style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
-                                DATOS DEL VEHÍCULO</div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">PLACA:</span>
-                                {{ $sale->vehicle->license_plate ?? 'Sin información' }}
-                            </div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">MARCA:</span>
-                                {{ $sale->vehicle->brand ?? 'Sin información' }}
-                            </div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">MODELO:</span> {{ $sale->vehicle->brand }}
-                                {{ $sale->vehicle->model ?? 'Sin información' }}
-                            </div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">AÑO:</span> {{ $sale->vehicle->year ?? 'Sin información' }}
-                            </div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">TIPO:</span>
-                                {{ $sale->vehicle->vehicle_type ?? 'Sin información' }}
-                            </div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">KILOMETRAJE:</span>
-                                {{ $sale->mileage ? $sale->mileage . ' km' : 'Sin información' }}
-                            </div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">COLOR:</span>
-                                {{ $sale->vehicle->color ?? 'Sin información' }}
-                            </div>
-                        @else
-                            <div
-                                style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
-                                INFORMACIÓN ADICIONAL</div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">SUCURSAL:</span>
-                                {{ $sucursal->trade_name ?? ($sucursal->name ?? 'LUXURY EVYS CIA. LTDA.') }}
-                            </div>
-                            <div style="margin-bottom: 5px; font-size: 9.5px;">
-                                <span style="font-weight: bold;">DIRECCIÓN:</span>
-                                {{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}
-                            </div>
-                        @endif
+                        @endforeach
                     </td>
                 </tr>
-                <tr style="border-top: 0.8px solid #949494ff;">
-                    <td style="padding-top: 8px; border: none; font-size: 9.5px; text-align: left;">
-                        VENDEDOR: <strong>{{ $sale->user->name }}</strong>
-                    </td>
-                    <td style="padding-top: 8px; text-align: right; border: none; font-size: 9.5px;">
-                        TELÉFONO: {{ $sale->user->phone ?? '022698134' }}
+            @endif
+            @if ($sale->vehicle)
+                <tr>
+                    <td colspan="2"
+                        style="padding-top: 6px; font-size: 8px; color: #555; border: none; text-align: left;">
+                        SUCURSAL DE ATENCION:
+                        <strong>{{ $sucursal->trade_name ?? ($sucursal->name ?? 'LUXURY EVYS CIA. LTDA.') }}</strong><br>
+                        DIRECCIÓN:
+                        <strong>{{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}</strong>
                     </td>
                 </tr>
-                @if ($sale->technicians && $sale->technicians->count() > 0)
-                    <tr>
-                        <td colspan="2" style="padding-top: 4px; border: none; font-size: 9.5px; text-align: left;">
-                            TÉCNICO(S):
-                            @foreach ($sale->technicians as $technician)
-                                <b>{{ $technician->first_name }} {{ $technician->last_name }}</b>@if (!$loop->last), @endif
-                            @endforeach
-                        </td>
-                    </tr>
-                @endif
-                @if ($sale->vehicle)
-                    <tr>
-                        <td colspan="2"
-                            style="padding-top: 6px; font-size: 8px; color: #555; border: none; text-align: left;">
-                            SUCURSAL DE ATENCION:
-                            <strong>{{ $sucursal->trade_name ?? ($sucursal->name ?? 'LUXURY EVYS CIA. LTDA.') }}</strong><br>
-                            DIRECCIÓN:
-                            <strong>{{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}</strong>
-                        </td>
-                    </tr>
-                @endif
-            </table>
+            @endif
+        </table>
 
-            <table class="line-items-container">
+        <table class="line-items-container">
+            <thead>
+                <tr>
+                    <th class="heading-item center">#</th>
+                    <th class="heading-description">Descripción</th>
+                    <th class="heading-quantity center">Cantidad</th>
+                    <th class="heading-price right">Precio</th>
+                    <th class="heading-price right">Descuento</th>
+                    <th class="heading-subtotal right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php
+                    $cont = 0;
+                @endphp
+                @foreach ($sale->details as $detail)
+                    <tr>
+                        <td class="center">{{ $cont = $cont + 1 }}</td>
+                        <td>
+                            {{ $detail->description }}
+                            @if ($detail->product?->sku)
+                                <br>
+                                <small style="color: #666;">SKU: {{ $detail->product->sku }}</small>
+                            @endif
+                        </td>
+                        <td class="center">{{ $detail->quantity }}</td>
+                        <td class="right">${{ number_format($detail->price, 2) }}</td>
+                        <td class="right">${{ number_format($detail->discount ?? 0.0, 2) }}</td>
+                        <td class="right bold">${{ number_format($detail->total, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+
+        <hr>
+        @php
+            $payments = collect();
+
+            // Los pagos distribuidos le pertenecen a FinanceRecord, no directamente a Sale.
+            // Esta relación ya viene cargada desde SaleController::generateSinglePDF
+            if (isset($sale->financeRecord) && $sale->financeRecord->paymentDistributions->count() > 0) {
+                $payments = $sale->financeRecord->paymentDistributions;
+            } elseif (isset($sale->payments) && $sale->payments->count() > 0) {
+                $payments = $sale->payments;
+            }
+
+            if ($payments->isEmpty() && $sale->document_type !== 'quote') {
+                $payments->push(
+                    (object) [
+                        'created_at' => $sale->created_at,
+                        'payment_method' => $sale->payment_method ?? 'Efectivo',
+                        'amount' => $sale->total,
+                    ],
+                );
+            }
+            $totalDiscount = $sale->details->sum('discount') ?? 0;
+            $grossSubtotal = $sale->details->sum(function ($item) {
+                return $item->quantity * $item->price;
+            });
+        @endphp
+
+        @if ($sale->document_type == 'sale_note' || $sale->document_type == 'invoice')
+            <table class="line-items-container has-bottom-border" style="border:none; page-break-inside: avoid;">
                 <thead>
                     <tr>
-                        <th class="heading-item">#</th>
-                        <th class="heading-description">Descripción</th>
-                        <th class="heading-quantity">Cantidad</th>
-                        <th class="heading-price">Precio</th>
-                        <th class="heading-price">Descuento</th>
-                        <th class="heading-subtotal">Total</th>
+                        <th style="text-align:left;">Fecha Pago</th>
+                        <th style="text-align:left;">Método de Pago</th>
+                        <th style="text-align:left;">Monto</th>
+                        <th style="text-align:right;">Información de Pago</th>
                     </tr>
                 </thead>
+
                 <tbody>
-                    @php
-                        $cont = 0;
-                    @endphp
-                    @foreach ($sale->details as $detail)
-                        <tr>
-                            <td class="center">{{ $cont = $cont + 1 }}</td>
-                            <td>
-                                {{ $detail->description }}
-                                @if ($detail->product?->sku)
-                                    <br>
-                                    <small style="color: #666;">SKU: {{ $detail->product->sku }}</small>
-                                @endif
-                            </td>
-                            <td class="right">{{ $detail->quantity }}</td>
-                            <td class="right">${{ $detail->price }}</td>
-                            <td class="right">${{ $detail->discount ?? 0.0 }}</td>
-                            <td class="bold">${{ $detail->total }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-
-
-            <hr>
-            @php
-                $payments = collect();
-
-                // Los pagos distribuidos le pertenecen a FinanceRecord, no directamente a Sale.
-                // Esta relación ya viene cargada desde SaleController::generateSinglePDF
-                if (isset($sale->financeRecord) && $sale->financeRecord->paymentDistributions->count() > 0) {
-                    $payments = $sale->financeRecord->paymentDistributions;
-                } elseif (isset($sale->payments) && $sale->payments->count() > 0) {
-                    $payments = $sale->payments;
-                }
-
-                if ($payments->isEmpty() && $sale->document_type !== 'quote') {
-                    $payments->push(
-                        (object) [
-                            'created_at' => $sale->created_at,
-                            'payment_method' => $sale->payment_method ?? 'Efectivo',
-                            'amount' => $sale->total,
-                        ],
-                    );
-                }
-                $totalDiscount = $sale->details->sum('discount') ?? 0;
-                $grossSubtotal = $sale->details->sum(function ($item) {
-                    return $item->quantity * $item->price;
-                });
-            @endphp
-
-            @if ($sale->document_type == 'sale_note' || $sale->document_type == 'invoice')
-                <table class="line-items-container has-bottom-border" style="border:none; page-break-inside: avoid;">
-                    <thead>
-                        <tr>
-                            <th style="text-align:left;">Fecha Pago</th>
-                            <th style="text-align:left;">Método de Pago</th>
-                            <th style="text-align:left;">Monto</th>
-                            <th style="text-align:left;">Información de Pago</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        @if ($payments->isEmpty())
-                            <tr style="border:none; vertical-align: top;">
-                                <td colspan="3" style="text-align:center; padding:10px 0; vertical-align: top;">No hay
-                                    pagos registrados</td>
-                                <td style="text-align:left; border:none; padding:0; vertical-align: top;">
-                                    <table style="width:100%; border:none; border-collapse:collapse;">
-
-                                        <tr style="border:none;">
-                                            <td class=""
-                                                style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181;">
-                                                SUBTOTAL:
-                                            </td>
-                                            <td class=""
-                                                style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
-                                                ${{ number_format($grossSubtotal, 2) }}
-                                            </td>
-                                        </tr>
-
-                                        @if ($totalDiscount > 0)
-                                            <tr style="border:none;">
-                                                <td class=""
-                                                    style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none; color:#d38181;">
-                                                    DESCUENTO:
-                                                </td>
-                                                <td class=""
-                                                    style="padding:4px 0; text-align:left; white-space:nowrap; border:none;">
-                                                    -${{ number_format($totalDiscount, 2) }}
-                                                </td>
-                                            </tr>
-                                        @endif
-
-                                        {{-- <tr style="border:none;">
-                                            <td class="large"
-                                                style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
-                                                BASE IMPONIBLE:
-                                            </td>
-                                            <td class="large"
-                                                style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
-                                                ${{ number_format($sale->subtotal, 2) }}
-                                            </td>
-                                        </tr> --}}
-
-                                        @if ($sale->tax_amount > 0)
-                                            <tr style="border:none;">
-                                                <td class="large"
-                                                    style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
-                                                    IVA (15%):
-                                                </td>
-                                                <td class="large"
-                                                    style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
-                                                    ${{ number_format($sale->tax_amount, 2) }}
-                                                </td>
-                                            </tr>
-                                        @endif
-
-                                        <tr style="border:none;">
-                                            <td colspan="1"
-                                                style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
-                                                <span class="total_cancelar">TOTAL:</span>
-                                            </td>
-                                            <td colspan="1"
-                                                style="padding-top:10px; text-align:left; white-space:nowrap; border:none;">
-                                                <span
-                                                    class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
-                                            </td>
-                                        </tr>
-
-                                    </table>
-                                </td>
-                            </tr>
-                        @else
-                            @foreach ($payments as $index => $payment)
-                                <tr style="border:none; vertical-align: top;">
-
-                                    {{-- FECHA --}}
-                                    <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
-                                        {{ Carbon\Carbon::parse($payment->created_at)->format('Y/m/d') }}
-                                    </td>
-
-                                    {{-- MÉTODO --}}
-                                    <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
-                                        @php
-                                            $metodo = 'Efectivo';
-                                            if (isset($payment->paymentMethod->name)) {
-                                                $metodo = $payment->paymentMethod->name;
-                                            } elseif (isset($payment->method_payment)) {
-                                                $metodo = $payment->method_payment;
-                                            } elseif (isset($payment->payment_method)) {
-                                                $metodo = $payment->payment_method;
-                                            } elseif (isset($payment->payment_method_id)) {
-                                                $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
-                                                    ->where('id', $payment->payment_method_id)
-                                                    ->first();
-                                                if ($pm) {
-                                                    $metodo = $pm->name;
-                                                }
-                                            }
-                                        @endphp
-                                        {{ $metodo }}
-                                    </td>
-
-                                    {{-- MONTO --}}
-                                    <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
-                                        ${{ number_format($payment->amount, 2) }}
-                                    </td>
-
-                                    {{-- INFORMACIÓN DE PAGO SOLO EN LA PRIMERA FILA --}}
-                                    @if ($index === 0)
-                                        <td style="text-align:left; border:none; padding:0; vertical-align: top;"
-                                            rowspan="{{ count($payments) }}">
-                                            <table style="width:100%; border:none; border-collapse:collapse;">
-
-                                                <tr style="border:none;">
-                                                    <td class=""
-                                                        style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181;">
-                                                        SUBTOTAL:
-                                                    </td>
-                                                    <td class=""
-                                                        style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
-                                                        ${{ number_format($grossSubtotal, 2) }}
-                                                    </td>
-                                                </tr>
-
-                                                @if ($totalDiscount > 0)
-                                                    <tr style="border:none;">
-                                                        <td class=""
-                                                            style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none; color:#d38181;">
-                                                            DESCUENTO:
-                                                        </td>
-                                                        <td class=""
-                                                            style="padding:4px 0; text-align:left; white-space:nowrap; border:none;">
-                                                            -${{ number_format($totalDiscount, 2) }}
-                                                        </td>
-                                                    </tr>
-                                                @endif
-
-                                                {{-- <tr style="border:none;">
-                                                    <td class="large"
-                                                        style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
-                                                        BASE IMPONIBLE:
-                                                    </td>
-                                                    <td class="large"
-                                                        style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
-                                                        ${{ number_format($sale->subtotal, 2) }}
-                                                    </td>
-                                                </tr> --}}
-
-                                                @if ($sale->tax_amount > 0)
-                                                    <tr style="border:none;">
-                                                        <td class="large"
-                                                            style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
-                                                            IVA (15%):
-                                                        </td>
-                                                        <td class="large"
-                                                            style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
-                                                            ${{ number_format($sale->tax_amount, 2) }}
-                                                        </td>
-                                                    </tr>
-                                                @endif
-
-                                                <tr style="border:none;">
-                                                    <td class="large"
-                                                        style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
-                                                        PAGO TOTAL:
-                                                    </td>
-                                                    <td class="large"
-                                                        style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
-                                                        ${{ number_format($sale->paid_out ?? $payments->sum('amount'), 2) }}
-                                                    </td>
-                                                </tr>
-
-                                                <tr style="border:none;">
-                                                    <td class="large"
-                                                        style="padding:4px 0; text-align:right; padding-right:10px; white-space:nowrap; border:none;">
-                                                        SALDO:
-                                                    </td>
-                                                    <td class="large"
-                                                        style="padding:4px 0; text-align:left; font-weight:bold; white-space:nowrap; border:none;">
-                                                        ${{ number_format($sale->debt ?? $sale->total - $payments->sum('amount'), 2) }}
-                                                    </td>
-                                                </tr>
-
-                                                <tr style="border:none;">
-                                                    <td colspan="1"
-                                                        style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
-                                                        <span class="total_cancelar">TOTAL:</span>
-                                                    </td>
-                                                    <td colspan="1"
-                                                        style="padding-top:10px; text-align:left; white-space:nowrap; border:none;">
-                                                        <span
-                                                            class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
-                                                    </td>
-                                                </tr>
-
-                                            </table>
-                                        </td>
-                                    @endif
-
-                                </tr>
-                            @endforeach
-                        @endif
-                    </tbody>
-                </table>
-            @elseif ($sale->document_type == 'quote')
-                <table class="line-items-container has-bottom-border"
-                    style="border-collapse: collapse; border:none; page-break-inside: avoid;">
-                    <thead>
-                        <tr style="border:none;">
-                            <th style="text-align:right; border:none;">Información de Pago</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        <tr style="border:none;">
-                            <td style="text-align:left; border:none;">
-
-                                <table style="width: 100%; border-collapse: collapse; border:none;">
+                    @if ($payments->isEmpty())
+                        <tr style="border:none; vertical-align: top;">
+                            <td colspan="3" style="text-align:center; padding:10px 0; vertical-align: top;">No hay
+                                pagos registrados</td>
+                            <td style="text-align:left; border:none; padding:0; vertical-align: top;">
+                                <table style="width:100%; border:none; border-collapse:collapse;">
 
                                     <tr style="border:none;">
                                         <td class=""
-                                            style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
+                                            style="padding:4px 0; text-align:right; padding-right:15px; width:75%; white-space:nowrap; border:none; color:#d38181; font-weight: bold;">
                                             SUBTOTAL:
                                         </td>
                                         <td class=""
-                                            style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
+                                            style="padding:4px 0; text-align:right; width:25%; white-space:nowrap; border:none; font-weight: bold;">
                                             ${{ number_format($grossSubtotal, 2) }}
                                         </td>
                                     </tr>
@@ -1165,11 +974,11 @@
                                     @if ($totalDiscount > 0)
                                         <tr style="border:none;">
                                             <td class=""
-                                                style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
+                                                style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; color:#d38181; font-weight: bold;">
                                                 DESCUENTO:
                                             </td>
                                             <td class=""
-                                                style="padding:4px 0; text-align:left; width:16.66%; white-space:nowrap; border:none;">
+                                                style="padding:4px 0; text-align:right; white-space:nowrap; border:none; font-weight: bold;">
                                                 -${{ number_format($totalDiscount, 2) }}
                                             </td>
                                         </tr>
@@ -1177,48 +986,234 @@
 
                                     @if ($sale->tax_amount > 0)
                                         <tr style="border:none;">
-                                            <td class="large"
-                                                style="padding:4px 0; text-align:right; padding-right:10px; width:83.33%; white-space:nowrap; border:none;">
+                                            <td class=""
+                                                style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
                                                 IVA (15%):
                                             </td>
-                                            <td class="large"
-                                                style="padding:4px 0; text-align:left; width:16.66%; font-weight:bold; white-space:nowrap; border:none;">
+                                            <td class=""
+                                                style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none;">
                                                 ${{ number_format($sale->tax_amount, 2) }}
                                             </td>
                                         </tr>
                                     @endif
 
                                     <tr style="border:none;">
-                                        <td colspan="1"
-                                            style="padding-top:10px; text-align:right; width:83.33%; white-space:nowrap; border:none;">
-                                            <span class="total_cancelar">
-                                                TOTAL:
-                                            </span>
+                                        <td
+                                            style="padding-top:10px; text-align:right; padding-right:15px; white-space:nowrap; border:none;">
+                                            <span class="total_cancelar">TOTAL:</span>
                                         </td>
-                                        <td colspan="1"
-                                            style="padding-top:10px; text-align:left; width:45.66%; white-space:nowrap; border:none;">
-                                            <span class="total_cancelar total_cancelar_value">
-                                                ${{ number_format($sale->total, 2) }}
-                                            </span>
+                                        <td
+                                            style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
+                                            <span
+                                                class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
                                         </td>
                                     </tr>
 
                                 </table>
-
                             </td>
                         </tr>
-                    </tbody>
-                </table>
-            @endif
-            <div class="footer">
-                <div class="footer-info">
-                    <span> ANOTACIONES FINALES: {{ $sale->observations ?? 'Sin observaciones' }} </span>
-                </div>
+                    @else
+                        @foreach ($payments as $index => $payment)
+                            <tr style="border:none; vertical-align: top;">
+
+                                {{-- FECHA --}}
+                                <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
+                                    {{ Carbon\Carbon::parse($payment->created_at)->format('Y/m/d') }}
+                                </td>
+
+                                {{-- MÉTODO --}}
+                                <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
+                                    @php
+                                        $metodo = 'Efectivo';
+                                        if (isset($payment->paymentMethod->name)) {
+                                            $metodo = $payment->paymentMethod->name;
+                                        } elseif (isset($payment->method_payment)) {
+                                            $metodo = $payment->method_payment;
+                                        } elseif (isset($payment->payment_method)) {
+                                            $metodo = $payment->payment_method;
+                                        } elseif (isset($payment->payment_method_id)) {
+                                            $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
+                                                ->where('id', $payment->payment_method_id)
+                                                ->first();
+                                            if ($pm) {
+                                                $metodo = $pm->name;
+                                            }
+                                        }
+                                    @endphp
+                                    {{ $metodo }}
+                                </td>
+
+                                {{-- MONTO --}}
+                                <td style="text-align:left; border:none; padding:3px 0; vertical-align: top;">
+                                    ${{ number_format($payment->amount, 2) }}
+                                </td>
+
+                                {{-- INFORMACIÓN DE PAGO SOLO EN LA PRIMERA FILA --}}
+                                @if ($index === 0)
+                                    <td style="text-align:left; border:none; padding:0; vertical-align: top;"
+                                        rowspan="{{ count($payments) }}">
+                                        <table style="width:100%; border:none; border-collapse:collapse;">
+
+                                            <tr style="border:none;">
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:right; padding-right:15px; width:75%; white-space:nowrap; border:none; color:#d38181; font-weight: bold;">
+                                                    SUBTOTAL:
+                                                </td>
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:right; width:25%; white-space:nowrap; border:none; font-weight: bold;">
+                                                    ${{ number_format($grossSubtotal, 2) }}
+                                                </td>
+                                            </tr>
+
+                                            @if ($totalDiscount > 0)
+                                                <tr style="border:none;">
+                                                    <td class=""
+                                                        style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; color:#d38181; font-weight: bold;">
+                                                        DESCUENTO:
+                                                    </td>
+                                                    <td class=""
+                                                        style="padding:4px 0; text-align:right; white-space:nowrap; border:none; font-weight: bold;">
+                                                        -${{ number_format($totalDiscount, 2) }}
+                                                    </td>
+                                                </tr>
+                                            @endif
+
+                                            @if ($sale->tax_amount > 0)
+                                                <tr style="border:none;">
+                                                    <td class=""
+                                                        style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
+                                                        IVA (15%):
+                                                    </td>
+                                                    <td class=""
+                                                        style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none;">
+                                                        ${{ number_format($sale->tax_amount, 2) }}
+                                                    </td>
+                                                </tr>
+                                            @endif
+
+                                            <tr style="border:none;">
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
+                                                    PAGO TOTAL:
+                                                </td>
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #2e7d32;">
+                                                    ${{ number_format($sale->paid_out ?? $payments->sum('amount'), 2) }}
+                                                </td>
+                                            </tr>
+
+                                            <tr style="border:none;">
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
+                                                    SALDO:
+                                                </td>
+                                                <td class=""
+                                                    style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #d32f2f;">
+                                                    ${{ number_format($sale->debt ?? $sale->total - $payments->sum('amount'), 2) }}
+                                                </td>
+                                            </tr>
+
+                                            <tr style="border:none;">
+                                                <td
+                                                    style="padding-top:10px; text-align:right; padding-right:15px; white-space:nowrap; border:none;">
+                                                    <span class="total_cancelar">TOTAL:</span>
+                                                </td>
+                                                <td
+                                                    style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
+                                                    <span
+                                                        class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
+                                                </td>
+                                            </tr>
+
+                                        </table>
+                                    </td>
+                                @endif
+
+                            </tr>
+                        @endforeach
+                    @endif
+                </tbody>
+            </table>
+        @elseif ($sale->document_type == 'quote')
+            <table class="line-items-container has-bottom-border"
+                style="border-collapse: collapse; border:none; page-break-inside: avoid;">
+                <thead>
+                    <tr style="border:none;">
+                        <th style="text-align:right; border:none;">Información de Pago</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr style="border:none;">
+                        <td style="text-align:left; border:none;">
+
+                            <table style="width: 100%; border-collapse: collapse; border:none;">
+
+                                <tr style="border:none;">
+                                    <td class=""
+                                        style="padding:4px 0; text-align:right; padding-right:15px; width:75%; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
+                                        SUBTOTAL:
+                                    </td>
+                                    <td class=""
+                                        style="padding:4px 0; text-align:right; width:25%; white-space:nowrap; border:none; font-weight:700;">
+                                        ${{ number_format($grossSubtotal, 2) }}
+                                    </td>
+                                </tr>
+
+                                @if ($totalDiscount > 0)
+                                    <tr style="border:none;">
+                                        <td class=""
+                                            style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
+                                            DESCUENTO:
+                                        </td>
+                                        <td class=""
+                                            style="padding:4px 0; text-align:right; white-space:nowrap; border:none; font-weight:700;">
+                                            -${{ number_format($totalDiscount, 2) }}
+                                        </td>
+                                    </tr>
+                                @endif
+
+                                @if ($sale->tax_amount > 0)
+                                    <tr style="border:none;">
+                                        <td class=""
+                                            style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight:700;">
+                                            IVA (15%):
+                                        </td>
+                                        <td class=""
+                                            style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none;">
+                                            ${{ number_format($sale->tax_amount, 2) }}
+                                        </td>
+                                    </tr>
+                                @endif
+
+                                <tr style="border:none;">
+                                    <td
+                                        style="padding-top:10px; text-align:right; padding-right:15px; white-space:nowrap; border:none;">
+                                        <span class="total_cancelar">TOTAL:</span>
+                                    </td>
+                                    <td style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
+                                        <span
+                                            class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
+                                    </td>
+                                </tr>
+
+                            </table>
+
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        @endif
+        <div class="footer">
+            <div class="footer-info">
+                <span> ANOTACIONES FINALES: {{ $sale->observations ?? 'Sin observaciones' }} </span>
             </div>
         </div>
+    </div>
 
-        <footer class="footer_page" style="
-        position: absolute;
+    <footer class="footer_page"
+        style="
+        position: fixed;
         bottom: 0;
         left: 0;
         width: 100%;
@@ -1230,31 +1225,31 @@
         border-top: 1px solid #ddd;
         letter-spacing: 0.3px;
     ">
-            <p style="margin: 3px 0; color: #666666; font-weight: 500; font-size: 10.5px;">
-                UBICACIÓN: {{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}
-            </p>
+        <p style="margin: 3px 0; color: #666666; font-weight: 500; font-size: 10.5px;">
+            UBICACIÓN: {{ $sucursal->address ?? 'SUR DE QUITO, SECTOR EL BEATERIO S49B Y E1C' }}
+        </p>
 
-            <p style="margin: 6px 0 0 0; font-size: 9.5px; color: #999999;">
-                © 2026 <strong>{{ $sucursal->trade_name ?? 'Luxury Evys' }}</strong>. Todos los derechos reservados.
-            </p>
-        </footer>
+        <p style="margin: 6px 0 0 0; font-size: 9.5px; color: #999999;">
+            © 2026 <strong>{{ $sucursal->trade_name ?? 'Luxury Evys' }}</strong>. Todos los derechos reservados.
+        </p>
+    </footer>
 
-        @if(request()->has('print'))
-            </div>
+    @if (request()->has('print'))
+        </div>
 
-            <script>
-                function triggerPrint() {
-                    setTimeout(() => {
-                        window.print();
-                    }, 600);
-                }
-                if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                    triggerPrint();
-                } else {
-                    window.addEventListener('DOMContentLoaded', triggerPrint);
-                }
-            </script>
-        @endif
+        <script>
+            function triggerPrint() {
+                setTimeout(() => {
+                    window.print();
+                }, 600);
+            }
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                triggerPrint();
+            } else {
+                window.addEventListener('DOMContentLoaded', triggerPrint);
+            }
+        </script>
+    @endif
 </body>
 
 </html>
