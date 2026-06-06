@@ -25,7 +25,7 @@
         }
 
         @page {
-            margin: 18mm 15mm 18mm 15mm;
+            margin: 8mm 15mm 18mm 15mm;
         }
 
         body {
@@ -224,7 +224,7 @@
                 max-width: 800px !important;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
                 border-radius: 8px !important;
-                padding: 60px 45px !important;
+                padding: 40px 45px !important;
                 box-sizing: border-box !important;
             }
         }
@@ -235,6 +235,11 @@
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
+
+            html, body {
+                height: auto !important;
+            }
+
             .no-print {
                 display: none !important;
             }
@@ -242,14 +247,15 @@
                 display: block !important;
                 min-height: auto !important;
                 background-color: white !important;
-                padding: 25mm 20mm 25mm 20mm !important;
+                padding: 0 !important;
                 margin: 0 !important;
             }
             .print-container {
-                padding: 0 !important;
+                padding: 10mm 20mm 20mm 20mm !important;
                 box-shadow: none !important;
                 width: 100% !important;
                 max-width: 100% !important;
+                box-sizing: border-box !important;
             }
         }
     </style>
