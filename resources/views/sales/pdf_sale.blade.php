@@ -670,14 +670,50 @@
     @php
         $sucursal =
             \App\Models\Config\Sucursale::find($sale->user->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
-        $logoSrc =
-            $sucursal && $sucursal->logo
-                ? (request()->has('print')
-                    ? asset($sucursal->logo)
-                    : public_path($sucursal->logo))
-                : (request()->has('print')
-                    ? asset('assets/img/brand/logo.jpeg')
-                    : public_path('assets/img/brand/logo.jpeg'));
+
+        // Convert branch/sucursal logo to Base64 to avoid exposing absolute local path inside the PDF
+        $logoBase64 = '';
+        $logoPath = null;
+        if ($sucursal && $sucursal->logo) {
+            $tempPath = public_path($sucursal->logo);
+            if (file_exists($tempPath)) {
+                $logoPath = $tempPath;
+            } else {
+                $cleanLogo = str_replace('storage/', '', $sucursal->logo);
+                $tempPath = storage_path('app/public/' . $cleanLogo);
+                if (file_exists($tempPath)) {
+                    $logoPath = $tempPath;
+                }
+            }
+        }
+
+        if (!$logoPath || !file_exists($logoPath)) {
+            $logoPath = public_path('assets/img/brand/logo.jpeg');
+        }
+
+        if (file_exists($logoPath)) {
+            $logoData = file_get_contents($logoPath);
+            $logoMime = 'image/jpeg';
+            $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+            if ($ext === 'png') {
+                $logoMime = 'image/png';
+            } elseif ($ext === 'gif') {
+                $logoMime = 'image/gif';
+            } elseif ($ext === 'svg') {
+                $logoMime = 'image/svg+xml';
+            }
+            $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+        }
+
+        // Convert QR code to Base64 to prevent local absolute path embedding, but ONLY if not sending via email to avoid quishing filters
+        $qrBase64 = '';
+        if (empty($isEmail)) {
+            $qrPath = public_path('assets/img/brand/qr.png');
+            if (file_exists($qrPath)) {
+                $qrData = file_get_contents($qrPath);
+                $qrBase64 = 'data:image/png;base64,' . base64_encode($qrData);
+            }
+        }
     @endphp
     @if (request()->has('print'))
         <!-- Action Bar -->
@@ -723,14 +759,16 @@
                     <tr style="border: none !important;">
                         <td style="padding: 0 !important; border: none !important;">
                             <img style="height: 80px; border: none !important; outline: none !important;"
-                                src="{{ $logoSrc }}">
+                                src="{{ $logoBase64 }}">
                         </td>
 
                         <td style="padding: 0 !important; border: none !important;">
                             <strong>{{ $sale->document_number }}</strong>
                             <br>
-                            <img style="width:60px; border: none !important; outline: none !important;"
-                                src="{{ request()->has('print') ? asset('assets/img/brand/qr.png') : public_path('assets/img/brand/qr.png') }}">
+                            @if ($qrBase64)
+                                <img style="width:60px; border: none !important; outline: none !important;"
+                                    src="{{ $qrBase64 }}">
+                            @endif
                             <br>
                             <small>RUC: {{ $sucursal->ruc ?? '1793192550001' }}</small>
                             <br>

@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
+use Illuminate\Support\Facades\Mail;
 
 class SaleController extends Controller
 {
@@ -301,6 +302,53 @@ class SaleController extends Controller
                 return $sale;
             });
 
+
+            // =================================================================🚀
+            // 📬 ENVÍO AUTOMÁTICO DE EMAIL CON PDF ADJUNTO
+            // =================================================================🚀
+            if ($sale->document_type !== 'quote' && $sale->status !== 'draft') {
+                try {
+                    $sale->load(['client', 'vehicle', 'user', 'details.product', 'technicians', 'financeRecord.paymentDistributions.account']);
+
+                    // 1. Mapear el ID de la marca al nombre (tal cual lo haces en tus otros métodos)
+                    $vehicleBrands = config('vehicle_brands', []);
+                    if ($sale->vehicle && isset($sale->vehicle->brand)) {
+                        $brandId = $sale->vehicle->brand;
+                        $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
+                    }
+
+                    // 2. Generamos el PDF en memoria usando tu misma vista de ventas
+                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.pdf_sale', ['sale' => $sale, 'isEmail' => true]);
+                    $pdfRawData = $pdf->output(); // Esto saca el PDF como una cadena binaria limpia
+                    $pdfFileName = $sale->document_type . '_' . $sale->document_number . '.pdf';
+
+                    // 3. Data para la plantilla HTML del correo
+                    $data = [
+                        'titulo_asunto'     => ($sale->document_type === 'invoice' ? 'Factura' : 'Nota de Venta') . ' #' . $sale->document_number,
+                        'cliente'           => $sale->client->full_name ?? 'Cliente',
+                        'mensaje_principal' => 'Tu transacción ha sido procesada con éxito. Agradecemos tu confianza en Luxury Evys. Adjunto a este correo encontrarás el comprobante oficial en formato PDF con el detalle de los servicios prestados.',
+                        'vehiculo'          => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
+                        'placa'             => $sale->vehicle->license_plate ?? 'N/A',
+                        'accion'            => 'Comprobante de Servicio Generado'
+                    ];
+
+                    // 4. Enviamos pasando la data y el PDF generado
+                    if (!empty($sale->client->email)) {
+                        \Illuminate\Support\Facades\Mail::to($sale->client->email)->send(
+                            new \App\Mail\System\TestNotificationMail($data, $pdfRawData, $pdfFileName)
+                        );
+                    }
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error al enviar el correo electrónico.',
+                        'error'   => $e->getMessage()
+                    ], 201);
+                }
+            }
+
+
+
             // 3. Respuesta exitosa al frontend con el registro completo cargando sus detalles
             return response()->json([
                 'success' => true,
@@ -321,7 +369,7 @@ class SaleController extends Controller
      * Process financial record for sale and update accounts
      */
     private function processFinancialRecord($sale, Request $request)
-    {        
+    {
         // 1. Buscar si ya existe un registro financiero para esta venta
         $financeRecord = FinanceRecord::where('invoice_number', $sale->document_number)->first();
 
@@ -335,7 +383,7 @@ class SaleController extends Controller
             }
             // Eliminar las distribuciones y los movimientos financieros anteriores
             $financeRecord->paymentDistributions()->delete();
-            
+
             if (method_exists($sale, 'financialMovement')) {
                 $sale->financialMovement()->delete();
             }
@@ -343,10 +391,10 @@ class SaleController extends Controller
             $financeRecord = new FinanceRecord();
         }
 
-        $entryDate = $sale->service_date instanceof \Carbon\Carbon 
-            ? $sale->service_date->format('Y-m-d') 
+        $entryDate = $sale->service_date instanceof \Carbon\Carbon
+            ? $sale->service_date->format('Y-m-d')
             : (is_string($sale->service_date) ? substr($sale->service_date, 0, 10) : now()->format('Y-m-d'));
-        
+
         $paymentMethod = $request->payment_method ?? $sale->payment_method ?? 'Efectivo';
 
         // 3. Crear/Actualizar el registro financiero principal
@@ -617,6 +665,7 @@ class SaleController extends Controller
         // 1. Validamos los campos que se pueden editar
         $request->validate([
             'document_number' => 'nullable|string|unique:sales,document_number,' . $id,
+            'client_id'    => 'nullable|exists:clients,id',
             'vehicle_id'   => 'nullable|exists:vehicles,id',
             'mileage'      => 'nullable|integer',
             'service_date' => 'nullable|date',
@@ -679,7 +728,7 @@ class SaleController extends Controller
             $docType = $request->has('document_type') ? $request->document_type : $sale->document_type;
             if ($docType !== 'quote' && !$isDraft) {
                 $hasDistributions = $request->has('payment_distributions');
-                
+
                 // Recalcular el total esperado de los items
                 $finalTotal = $sale->total;
                 if ($request->has('items')) {
@@ -757,7 +806,7 @@ class SaleController extends Controller
                                         $quantityNeeded -= $oldDetail->quantity;
                                     }
                                 }
-                                
+
                                 if ($quantityNeeded > 0 && $product->stock < $quantityNeeded) {
                                     return response()->json([
                                         'success' => false,
@@ -831,6 +880,7 @@ class SaleController extends Controller
                 // Actualizar campos operativos básicos
                 $sale->update($request->only([
                     'document_number',
+                    'client_id',
                     'vehicle_id',
                     'mileage',
                     'service_date',
@@ -868,7 +918,7 @@ class SaleController extends Controller
 
                         foreach ($movements as $movement) {
                             $newDesc = str_replace($oldDocumentNumber, $request->document_number, $movement->description);
-                            
+
                             $metadata = $movement->metadata ?? [];
                             if (isset($metadata['document_number']) && $metadata['document_number'] === $oldDocumentNumber) {
                                 $metadata['document_number'] = $request->document_number;
@@ -907,14 +957,14 @@ class SaleController extends Controller
                     } else {
                         $sale->details()->delete();
                     }
-//comentario
+                    //comentario
                     // Actualizar o crear items
                     foreach ($request->items as $item) {
                         $itemTotal = ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
 
                         if (isset($item['id'])) {
                             $detail = $sale->details->firstWhere('id', $item['id']);
-                            
+
                             if ($detail) {
                                 // Gestionar stock de la diferencia si ya era una venta
                                 if (!$wasQuote && !$wasDraft) {
@@ -1013,7 +1063,7 @@ class SaleController extends Controller
                         // Procesar registro financiero
                         if ($request->document_type !== 'quote') {
                             $this->processFinancialRecord($sale, $request);
-                            
+
                             if ($sale->work_order_id) {
                                 $linkedWorkOrder = \App\Models\WorkOrder\WorkOrder::find($sale->work_order_id);
                                 if ($linkedWorkOrder) {
@@ -1369,7 +1419,6 @@ class SaleController extends Controller
                 'message' => 'El ítem fue eliminado de la base de datos correctamente.',
                 'sale' => $sale->fresh()
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1443,6 +1492,69 @@ class SaleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al procesar la impresión directa: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Dispatch mail for quotes manually via button.
+     */
+    public function enviarCotizacionPorCorreo(int $id)
+    {
+        try {
+            // Buscamos el registro verificando relaciones clave
+            $sale = Sale::with(['client', 'vehicle'])->find($id);
+
+            if (!$sale) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El registro de cotización no existe.'
+                ], 404);
+            }
+
+            // Validación de seguridad por si intentan dispararlo en un documento que no corresponde
+            if ($sale->document_type !== 'quote') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este documento no es una cotización informativa.'
+                ], 400);
+            }
+
+            if (empty($sale->client->email)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El cliente asignado no tiene una dirección de correo electrónico registrada.'
+                ], 400);
+            }
+
+            // Preparamos los datos dinámicos utilizando las columnas exactas de tus modelos
+            $data = [
+                'titulo_asunto'     => 'Presupuesto / Cotización #' . $sale->document_number,
+                'cliente'           => $sale->client->full_name ?? 'Cliente',
+                'mensaje_principal' => 'Adjuntamos la cotización y el presupuesto solicitado para los mantenimientos, servicios o repuestos de tu vehículo. Recuerda que este documento es de carácter informativo.',
+                'vehiculo'          => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
+                'placa'             => $sale->vehicle->license_plate ?? 'N/A',
+                'accion'            => 'Cotización de Servicios de Taller'
+            ];
+
+            // Dentro de tu método enviarCotizacionPorCorreo():
+            $pdf = Pdf::loadView('sales.pdf_sale', ['sale' => $sale, 'isEmail' => true]);
+            $pdfRawData = $pdf->output();
+            $pdfFileName = 'cotizacion_' . $sale->document_number . '.pdf';
+
+            Mail::to($sale->client->email)->send(
+                new \App\Mail\System\TestNotificationMail($data, $pdfRawData, $pdfFileName)
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => '¡Cotización enviada al correo del cliente con éxito, mi compa!'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al despachar el correo de la cotización.',
+                'error'   => $e->getMessage()
             ], 500);
         }
     }

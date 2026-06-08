@@ -173,6 +173,7 @@ Route::group(
         Route::resource('sales', SaleController::class);
         Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
+        Route::post('sales/{id}/enviar-cotizacion', [SaleController::class, 'enviarCotizacionPorCorreo']);
 
         // ============= RUTAS DE DEVOLUCIONES ==========
         Route::get('returns', [ProductReturnController::class, 'index']);
