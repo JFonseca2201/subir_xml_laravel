@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Finance\AccountController;
 use App\Http\Controllers\Api\Aporte\AporteController;
 use App\Http\Controllers\Api\Employee\EmployeeExpenseController;
+use App\Http\Controllers\Api\Finance\CajaDiaria\DailyCashCountController;
 //use App\Http\Controllers\Api\Employee\EmployeePaymentController;
 use App\Http\Controllers\Api\Finance\FinanceRecordController;
 use App\Http\Controllers\Api\Finance\FinanzasController;
@@ -189,6 +190,9 @@ Route::group(
         Route::post('work-orders/{id}/print', [WorkOrderController::class, 'printDirect']);
         Route::resource('work-orders', WorkOrderController::class);
 
+        // ============= RUTAS DE CAJA DIARIA ================ 
+        Route::get('daily-cash-counts/status', [DailyCashCountController::class, 'getStatusByDate']);
+        Route::post('daily-cash-counts/save', [DailyCashCountController::class, 'store']);
 
         // Excel Import Routes para Clientes y Vehículos
         Route::post('import/clients', [ExcelImportController::class, 'importClients']);
