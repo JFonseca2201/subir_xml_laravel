@@ -42,6 +42,12 @@ class ProductCategorieController extends Controller
      */
     public function store(Request $request)
     {
+        $request->validate([
+            'title' => 'required|string|max:255|unique:product_categories,title',
+            'state' => 'nullable|integer|in:0,1',
+            'image' => 'nullable|image|max:2048',
+        ]);
+
         $is_categorie_exists = ProductCategorie::where('title', $request->title)->first();
         if ($is_categorie_exists) {
             return response()->json([
@@ -50,14 +56,13 @@ class ProductCategorieController extends Controller
             ]);
         }
 
+        $data = $request->only(['title', 'state']);
         if ($request->hasFile('image')) {
             $path = Storage::putFile('categories', $request->file('image'));
-            $request->request->add(['imagen' => $path]);
+            $data['imagen'] = $path;
         }
 
-
-
-        $categorie = ProductCategorie::create($request->all());
+        $categorie = ProductCategorie::create($data);
 
         return response()->json([
             'message' => 200,
@@ -84,6 +89,12 @@ class ProductCategorieController extends Controller
      */
     public function update(Request $request, string $id)
     {
+        $request->validate([
+            'title' => 'required|string|max:255|unique:product_categories,title,' . $id,
+            'state' => 'nullable|integer|in:0,1',
+            'image' => 'nullable|image|max:2048',
+        ]);
+
         $is_categorie_exists = ProductCategorie::where('title', $request->title)->where('id', '<>', $id)->first();
         if ($is_categorie_exists) {
             return response()->json([
@@ -91,15 +102,17 @@ class ProductCategorieController extends Controller
                 'message_text' => 'LA CATEGORIA YA EXISTE',
             ]);
         }
+
         $categorie = ProductCategorie::findOrFail($id);
+        $data = $request->only(['title', 'state']);
         if ($request->hasFile('image')) {
             if ($categorie->imagen) {
                 Storage::delete($categorie->imagen);
             }
             $path = Storage::putFile('categories', $request->file('image'));
-            $request->request->add(['imagen' => $path]);
+            $data['imagen'] = $path;
         }
-        $categorie->update($request->all());
+        $categorie->update($data);
 
         return response()->json([
             'message' => 200,

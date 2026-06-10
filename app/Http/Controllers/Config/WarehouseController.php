@@ -80,7 +80,7 @@ class WarehouseController extends Controller
                 ], 400);
             }
 
-            $data = $request->all();
+            $data = $request->only(['name', 'address', 'sucursale_id', 'state']);
             $data['name'] = strtoupper(trim($data['name']));
             $data['address'] = $data['address'] ? strtoupper(trim($data['address'])) : null;
 
@@ -172,7 +172,7 @@ class WarehouseController extends Controller
                 'state' => 'required|integer|in:0,1',
             ]);
 
-            $data = $request->all();
+            $data = $request->only(['name', 'address', 'sucursale_id', 'state']);
             $data['name'] = strtoupper(trim($data['name']));
             $data['address'] = $data['address'] ? strtoupper(trim($data['address'])) : null;
 

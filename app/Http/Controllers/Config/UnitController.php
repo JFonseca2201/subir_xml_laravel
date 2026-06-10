@@ -51,19 +51,18 @@ class UnitController extends Controller
     public function store(Request $request)
     {
         try {
-            $request->validate([
+            $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'description' => 'nullable|string|max:1000',
                 'state' => 'required|integer|in:1,2',
             ]);
 
             // Aplicar trim y uppercase al nombre
-            $request->merge([
-                'name' => strtoupper(trim($request->name)),
-                'description' => trim($request->description),
-            ]);
+            $data = $validated;
+            $data['name'] = strtoupper(trim($data['name']));
+            $data['description'] = isset($data['description']) ? trim($data['description']) : null;
 
-            $exist_unit = Unit::where('name', $request->name)->first();
+            $exist_unit = Unit::where('name', $data['name'])->first();
 
             if ($exist_unit) {
                 return response()->json([
@@ -72,9 +71,7 @@ class UnitController extends Controller
                 ], 403);
             }
 
-
-
-            $unit = Unit::create($request->all());
+            $unit = Unit::create($data);
 
             return response()->json([
                 'status' => 200,
@@ -140,19 +137,18 @@ class UnitController extends Controller
     public function update(Request $request, string $id)
     {
         try {
-            $request->validate([
+            $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'description' => 'nullable|string|max:1000',
                 'state' => 'required|integer|in:1,2',
             ]);
 
             // Aplicar trim y uppercase al nombre
-            $request->merge([
-                'name' => strtoupper(trim($request->name)),
-                'description' => trim($request->description),
-            ]);
+            $data = $validated;
+            $data['name'] = strtoupper(trim($data['name']));
+            $data['description'] = isset($data['description']) ? trim($data['description']) : null;
 
-            $exist_unit = Unit::where('name', $request->name)->where('id', '<>', $id)->first();
+            $exist_unit = Unit::where('name', $data['name'])->where('id', '<>', $id)->first();
 
             if ($exist_unit) {
                 return response()->json([
@@ -162,7 +158,7 @@ class UnitController extends Controller
             }
 
             $unit = Unit::findOrFail($id);
-            $unit->update($request->all());
+            $unit->update($data);
 
             return response()->json([
                 'status' => 200,

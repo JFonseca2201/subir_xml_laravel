@@ -12,6 +12,7 @@ use App\Models\Supplier\Supplier;
 // MODELS
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceXmlImportController extends Controller
@@ -322,7 +323,7 @@ class InvoiceXmlImportController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
+        $validated = $request->validate([
             'supplier_id' => 'nullable|exists:suppliers,id',
             'access_key' => 'nullable|string',
             'invoice_number' => 'required|string',
@@ -341,7 +342,7 @@ class InvoiceXmlImportController extends Controller
             return response()->json(['message' => 'Factura no encontrada'], 404);
         }
 
-        $invoice->update($request->all());
+        $invoice->update($validated);
 
         return response()->json([
             'invoice' => $invoice->fresh(['supplier', 'customer', 'sucursal']),
@@ -488,8 +489,8 @@ class InvoiceXmlImportController extends Controller
                         'amount' => $invoiceModel->total,
                         'invoice_number' => $invoiceModel->invoice_number,
                         'description' => 'Pago por Compra XML a Proveedor ' . $supplierName,
-                        'user_id' => auth()->id() ?? 1,
-                        'entry_date' => \Carbon\Carbon::now('America/Guayaquil')->toDateString()
+                        'user_id' => Auth::check() ? Auth::id() : 1,
+                        'entry_date' => Carbon::now('America/Guayaquil')->toDateString()
                     ]);
 
                     if (!$hasDistributions) {
@@ -580,9 +581,9 @@ class InvoiceXmlImportController extends Controller
                         'amount' => $invoiceModel->total,
                         'invoice_number' => $invoiceModel->invoice_number,
                         'description' => 'Pago por Compra XML a Proveedor ' . $supplierName . ' (Financiado por Aporte de Socio)',
-                        'user_id' => auth()->id() ?? 1,
+                        'user_id' => Auth::check() ? Auth::id() : 1,
                         'account_id' => $accountId,
-                        'entry_date' => \Carbon\Carbon::now('America/Guayaquil')->toDateString()
+                        'entry_date' => Carbon::now('America/Guayaquil')->toDateString()
                     ]);
 
                     $financeRecord->save();

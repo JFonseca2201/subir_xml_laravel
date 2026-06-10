@@ -115,6 +115,8 @@ class VehicleController extends Controller
             ], 422);
         }
 
+        $requestData = $validator->validated();
+
         // 3. Asegurar que el status sea válido (1 = activo, 2 = inactivo)
         if (!isset($requestData['status']) || !in_array($requestData['status'], [1, 2])) {
             $requestData['status'] = 1; // Por defecto activo
@@ -192,6 +194,7 @@ class VehicleController extends Controller
             ], 422);
         }
 
+        $requestData = $validator->validated();
         $vehicle->update($requestData);
 
         return response()->json([

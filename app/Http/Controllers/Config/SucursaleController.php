@@ -59,7 +59,26 @@ class SucursaleController extends Controller
                 'status' => 'required|in:active,inactive',
             ]);
 
-            $sucursal->update($request->all());
+            $sucursal->update($request->only([
+                'name',
+                'address',
+                'ruc',
+                'phone',
+                'email',
+                'trade_name',
+                'secuencial_factura',
+                'serie_factura',
+                'establecimiento',
+                'punto_emision',
+                'ambiente',
+                'tipo_emision',
+                'firma_electronica',
+                'password_firma',
+                'logo',
+                'obligado_contabilidad',
+                'contribuyente_especial',
+                'status',
+            ]));
 
             return response()->json([
                 'status' => 200,

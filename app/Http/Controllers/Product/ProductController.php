@@ -237,8 +237,8 @@ class ProductController extends Controller
             ]);
 
             // Sanitizar valores si es servicio (item_type = 2)
-            $data = $request->all();
-            
+            $data = $validator->validated();
+
             if ($request->input('item_type') == 2) {
                 $data['stock'] = 0.00;
                 $data['min_stock'] = 0.00;
@@ -378,7 +378,7 @@ class ProductController extends Controller
             ]);
 
             // Sanitizar valores si es servicio (item_type = 2)
-            $data = $request->all();
+            $data = $validator->validated();
             
             if ($request->input('item_type') == 2) {
                 $data['stock'] = 0.00;
