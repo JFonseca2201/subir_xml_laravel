@@ -66,6 +66,39 @@ class ProductController extends Controller
         }
     }
 
+    /**
+     * Search products for autocomplete or lazy loading.
+     */
+    public function search(Request $request)
+    {
+        $search = trim($request->get('q', $request->get('search', '')));
+
+        $query = Product::select([
+            'id',
+            'description',
+            'sku',
+            'code_aux',
+            'item_type',
+            'price_sale',
+            'stock',
+        ])->where('state', 1);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('sku', 'like', "%{$search}%")
+                    ->orWhere('code_aux', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $products = $query->orderBy('id', 'desc')->limit(20)->get();
+
+        return response()->json([
+            'status' => 200,
+            'data' => $products,
+        ]);
+    }
+
     public function config()
     {
         try {

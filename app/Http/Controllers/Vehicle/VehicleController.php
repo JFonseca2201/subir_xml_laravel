@@ -56,6 +56,49 @@ class VehicleController extends Controller
     }
 
     /**
+     * Search vehicles for autocomplete or lazy loading.
+     */
+    public function search(Request $request)
+    {
+        $search = trim($request->get('q', $request->get('search', '')));
+        $clientId = $request->get('client_id');
+
+        $query = Vehicle::select([
+            'id',
+            'client_id',
+            'license_plate',
+            'model',
+            'description',
+            'vehicle_type',
+            'status',
+        ])->with(['client:id,name,surname,full_name']);
+
+        if ($clientId) {
+            $query->where('client_id', $clientId);
+        }
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('license_plate', 'like', "%{$search}%")
+                    ->orWhere('model', 'like', "%{$search}%")
+                    ->orWhereHas('client', function ($clientQuery) use ($search) {
+                        $clientQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('surname', 'like', "%{$search}%")
+                            ->orWhere('full_name', 'like', "%{$search}%")
+                            ->orWhere('n_document', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $vehicles = $query->orderBy('id', 'desc')->limit(20)->get();
+
+        return response()->json([
+            'status' => 200,
+            'data' => $vehicles,
+        ]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)

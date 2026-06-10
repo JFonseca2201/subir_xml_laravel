@@ -62,6 +62,43 @@ class ClientController extends Controller
     }
 
     /**
+     * Search clients for autocomplete or lazy loading.
+     */
+    public function search(Request $request)
+    {
+        $search = trim($request->get('q', $request->get('search', '')));
+
+        $query = Client::select([
+            'id',
+            'name',
+            'surname',
+            'full_name',
+            'n_document',
+            'phone',
+            'email',
+        ])->where('state', 1);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('surname', 'like', "%{$search}%")
+                    ->orWhere('full_name', 'like', "%{$search}%")
+                    ->orWhere('n_document', 'like', "%{$search}%");
+            });
+        }
+
+        $limit = (int) $request->get('limit', 10);
+        $limit = $limit > 0 ? min(10, $limit) : 10;
+
+        $clients = $query->orderBy('id', 'desc')->limit($limit)->get();
+
+        return response()->json([
+            'status' => 200,
+            'data' => $clients,
+        ]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
@@ -75,7 +112,7 @@ class ClientController extends Controller
                 'errors' => ['n_document' => 'El número de documento ya existe'],
             ], 422);
         }
-        $exists = Client::where('email', $request->get('email'))->first();
+       /*  $exists = Client::where('email', $request->get('email'))->first();
         if ($exists) {
             return response()->json([
                 'status' => 422,
@@ -83,7 +120,7 @@ class ClientController extends Controller
                 'errors' => ['email' => 'El correo electrónico ya existe'],
             ], 422);
         }
-        /* $exists = Client::where('phone', $request->get('phone'))->first();
+        $exists = Client::where('phone', $request->get('phone'))->first();
         if ($exists) {
             return response()->json([
                 'status' => 422,
@@ -95,7 +132,7 @@ class ClientController extends Controller
         if ($exists) {
             return response()->json([
                 'status' => 422,
-                'message' => 'El nombre completo ya existe',
+                'message' => 'El nombre ya existe',
                 'errors' => ['full_name' => 'El nombre completo ya existe'],
             ], 422);
         }   
@@ -238,8 +275,8 @@ class ClientController extends Controller
             'name' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'surname' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'full_name' => 'required|string|max:255|unique:clients,full_name,' . $id,
-            'phone' => ['required', 'string', 'max:20', 'unique:clients,phone,' . $id, 'regex:/^[0-9+\-\s()]+$/'],
-            'email' => 'nullable|email|max:255|unique:clients,email,' . $id,
+            'phone' => ['required', 'string', 'max:20', 'regex:/^[0-9+\-\s()]+$/'],
+            'email' => 'nullable|email|max:255' . $id,
             'type_client' => 'nullable|string|max:50',
             'type_document' => 'nullable|string|max:10',
             'n_document' => [

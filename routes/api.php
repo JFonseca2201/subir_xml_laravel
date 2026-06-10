@@ -102,11 +102,13 @@ Route::group(
         Route::get('suppliers/last-id', [SupplierController::class, 'getLastId']);
 
         // ============= RUTAS DE PRODUCTOS ==============
+        Route::get('products/search', [ProductController::class, 'search']);
         Route::get('products/config', [ProductController::class, 'config']);
         Route::post('products/process', [InvoiceXmlImportController::class, 'processInvoice']);
         Route::resource('products', ProductController::class);
 
         // ============= RUTAS DE CLIENTES ==============
+        Route::get('clients/search', [ClientController::class, 'search']);
         Route::resource('clients', ClientController::class);
 
         // ============= RUTAS GEOGRÁFICAS ==============
@@ -115,6 +117,7 @@ Route::group(
         Route::get('geographic/cities/{provinceId}', [GeographicController::class, 'getCities']);
 
         // ============= RUTAS DE VEHÍCULOS ==============
+        Route::get('vehicles/search', [VehicleController::class, 'search']);
         Route::resource('vehicles', VehicleController::class);
         Route::get('vehicle-types', [VehicleController::class, 'getVehicleTypes']);
         Route::get('vehicle-brands', [VehicleController::class, 'getVehicleBrands']);
