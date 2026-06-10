@@ -36,6 +36,7 @@ class DailyCashCountController extends Controller
             'success' => true,
             'date_formatted' => $carbonDate->isoFormat('dddd DD [de] MMMM YYYY'),
             'already_counted' => !is_null($currentCount),
+            'is_sealed' => $currentCount ? (bool)$currentCount->is_sealed : false,
             'current_data' => $currentCount,
             'initial_balances' => $previousCount ? [
                 'cash' => $previousCount->cash_total,
@@ -71,6 +72,14 @@ class DailyCashCountController extends Controller
             'cash_details'    => 'required|array', // El desglose de billetes de la interfaz
             'observations'    => 'nullable|string',
         ]);
+
+        $existingCount = DailyCashCount::where('count_date', $request->count_date)->first();
+        if ($existingCount && $existingCount->is_sealed) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El día ya está sellado y no puede ser modificado.'
+            ], 422);
+        }
 
         // Estructura esperada del desglose de efectivo desde Vue 3:
         // bills: { '100': 2, '20': 5, ... }, coins: { '1': 4, '0.50': 10, ... }
@@ -109,6 +118,39 @@ class DailyCashCountController extends Controller
             'success' => true,
             'message' => 'Cuadrante de caja diario guardado con éxito!.',
             'data' => $count
+        ]);
+    }
+
+    /**
+     * Sellar el día para evitar modificaciones
+     */
+    public function seal(Request $request)
+    {
+        $request->validate([
+            'count_date' => 'required|date',
+        ]);
+
+        $count = DailyCashCount::where('count_date', $request->count_date)->first();
+
+        if (!$count) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede sellar el día porque no existe un arqueo guardado.'
+            ], 404);
+        }
+
+        if ($count->is_sealed) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El día ya se encuentra sellado.'
+            ], 422);
+        }
+
+        $count->update(['is_sealed' => true]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Día sellado correctamente. Ya no se permiten modificaciones.'
         ]);
     }
 }

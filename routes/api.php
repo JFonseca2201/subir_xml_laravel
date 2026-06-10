@@ -193,6 +193,7 @@ Route::group(
         // ============= RUTAS DE CAJA DIARIA ================ 
         Route::get('daily-cash-counts/status', [DailyCashCountController::class, 'getStatusByDate']);
         Route::post('daily-cash-counts/save', [DailyCashCountController::class, 'store']);
+        Route::post('daily-cash-counts/seal', [DailyCashCountController::class, 'seal']);
 
         // Excel Import Routes para Clientes y Vehículos
         Route::post('import/clients', [ExcelImportController::class, 'importClients']);

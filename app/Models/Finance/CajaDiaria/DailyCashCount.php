@@ -15,13 +15,15 @@ class DailyCashCount extends Model
         'grand_total',
         'cash_details',
         'observations',
+        'is_sealed',
         'user_id'
     ];
 
     // Convertimos el JSON de la BD en un array manipulable en Vue 3
     protected $casts = [
         'cash_details' => 'array',
-        'count_date' => 'date'
+        'count_date' => 'date',
+        'is_sealed' => 'boolean'
     ];
 
     public function user()
