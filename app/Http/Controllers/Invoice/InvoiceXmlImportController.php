@@ -65,21 +65,37 @@ class InvoiceXmlImportController extends Controller
             // Remove BOM if exists
             $xmlContent = preg_replace('/^\xEF\xBB\xBF/', '', $xmlContent);
 
-            $xml = simplexml_load_string($xmlContent, 'SimpleXMLElement', LIBXML_NOCDATA);
-
-            if ($xml === false) {
-                throw new \Exception('Archivo XML no válido.');
+            // Si el XML viene escapado como entidades HTML (Ej: comprobantes de ERP de ciertos proveedores)
+            if (stripos($xmlContent, '&lt;factura') !== false) {
+                $xmlContent = html_entity_decode($xmlContent, ENT_QUOTES | ENT_XML1, 'UTF-8');
             }
 
-            /** -----------------------------
-             * 2. HANDLE AUTORIZACION -> FACTURA
-             * ------------------------------*/
-            if (isset($xml->comprobante)) {
-                $xml = simplexml_load_string((string) $xml->comprobante, 'SimpleXMLElement', LIBXML_NOCDATA);
+            libxml_use_internal_errors(true);
+            $xml = false;
+
+            // El enfoque más infalible en Ecuador: Extraer estrictamente el nodo <factura> ignorando envolturas
+            if (preg_match('/<factura[\s\S]*?<\/factura>/i', $xmlContent, $matches)) {
+                $cleanXml = trim($matches[0]);
+                if (strpos($cleanXml, '<?xml') === false) {
+                    $cleanXml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . $cleanXml;
+                }
+                $xml = simplexml_load_string($cleanXml, 'SimpleXMLElement', LIBXML_NOCDATA);
+            } else {
+                // Fallback tradicional
+                $xml = simplexml_load_string($xmlContent, 'SimpleXMLElement', LIBXML_NOCDATA);
+                if ($xml !== false && isset($xml->comprobante)) {
+                    $xml = simplexml_load_string((string) $xml->comprobante, 'SimpleXMLElement', LIBXML_NOCDATA);
+                }
             }
 
             if ($xml === false || !isset($xml->infoTributaria)) {
-                throw new \Exception('XML no válido.');
+                $errors = libxml_get_errors();
+                $errorMsg = 'El archivo no es un XML válido del SRI o está corrupto.';
+                if (!empty($errors)) {
+                    $errorMsg .= ' (Detalle: ' . trim($errors[0]->message) . ')';
+                    libxml_clear_errors();
+                }
+                throw new \Exception($errorMsg);
             }
 
             /** -----------------------------
