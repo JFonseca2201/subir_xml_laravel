@@ -89,13 +89,13 @@ class SaleController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $sales
+                'data' => $sales
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener el historial de ventas.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -107,25 +107,25 @@ class SaleController extends Controller
     {
         // 1. Validación estricta de los datos que vienen del Vue 3
         $request->validate([
-            'document_type'   => 'required|in:quote,sale_note,invoice',
+            'document_type' => 'required|in:quote,sale_note,invoice',
             'document_number' => 'required|string|unique:sales,document_number',
-            'client_id'       => 'required|exists:clients,id',
-            'vehicle_id'      => 'nullable|exists:vehicles,id',
-            'work_order_id'   => 'nullable|exists:work_orders,id',
-            'mileage'         => 'nullable|integer',
-            'service_date'    => 'nullable|date',
-            'subtotal'        => 'required|numeric',
-            'tax_amount'      => 'required|numeric',
-            'total'           => 'required|numeric',
-            'payment_status'  => 'required|in:paid,partial,pending',
-            'is_credited'     => 'required|boolean',
-            'payment_method'  => 'required|string',
-            'observations'    => 'nullable|string',
-            'items'           => 'required|array|min:1', // El carrito no puede estar vacío
+            'client_id' => 'required|exists:clients,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'work_order_id' => 'nullable|exists:work_orders,id',
+            'mileage' => 'nullable|integer',
+            'service_date' => 'nullable|date',
+            'subtotal' => 'required|numeric',
+            'tax_amount' => 'required|numeric',
+            'total' => 'required|numeric',
+            'payment_status' => 'required|in:paid,partial,pending',
+            'is_credited' => 'required|boolean',
+            'payment_method' => 'required|string',
+            'observations' => 'nullable|string',
+            'items' => 'required|array|min:1', // El carrito no puede estar vacío
             'items.*.description' => 'required|string',
-            'items.*.quantity'    => 'required|integer|min:1',
-            'items.*.price'       => 'required|numeric',
-            'items.*.discount'    => 'required|numeric',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.price' => 'required|numeric',
+            'items.*.discount' => 'required|numeric',
             'payment_distributions' => 'nullable|array', // Pagos distribuidos entre diferentes cuentas
             'payment_distributions.*.account_id' => 'required|exists:accounts,id',
             'payment_distributions.*.amount' => 'required|numeric|min:0',
@@ -199,7 +199,7 @@ class SaleController extends Controller
                     $product = ModelsProduct::find($item['product_id']);
                     if ($product && $product->item_type == 1) {
                         // A. Validar que el precio final no sea menor al precio de compra (purchase_price)
-                        $itemDiscount = (float)($item['discount'] ?? 0.00);
+                        $itemDiscount = (float) ($item['discount'] ?? 0.00);
                         $finalPrice = ($item['quantity'] * $item['price']) - $itemDiscount;
                         $minFinalPrice = $item['quantity'] * ($product->purchase_price ?? 0.00);
                         if ($finalPrice < $minFinalPrice) {
@@ -244,33 +244,33 @@ class SaleController extends Controller
 
                 // A. Crear la cabecera de la venta
                 $sale = Sale::create([
-                    'document_type'   => $request->document_type,
+                    'document_type' => $request->document_type,
                     'document_number' => $request->document_number,
-                    'client_id'       => $request->client_id,
-                    'vehicle_id'      => $request->vehicle_id,
-                    'work_order_id'   => $request->work_order_id,
-                    'user_id'         => $request->user_id,
-                    'mileage'         => $request->mileage,
-                    'service_date'    => $request->service_date ?? now()->format('Y-m-d'),
-                    'subtotal'        => $request->subtotal,
-                    'tax_amount'      => $request->tax_amount,
-                    'total'           => $request->total,
-                    'status'          => $isDraft ? 'draft' : ($request->document_type === 'quote' ? 'pending' : 'completed'),
-                    'payment_status'  => $request->payment_status,
-                    'is_credited'     => $request->is_credited,
-                    'payment_method'  => $paymentMethod,
-                    'observations'    => $request->observations,
+                    'client_id' => $request->client_id,
+                    'vehicle_id' => $request->vehicle_id,
+                    'work_order_id' => $request->work_order_id,
+                    'user_id' => $request->user_id,
+                    'mileage' => $request->mileage,
+                    'service_date' => $request->service_date ?? now()->format('Y-m-d'),
+                    'subtotal' => $request->subtotal,
+                    'tax_amount' => $request->tax_amount,
+                    'total' => $request->total,
+                    'status' => $isDraft ? 'draft' : ($request->document_type === 'quote' ? 'pending' : 'completed'),
+                    'payment_status' => $request->payment_status,
+                    'is_credited' => $request->is_credited,
+                    'payment_method' => $paymentMethod,
+                    'observations' => $request->observations,
                 ]);
 
                 // B. Registrar cada producto/servicio del detalle
                 foreach ($request->items as $item) {
                     $sale->details()->create([
-                        'product_id'  => $item['product_id'] ?? null,
+                        'product_id' => $item['product_id'] ?? null,
                         'description' => $item['description'],
-                        'quantity'    => $item['quantity'],
-                        'price'       => $item['price'],
-                        'discount'    => $item['discount'] ?? 0.00,
-                        'total'       => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                        'discount' => $item['discount'] ?? 0.00,
+                        'total' => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
                     ]);
 
                     // Deducir stock solo si no es cotización y es producto físico
@@ -324,12 +324,12 @@ class SaleController extends Controller
 
                     // 3. Data para la plantilla HTML del correo
                     $data = [
-                        'titulo_asunto'     => ($sale->document_type === 'invoice' ? 'Factura' : 'Nota de Venta') . ' #' . $sale->document_number,
-                        'cliente'           => $sale->client->full_name ?? 'Cliente',
+                        'titulo_asunto' => ($sale->document_type === 'invoice' ? 'Factura' : 'Nota de Venta') . ' #' . $sale->document_number,
+                        'cliente' => $sale->client->full_name ?? 'Cliente',
                         'mensaje_principal' => 'Tu transacción ha sido procesada con éxito. Agradecemos tu confianza en Luxury Evys. Adjunto a este correo encontrarás el comprobante oficial en formato PDF con el detalle de los servicios prestados.',
-                        'vehiculo'          => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
-                        'placa'             => $sale->vehicle->license_plate ?? 'N/A',
-                        'accion'            => 'Comprobante de Servicio Generado'
+                        'vehiculo' => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
+                        'placa' => $sale->vehicle->license_plate ?? 'N/A',
+                        'accion' => 'Comprobante de Servicio Generado'
                     ];
 
                     // 4. Enviamos pasando la data y el PDF generado
@@ -342,7 +342,7 @@ class SaleController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Error al enviar el correo electrónico.',
-                        'error'   => $e->getMessage()
+                        'error' => $e->getMessage()
                     ], 201);
                 }
             }
@@ -353,14 +353,14 @@ class SaleController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'El registro se procesó correctamente.',
-                'data'    => $sale->load(['details', 'technicians'])
+                'data' => $sale->load(['details', 'technicians'])
             ], 201);
         } catch (Exception $e) {
             // Si algo truena dentro del bloque, el DB::transaction hace rollback automático
             return response()->json([
                 'success' => false,
                 'message' => 'Error al procesar la venta.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -632,7 +632,7 @@ class SaleController extends Controller
     {
         try {
             // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente, el vehículo y los registros financieros con pagos distribuidos y cuentas
-            $sale = Sale::with(['details.product', 'client', 'vehicle', 'technicians', 'financeRecord.paymentDistributions.account', 'workOrder'])->find((int)$id);
+            $sale = Sale::with(['details.product', 'client', 'vehicle', 'technicians', 'financeRecord.paymentDistributions.account', 'workOrder'])->find((int) $id);
 
             if (!$sale) {
                 return response()->json([
@@ -643,13 +643,13 @@ class SaleController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $sale
+                'data' => $sale
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener el detalle de la venta.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -665,9 +665,9 @@ class SaleController extends Controller
         // 1. Validamos los campos que se pueden editar
         $request->validate([
             'document_number' => 'nullable|string|unique:sales,document_number,' . $id,
-            'client_id'    => 'nullable|exists:clients,id',
-            'vehicle_id'   => 'nullable|exists:vehicles,id',
-            'mileage'      => 'nullable|integer',
+            'client_id' => 'nullable|exists:clients,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'mileage' => 'nullable|integer',
             'service_date' => 'nullable|date',
             'observations' => 'nullable|string',
             'payment_method' => 'nullable|string',
@@ -827,7 +827,7 @@ class SaleController extends Controller
                         $product = ModelsProduct::find($item['product_id']);
                         if ($product && $product->item_type == 1) {
                             // A. Validar que el precio final no sea menor al precio de compra (purchase_price)
-                            $itemDiscount = (float)($item['discount'] ?? 0.00);
+                            $itemDiscount = (float) ($item['discount'] ?? 0.00);
                             $finalPrice = ($item['quantity'] * $item['price']) - $itemDiscount;
                             $minFinalPrice = $item['quantity'] * ($product->purchase_price ?? 0.00);
                             if ($finalPrice < $minFinalPrice) {
@@ -1078,13 +1078,13 @@ class SaleController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'El registro fue actualizado correctamente.',
-                'data'    => $sale->load('details')
+                'data' => $sale->load('details')
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al actualizar el registro.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1154,7 +1154,7 @@ class SaleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar la venta.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1166,21 +1166,21 @@ class SaleController extends Controller
     {
         $request->validate([
             'document_number' => 'required|string|unique:sales,document_number',
-            'client_id'       => 'required|exists:clients,id',
-            'vehicle_id'      => 'nullable|exists:vehicles,id',
-            'work_order_id'   => 'nullable|exists:work_orders,id',
-            'mileage'         => 'nullable|integer',
-            'service_date'    => 'nullable|date',
-            'subtotal'        => 'required|numeric',
-            'tax_amount'      => 'required|numeric',
-            'total'           => 'required|numeric',
-            'observations'    => 'nullable|string',
-            'items'           => 'required|array|min:1',
+            'client_id' => 'required|exists:clients,id',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+            'work_order_id' => 'nullable|exists:work_orders,id',
+            'mileage' => 'nullable|integer',
+            'service_date' => 'nullable|date',
+            'subtotal' => 'required|numeric',
+            'tax_amount' => 'required|numeric',
+            'total' => 'required|numeric',
+            'observations' => 'nullable|string',
+            'items' => 'required|array|min:1',
             'items.*.description' => 'required|string',
-            'items.*.quantity'    => 'required|integer|min:1',
-            'items.*.price'       => 'required|numeric',
-            'items.*.discount'    => 'required|numeric',
-            'items.*.product_id'  => 'nullable|exists:products,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.price' => 'required|numeric',
+            'items.*.discount' => 'required|numeric',
+            'items.*.product_id' => 'nullable|exists:products,id',
             'technicians' => 'nullable|array',
             'technicians.*' => 'exists:employees,id',
         ]);
@@ -1226,33 +1226,33 @@ class SaleController extends Controller
             $sale = DB::transaction(function () use ($request, $linkedWorkOrder) {
                 // Crear la venta con pago pendiente
                 $sale = Sale::create([
-                    'document_type'   => 'sale_note',
+                    'document_type' => 'sale_note',
                     'document_number' => $request->document_number,
-                    'client_id'       => $request->client_id,
-                    'vehicle_id'      => $request->vehicle_id,
-                    'work_order_id'   => $request->work_order_id,
-                    'user_id'         => $request->user_id,
-                    'mileage'         => $request->mileage,
-                    'service_date'    => $request->service_date ?? now()->format('Y-m-d'),
-                    'subtotal'        => $request->subtotal,
-                    'tax_amount'      => $request->tax_amount,
-                    'total'           => $request->total,
-                    'status'          => 'completed',
-                    'payment_status'  => 'pending',
-                    'is_credited'     => true,
-                    'payment_method'  => 'credit',
-                    'observations'    => $request->observations,
+                    'client_id' => $request->client_id,
+                    'vehicle_id' => $request->vehicle_id,
+                    'work_order_id' => $request->work_order_id,
+                    'user_id' => $request->user_id,
+                    'mileage' => $request->mileage,
+                    'service_date' => $request->service_date ?? now()->format('Y-m-d'),
+                    'subtotal' => $request->subtotal,
+                    'tax_amount' => $request->tax_amount,
+                    'total' => $request->total,
+                    'status' => 'completed',
+                    'payment_status' => 'pending',
+                    'is_credited' => true,
+                    'payment_method' => 'credit',
+                    'observations' => $request->observations,
                 ]);
 
                 // Registrar cada producto/servicio del detalle
                 foreach ($request->items as $item) {
                     $sale->details()->create([
-                        'product_id'  => $item['product_id'] ?? null,
+                        'product_id' => $item['product_id'] ?? null,
                         'description' => $item['description'],
-                        'quantity'    => $item['quantity'],
-                        'price'       => $item['price'],
-                        'discount'    => $item['discount'] ?? 0.00,
-                        'total'       => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                        'discount' => $item['discount'] ?? 0.00,
+                        'total' => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
                     ]);
 
                     // Deducir stock
@@ -1280,13 +1280,13 @@ class SaleController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Venta despachada correctamente con pago pendiente.',
-                'data'    => $sale->load(['details', 'technicians'])
+                'data' => $sale->load(['details', 'technicians'])
             ], 201);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al despachar la venta.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1345,13 +1345,13 @@ class SaleController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Pago registrado correctamente.',
-                'data'    => $sale->load('details')
+                'data' => $sale->load('details')
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al registrar el pago.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1529,12 +1529,12 @@ class SaleController extends Controller
 
             // Preparamos los datos dinámicos utilizando las columnas exactas de tus modelos
             $data = [
-                'titulo_asunto'     => 'Presupuesto / Cotización #' . $sale->document_number,
-                'cliente'           => $sale->client->full_name ?? 'Cliente',
+                'titulo_asunto' => 'Presupuesto / Cotización #' . $sale->document_number,
+                'cliente' => $sale->client->full_name ?? 'Cliente',
                 'mensaje_principal' => 'Adjuntamos la cotización y el presupuesto solicitado para los mantenimientos, servicios o repuestos de tu vehículo. Recuerda que este documento es de carácter informativo.',
-                'vehiculo'          => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
-                'placa'             => $sale->vehicle->license_plate ?? 'N/A',
-                'accion'            => 'Cotización de Servicios de Taller'
+                'vehiculo' => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
+                'placa' => $sale->vehicle->license_plate ?? 'N/A',
+                'accion' => 'Cotización de Servicios de Taller'
             ];
 
             // Dentro de tu método enviarCotizacionPorCorreo():
@@ -1554,7 +1554,7 @@ class SaleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al despachar el correo de la cotización.',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }

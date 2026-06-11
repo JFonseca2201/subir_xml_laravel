@@ -2,63 +2,72 @@
 
 namespace App\Services;
 
-use App\Models\Sales\Sale;
-use App\Models\WorkOrder\WorkOrder;
-use App\Models\Supplier\PedidoDistribuidor;
 use Illuminate\Support\Facades\DB;
 
 class SequenceService
 {
     /**
-     * Parse the integer from a sequence string like PREFIX-0000123
+     * Generic sequence getter with lock
      */
-    private static function parseSequenceNumber(?string $number, string $prefix): int
+    private static function getNextSequenceValue(string $sequenceName, int $startValue = 0): int
     {
-        if (!$number || !preg_match('/' . preg_quote($prefix) . '-?(\d+)/i', $number, $matches)) {
-            return 0;
-        }
-        return (int) $matches[1];
+        return DB::transaction(function () use ($sequenceName, $startValue) {
+            $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
+
+            if (!$sequence) {
+                $sequenceId = DB::table('sequences')->insertGetId([
+                    'name' => $sequenceName,
+                    'current_value' => $startValue + 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                return $startValue + 1;
+            }
+
+            $newValue = $sequence->current_value + 1;
+            DB::table('sequences')->where('id', $sequence->id)->update([
+                'current_value' => $newValue,
+                'updated_at' => now(),
+            ]);
+
+            return $newValue;
+        });
     }
 
     /**
-     * Get the next sequence number for Direct Sales (V-0000001)
+     * Get the unified global sequence number for Sales and Work Orders
+     * Formatted as 9 digits (e.g. 000001846)
+     */
+    public static function getNextGlobalNumber(): string
+    {
+        $val = self::getNextSequenceValue('taller_global_sequence');
+        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Get the next sequence number for Direct Sales
      */
     public static function getNextDirectSaleNumber(): string
     {
-        $max = 0;
-        
-        // Buscamos solo los que tienen el prefijo V- (Ventas Directas)
-        Sale::where('document_number', 'like', 'V-%')
-            ->pluck('document_number')
-            ->each(function ($number) use (&$max) {
-                $max = max($max, self::parseSequenceNumber($number, 'V'));
-            });
-
-        return 'V-' . str_pad((string) ($max + 1), 7, '0', STR_PAD_LEFT);
+        return self::getNextGlobalNumber();
     }
 
     /**
-     * Get the next sequence number for Work Orders (OT-0000001)
+     * Get the next sequence number for Work Orders
      */
     public static function getNextWorkOrderNumber(): string
     {
-        // Reutilizamos la lógica existente que revisa tanto work_orders como sales vinculadas
-        return \App\Services\WorkOrder\WorkOrderSaleSync::formatNextNumber();
+        return self::getNextGlobalNumber();
     }
 
     /**
-     * Get the next sequence number for Pedidos a Distribuidor (P-0000001)
+     * Get the next sequence number for Pedidos a Distribuidor (P-YYYYMMDDXXX)
      */
     public static function getNextPedidoNumber(): string
     {
-        $max = 0;
-        
-        DB::table('pedidos_distribuidor')->where('number', 'like', 'P-%')
-            ->pluck('number')
-            ->each(function ($number) use (&$max) {
-                $max = max($max, self::parseSequenceNumber($number, 'P'));
-            });
-
-        return 'P-' . str_pad((string) ($max + 1), 7, '0', STR_PAD_LEFT);
+        $date = now()->format('Ymd');
+        $sequenceName = 'pedidos_sequence_' . $date;
+        $val = self::getNextSequenceValue($sequenceName);
+        return 'P-' . $date . str_pad((string) $val, 3, '0', STR_PAD_LEFT);
     }
 }

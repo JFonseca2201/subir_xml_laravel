@@ -9,38 +9,9 @@ use Illuminate\Http\Request;
 
 class WorkOrderSaleSync
 {
-    public static function parseOtNumber(?string $number): int
-    {
-        if (!$number || !preg_match('/OT-?(\d+)/i', $number, $matches)) {
-            return 0;
-        }
-
-        return (int) $matches[1];
-    }
-
-    /**
-     * Obtiene el mayor correlativo OT- usado en órdenes de trabajo y ventas.
-     */
-    public static function getMaxOtNumber(): int
-    {
-        $max = 0;
-
-        WorkOrder::withTrashed()->pluck('number')->each(function ($number) use (&$max) {
-            $max = max($max, self::parseOtNumber($number));
-        });
-
-        Sale::where('document_number', 'like', 'OT-%')
-            ->pluck('document_number')
-            ->each(function ($number) use (&$max) {
-                $max = max($max, self::parseOtNumber($number));
-            });
-
-        return $max;
-    }
-
     public static function formatNextNumber(): string
     {
-        return 'OT-' . str_pad((string) (self::getMaxOtNumber() + 1), 7, '0', STR_PAD_LEFT);
+        return \App\Services\SequenceService::getNextWorkOrderNumber();
     }
 
     /**
