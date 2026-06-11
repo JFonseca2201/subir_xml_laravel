@@ -9,6 +9,7 @@ use App\Models\Finance\FinanceRecord;
 use App\Models\Finance\PaymentDistribution;
 use App\Models\Finance\Account;
 use App\Models\Product\Product as ModelsProduct;
+use App\Services\SequenceService;
 use App\Services\WorkOrder\WorkOrderSaleSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class SaleController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => \App\Services\SequenceService::getNextDirectSaleNumber()
+            'data' => SequenceService::previewNextDirectSaleNumber()
         ]);
     }
 
@@ -140,8 +141,6 @@ class SaleController extends Controller
             if ($request->work_order_id) {
                 $linkedWorkOrder = WorkOrderSaleSync::assertReadyForInvoicing((int) $request->work_order_id);
                 $request->merge(['document_number' => $linkedWorkOrder->number]);
-            } else if (!$request->document_number) {
-                $request->merge(['document_number' => \App\Services\SequenceService::getNextDirectSaleNumber()]);
             }
 
             $isDraft = $request->boolean('is_draft');
@@ -242,10 +241,16 @@ class SaleController extends Controller
             // 4. Iniciamos la transacción para asegurar consistencia atómica
             $sale = DB::transaction(function () use ($request, $linkedWorkOrder, $paymentMethod, $isDraft) {
 
+                // Generar el número de documento dentro de la transacción si no existe
+                $documentNumber = $request->document_number;
+                if (!$documentNumber) {
+                    $documentNumber = \App\Services\SequenceService::getNextDirectSaleNumber();
+                }
+
                 // A. Crear la cabecera de la venta
                 $sale = Sale::create([
                     'document_type' => $request->document_type,
-                    'document_number' => $request->document_number,
+                    'document_number' => $documentNumber,
                     'client_id' => $request->client_id,
                     'vehicle_id' => $request->vehicle_id,
                     'work_order_id' => $request->work_order_id,

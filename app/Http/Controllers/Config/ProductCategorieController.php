@@ -43,7 +43,7 @@ class ProductCategorieController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'title' => 'required|string|max:255|unique:product_categories,title',
+            'title' => 'required|string|max:255',
             'state' => 'nullable|integer|in:0,1',
             'image' => 'nullable|image|max:2048',
         ]);
@@ -90,7 +90,7 @@ class ProductCategorieController extends Controller
     public function update(Request $request, string $id)
     {
         $request->validate([
-            'title' => 'required|string|max:255|unique:product_categories,title,' . $id,
+            'title' => 'required|string|max:255',
             'state' => 'nullable|integer|in:0,1',
             'image' => 'nullable|image|max:2048',
         ]);

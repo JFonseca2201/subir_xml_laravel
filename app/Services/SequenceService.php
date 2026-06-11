@@ -7,36 +7,51 @@ use Illuminate\Support\Facades\DB;
 class SequenceService
 {
     /**
-     * Generic sequence getter with lock
+     * Preview generic sequence value WITHOUT incrementing (for frontend display)
      */
-    private static function getNextSequenceValue(string $sequenceName, int $startValue = 0): int
+    public static function previewNextSequenceValue(string $sequenceName, int $startValue = 0): int
     {
-        return DB::transaction(function () use ($sequenceName, $startValue) {
-            $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
-
-            if (!$sequence) {
-                $sequenceId = DB::table('sequences')->insertGetId([
-                    'name' => $sequenceName,
-                    'current_value' => $startValue + 1,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-                return $startValue + 1;
-            }
-
-            $newValue = $sequence->current_value + 1;
-            DB::table('sequences')->where('id', $sequence->id)->update([
-                'current_value' => $newValue,
-                'updated_at' => now(),
-            ]);
-
-            return $newValue;
-        });
+        $sequence = DB::table('sequences')->where('name', $sequenceName)->first();
+        return $sequence ? $sequence->current_value + 1 : $startValue + 1;
     }
 
     /**
-     * Get the unified global sequence number for Sales and Work Orders
-     * Formatted as 9 digits (e.g. 000001846)
+     * Generic sequence getter with lock (Must be used inside DB::transaction)
+     */
+    public static function getNextSequenceValue(string $sequenceName, int $startValue = 0): int
+    {
+        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
+
+        if (!$sequence) {
+            DB::table('sequences')->insert([
+                'name' => $sequenceName,
+                'current_value' => $startValue + 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            return $startValue + 1;
+        }
+
+        $newValue = $sequence->current_value + 1;
+        DB::table('sequences')->where('name', $sequenceName)->update([
+            'current_value' => $newValue,
+            'updated_at' => now(),
+        ]);
+
+        return $newValue;
+    }
+
+    /**
+     * PREVIEW the unified global sequence number
+     */
+    public static function previewNextGlobalNumber(): string
+    {
+        $val = self::previewNextSequenceValue('taller_global_sequence');
+        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * GENERATE the unified global sequence number
      */
     public static function getNextGlobalNumber(): string
     {
@@ -45,11 +60,27 @@ class SequenceService
     }
 
     /**
+     * Preview the next sequence number for Direct Sales
+     */
+    public static function previewNextDirectSaleNumber(): string
+    {
+        return self::previewNextGlobalNumber();
+    }
+
+    /**
      * Get the next sequence number for Direct Sales
      */
     public static function getNextDirectSaleNumber(): string
     {
         return self::getNextGlobalNumber();
+    }
+
+    /**
+     * Preview the next sequence number for Work Orders
+     */
+    public static function previewNextWorkOrderNumber(): string
+    {
+        return self::previewNextGlobalNumber();
     }
 
     /**

@@ -19,7 +19,7 @@ class WorkOrderController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => \App\Services\SequenceService::getNextWorkOrderNumber()
+            'data' => \App\Services\SequenceService::previewNextWorkOrderNumber()
         ]);
     }
     /**
@@ -48,11 +48,9 @@ class WorkOrderController extends Controller
             'is_draft' => 'nullable|boolean',
         ]);
 
-        // Usar el número enviado si existe, de lo contrario autogenerar el número de orden de trabajo (OT-0001, OT-0002, etc.)
+        // Usar el número enviado si existe. Si no, se autogenerará dentro de la transacción.
         if ($request->filled('number')) {
             $validated['number'] = $request->input('number');
-        } else {
-            $validated['number'] = \App\Services\SequenceService::getNextWorkOrderNumber();
         }
         $validated['status'] = $request->boolean('is_draft') ? 'draft' : 'received';
 
@@ -97,28 +95,36 @@ class WorkOrderController extends Controller
             }
         }
 
-        $workOrder = WorkOrder::create($validated);
-
-        // Guardar los técnicos de la orden de trabajo
-        if (isset($validated['technicians']) && is_array($validated['technicians'])) {
-            $workOrder->technicians()->attach($validated['technicians']);
-        }
-
-        // Guardar los items de la orden de trabajo
-        if (isset($validated['items']) && is_array($validated['items'])) {
-            foreach ($validated['items'] as $item) {
-                $subtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-                $workOrder->items()->create([
-                    'product_id' => $item['product_id'] ?? null,
-                    'description' => $item['description'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'discount' => $item['discount'] ?? 0,
-                    'subtotal' => $subtotal,
-                    'type' => $item['type'],
-                ]);
+        $workOrder = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
+            if (empty($validated['number'])) {
+                $validated['number'] = \App\Services\SequenceService::getNextWorkOrderNumber();
             }
-        }
+
+            $workOrder = WorkOrder::create($validated);
+
+            // Guardar los técnicos de la orden de trabajo
+            if (isset($validated['technicians']) && is_array($validated['technicians'])) {
+                $workOrder->technicians()->attach($validated['technicians']);
+            }
+
+            // Guardar los items de la orden de trabajo
+            if (isset($validated['items']) && is_array($validated['items'])) {
+                foreach ($validated['items'] as $item) {
+                    $subtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
+                    $workOrder->items()->create([
+                        'product_id' => $item['product_id'] ?? null,
+                        'description' => $item['description'],
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'discount' => $item['discount'] ?? 0,
+                        'subtotal' => $subtotal,
+                        'type' => $item['type'],
+                    ]);
+                }
+            }
+
+            return $workOrder;
+        });
 
         return response()->json([
             'message' => 'Orden de trabajo creada exitosamente',

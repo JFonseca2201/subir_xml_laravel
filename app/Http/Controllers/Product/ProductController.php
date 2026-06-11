@@ -244,7 +244,7 @@ class ProductController extends Controller
             }
 
             // Validar campos requeridos
-            $request->validate([
+            $data = $request->validate([
                 'description' => 'required|string|max:255',
                 'sku' => 'nullable|string|max:50|unique:products,sku',
                 'product_categorie_id' => 'required|integer|exists:product_categories,id',
@@ -270,9 +270,8 @@ class ProductController extends Controller
             ]);
 
             // Sanitizar valores si es servicio (item_type = 2)
-            $data = $validator->validated();
 
-            if ($request->input('item_type') == 2) {
+            if ($data['item_type'] == 2) {
                 $data['stock'] = 0.00;
                 $data['min_stock'] = 0.00;
                 $data['max_stock'] = 0.00;
@@ -385,7 +384,7 @@ class ProductController extends Controller
                 }
             }
 
-            $request->validate([
+            $data = $request->validate([
                 'description' => 'required|string|max:255',
                 'sku' => 'nullable|string|max:50|unique:products,sku,' . $id,
                 'product_categorie_id' => 'required|integer|exists:product_categories,id',
@@ -411,8 +410,7 @@ class ProductController extends Controller
             ]);
 
             // Sanitizar valores si es servicio (item_type = 2)
-            $data = $validator->validated();
-            
+
             if ($request->input('item_type') == 2) {
                 $data['stock'] = 0.00;
                 $data['min_stock'] = 0.00;
