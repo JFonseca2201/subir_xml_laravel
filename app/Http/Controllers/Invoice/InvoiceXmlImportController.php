@@ -555,7 +555,6 @@ class InvoiceXmlImportController extends Controller
                             $account->updateBalance($invoiceModel->total, 1);
                         }
                     }
-
                 } else if ($validated['payment_type'] === 'aporte') {
                     if (empty($validated['partner_id'])) {
                         return response()->json([
@@ -612,7 +611,6 @@ class InvoiceXmlImportController extends Controller
                     if ($account) {
                         $account->updateBalance($invoiceModel->total, 1);
                     }
-
                 } else if ($validated['payment_type'] === 'credito') {
                     \App\Models\Finance\AccountPayable::create([
                         'supplier_id' => $invoiceModel->supplier_id,
