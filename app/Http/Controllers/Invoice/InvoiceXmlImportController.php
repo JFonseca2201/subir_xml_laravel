@@ -406,7 +406,7 @@ class InvoiceXmlImportController extends Controller
                 $code = $invoiceItem->code;
                 $description = $invoiceItem->description;
                 $quantity = $invoiceItem->quantity;
-                $unitPrice = $invoiceItem->unit_price;
+                $subtotal = $invoiceItem->subtotal; // Subtotal sin IVA, con descuentos aplicados
 
                 if ($item_type == 1) {
                     // Buscar producto por SKU o descripción
@@ -414,8 +414,12 @@ class InvoiceXmlImportController extends Controller
                         ->orWhere('description', $description)
                         ->first();
 
+                    // Calcular precio real de adquisición y venta
+                    $realPurchasePrice = $quantity > 0 ? ($subtotal / $quantity) : 0;
+                    $salePrice = $realPurchasePrice * 1.5; // Margen del 50%
+
                     if (!$product) {
-                        // Crear nuevo producto con valores quemados
+                        // Crear nuevo producto con el costo de adquisición calculado
                         $product = Product::create([
                             'description' => $description,
                             'sku' => $code,
@@ -426,11 +430,11 @@ class InvoiceXmlImportController extends Controller
                             'warehouse_id' => 1,
                             'unit_id' => 1,
                             'supplier_id' => $invoiceModel->supplier_id,
-                            'price' => $unitPrice * 1.55,
-                            'price_sale' => $unitPrice * 1.55,
-                            'purchase_price' => $unitPrice,
+                            'price' => $realPurchasePrice,
+                            'price_sale' => $salePrice,
+                            'purchase_price' => $realPurchasePrice,
                             'tax_rate' => 15,
-                            'max_discount' => (float) ((($unitPrice * 1.55) - ($unitPrice)) * 0.25),
+                            'max_discount' => (float) ($salePrice * 0.25),
                             'discount_percentage' => 25,
                             'brand' => 'SM',
                             'stock' => $quantity,
@@ -444,8 +448,12 @@ class InvoiceXmlImportController extends Controller
                         ]);
                         $processedCount++;
                     } else {
-                        // Actualizar stock del producto existente
+                        // Actualizar producto existente (stock y precios en base a última compra)
                         $product->stock += $quantity;
+                        $product->price = $realPurchasePrice;
+                        $product->price_sale = $salePrice;
+                        $product->purchase_price = $realPurchasePrice;
+                        $product->max_discount = (float) ($salePrice * 0.25);
                         $product->save();
                         $processedCount++;
                     }
