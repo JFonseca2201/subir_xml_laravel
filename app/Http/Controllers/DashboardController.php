@@ -32,11 +32,10 @@ class DashboardController extends Controller
             ->whereRaw('stock <= min_stock')
             ->count();
 
-        // Get details of top 5 low stock products to show in tooltip/list
+        // Get details of all low stock products to show in the list
         $lowStockProducts = Product::where('item_type', 1)
             ->whereRaw('stock <= min_stock')
             ->orderBy('stock', 'asc')
-            ->take(5)
             ->get(['id', 'description', 'sku', 'stock', 'min_stock']);
 
         // Date ranges for current month and current year YTD
@@ -216,6 +215,67 @@ class DashboardController extends Controller
                 ];
             });
 
+        // 8. Work Orders Report (Rendimiento de Técnicos / OTs)
+        // OT Totales grouped by status
+        $otTotales = \App\Models\WorkOrder\WorkOrder::select('status', DB::raw('count(*) as count'))
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->groupBy('status')
+            ->get()
+            ->map(function ($item) {
+                return ['status' => $item->status, 'count' => $item->count];
+            });
+
+        // SLA (Días para cerrar OTs)
+        $slas = \App\Models\WorkOrder\WorkOrder::whereIn('status', ['CERRADA_OK', 'FINALIZADA', 'FINALIZADO'])
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->get(['created_at', 'updated_at']);
+        
+        $slaBuckets = [
+            '1 día' => 0,
+            '2-3 días' => 0,
+            '4-7 días' => 0,
+            '+8 días' => 0
+        ];
+        
+        foreach ($slas as $sla) {
+            $days = $sla->created_at->diffInDays($sla->updated_at);
+            if ($days <= 1) {
+                $slaBuckets['1 día']++;
+            } elseif ($days <= 3) {
+                $slaBuckets['2-3 días']++;
+            } elseif ($days <= 7) {
+                $slaBuckets['4-7 días']++;
+            } else {
+                $slaBuckets['+8 días']++;
+            }
+        }
+
+        // Técnicos (Work Orders per technician by status)
+        $technicianReportRaw = DB::table('work_order_technicians')
+            ->join('work_orders', 'work_order_technicians.work_order_id', '=', 'work_orders.id')
+            ->join('employees', 'work_order_technicians.employee_id', '=', 'employees.id')
+            ->select('employees.first_name', 'employees.last_name', 'work_orders.status', DB::raw('count(*) as count'))
+            ->whereBetween('work_orders.created_at', [$startOfMonth, $endOfMonth])
+            ->groupBy('employees.id', 'employees.first_name', 'employees.last_name', 'work_orders.status')
+            ->get();
+
+        $techniciansData = [];
+        foreach ($technicianReportRaw as $row) {
+            // First Name only to keep chart labels small, plus initial of surname
+            $techName = trim($row->first_name . ' ' . substr($row->last_name, 0, 1) . '.');
+            if (!isset($techniciansData[$techName])) {
+                $techniciansData[$techName] = [];
+            }
+            $techniciansData[$techName][$row->status] = $row->count;
+        }
+
+        // Satisfacción (Mocked as there's no DB field currently)
+        $satisfactionMock = [
+            ['status' => 'Muy conforme', 'count' => rand(70, 90)],
+            ['status' => 'Conforme', 'count' => rand(10, 20)],
+            ['status' => 'Disconforme', 'count' => rand(0, 5)],
+        ];
+
         return response()->json([
             'status' => 200,
             'data' => [
@@ -226,7 +286,13 @@ class DashboardController extends Controller
                     'low_stock_products' => $lowStockProducts,
                     'monthly_sales' => round($totalSales, 2),
                     'monthly_expenses' => round($totalExpenses, 2),
-                    'monthly_balance' => round($monthlyBalance, 2)
+                    'monthly_balance' => round($monthlyBalance, 2),
+                    'work_orders_report' => [
+                        'ot_totales' => $otTotales,
+                        'sla' => $slaBuckets,
+                        'technicians' => $techniciansData,
+                        'satisfaction' => $satisfactionMock
+                    ]
                 ],
                 'sales_by_type' => [
                     'products' => round($productRevenue, 2),
