@@ -150,22 +150,34 @@ class InvoiceXmlImportController extends Controller
                 $globalDiscount = (float) $xml->infoFactura->totalDescuento;
             }
 
+            $subtotal_factura = $request->has('taller_subtotal') ? (float) $request->taller_subtotal : (float) $xml->infoFactura->totalSinImpuestos;
+            $tax_factura = $request->has('taller_iva') ? (float) $request->taller_iva : $tax;
+            $total_factura = $request->has('taller_total') ? (float) $request->taller_total : (float) $xml->infoFactura->importeTotal;
+
             $invoice = Invoice::create([
                 'supplier_id' => $supplier->id,
                 'access_key' => $accessKey,
                 'invoice_number' => (string) $xml->infoTributaria->secuencial,
                 'issue_date' => $issueDate,
-                'subtotal' => (float) $xml->infoFactura->totalSinImpuestos,
+                'subtotal' => $subtotal_factura,
                 'discount' => $globalDiscount,
-                'tax' => $tax,
-                'total' => (float) $xml->infoFactura->importeTotal,
+                'tax' => $tax_factura,
+                'total' => $total_factura,
                 'invoice_process' => 2, // 2 = no procesado por defecto
             ]);
 
             /** -----------------------------
              * 6. INVOICE ITEMS (PRODUCTS)
              * ------------------------------*/
+            $selectedIndicesJson = $request->input('selected_indices');
+            $selectedIndices = $selectedIndicesJson ? json_decode($selectedIndicesJson, true) : null;
+
+            $itemIndex = 0;
             foreach ($xml->detalles->detalle as $item) {
+                if ($selectedIndices !== null && !in_array($itemIndex, $selectedIndices)) {
+                    $itemIndex++;
+                    continue;
+                }
                 // Descuento por línea
                 $lineDiscount = isset($item->descuento) ? (float) $item->descuento : 0;
 
@@ -207,6 +219,8 @@ class InvoiceXmlImportController extends Controller
                     'total' => $total,
                     'item_type' => $item_type,
                 ]);
+
+                $itemIndex++;
             }
 
             DB::commit();
