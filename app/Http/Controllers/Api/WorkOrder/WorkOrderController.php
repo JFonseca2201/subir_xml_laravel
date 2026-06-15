@@ -83,9 +83,11 @@ class WorkOrderController extends Controller
                             $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
                             $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
                             if ($itemDiscount > $maxDiscountAmount) {
+                                $maxRounded = number_format($maxDiscountAmount, 2);
+                                $ingresadoRounded = number_format($itemDiscount, 2);
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$itemDiscount}",
+                                    'message' => "El descuento de \${$ingresadoRounded} ingresado en el producto '{$product->description}' supera el límite permitido. El descuento máximo aceptado para este producto es de \${$maxRounded} ({$product->max_discount}%).",
                                     'error' => 'discount_exceeded'
                                 ], 400);
                             }
@@ -190,9 +192,11 @@ class WorkOrderController extends Controller
                             $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
                             $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
                             if ($itemDiscount > $maxDiscountAmount) {
+                                $maxRounded = number_format($maxDiscountAmount, 2);
+                                $ingresadoRounded = number_format($itemDiscount, 2);
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "Descuento excede el máximo permitido para el producto: {$product->description}. Máximo: {$maxDiscountAmount}, Ingresado: {$itemDiscount}",
+                                    'message' => "El descuento de \${$ingresadoRounded} ingresado en el producto '{$product->description}' supera el límite permitido. El descuento máximo aceptado para este producto es de \${$maxRounded} ({$product->max_discount}%).",
                                     'error' => 'discount_exceeded'
                                 ], 400);
                             }
