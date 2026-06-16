@@ -627,7 +627,7 @@ class EmployeeExpenseController extends Controller
     {
         $timezone = 'America/Guayaquil';
         $carbonDate = Carbon::parse($date, $timezone);
-        
+
         $hoy = Carbon::now($timezone)->format('Y-m-d');
         $ayer = Carbon::now($timezone)->subDay()->format('Y-m-d');
         $fechaFormat = $carbonDate->format('Y-m-d');
@@ -638,6 +638,100 @@ class EmployeeExpenseController extends Controller
             return 'Ayer';
         } else {
             return $carbonDate->locale('es')->translatedFormat('l d F');
+        }
+    }
+
+    public function generateSinglePDF($type, $id)
+    {
+        try {
+            $record = null;
+            $fecha = null;
+
+            if ($type === 'payment') {
+                $record = EmployeePayment::with(['employee', 'account'])->findOrFail($id);
+                $fecha = $record->payment_date;
+            } else if ($type === 'advance') {
+                $record = EmployeeAdvance::with(['employee', 'account'])->findOrFail($id);
+                $fecha = $record->advance_date;
+            } else {
+                return response()->json(['error' => 'Tipo inválido'], 400);
+            }
+
+            // Preparar el logo
+            $sucursal = \App\Models\Config\Sucursale::first();
+            $logoBase64 = '';
+            $logoPath = null;
+            if ($sucursal && $sucursal->logo) {
+                $tempPath = public_path($sucursal->logo);
+                if (file_exists($tempPath)) {
+                    $logoPath = $tempPath;
+                } else {
+                    $cleanLogo = str_replace('storage/', '', $sucursal->logo);
+                    $tempPath = storage_path('app/public/' . $cleanLogo);
+                    if (file_exists($tempPath)) {
+                        $logoPath = $tempPath;
+                    }
+                }
+            }
+            if (!$logoPath || !file_exists($logoPath)) {
+                $logoPath = public_path('assets/img/brand/logo.jpeg');
+            }
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoMime = 'image/jpeg';
+                $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                if ($ext === 'png') $logoMime = 'image/png';
+                elseif ($ext === 'gif') $logoMime = 'image/gif';
+                elseif ($ext === 'svg') $logoMime = 'image/svg+xml';
+                $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+            }
+
+            // Mapear nombre de la cuenta
+            $accountName = 'N/A';
+            if ($record->account) {
+                switch ($record->account->id) {
+                    case 1:
+                        $accountName = 'EFECTIVO';
+                        break;
+                    case 2:
+                        $accountName = 'Banco Pichincha';
+                        break;
+                    case 3:
+                        $accountName = 'Banco Guayaquil';
+                        break;
+                    default:
+                        $accountName = 'EFECTIVO';
+                        break;
+                }
+            }
+
+            // Objeto compatible con la vista generic single_pdf
+            $movement = new \stdClass();
+            $movement->id = $record->id;
+            $movement->entry_date = $fecha;
+            $movement->created_at = $record->created_at;
+            $movement->description = ($type === 'payment' ? 'Pago Nómina: ' : 'Adelanto: ') .
+                ($record->employee ? $record->employee->full_name : '') .
+                ($record->description ? ' - ' . $record->description : '');
+            $movement->amount = $record->amount;
+            $movement->work_order_number = null;
+            $movement->invoice_number = $record->reference ?? null;
+
+            $employeeName = $record->employee ? $record->employee->first_name . ' ' . $record->employee->last_name : 'N/A';
+            $customTitle = ($type === 'payment' ? 'Pago Nómina' : 'Adelanto Empleado') . ' - ' . $employeeName;
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('movimientos.single_pdf', [
+                'movement' => $movement,
+                'type_string' => 'expense',
+                'account_name' => $accountName,
+                'logoBase64' => $logoBase64,
+                'custom_title' => $customTitle
+            ]);
+
+            return $pdf->download($type . '_' . $id . '_' . $employeeName . '_' . date('Y-m-d') . '.pdf');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error generating employee single PDF: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 }

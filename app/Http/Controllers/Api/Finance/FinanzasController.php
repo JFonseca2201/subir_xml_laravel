@@ -120,4 +120,74 @@ class FinanzasController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    public function generateSinglePDF($id)
+    {
+        try {
+            $movement = \App\Models\Finance\FinanceRecord::with(['paymentDistributions.account'])->findOrFail($id);
+
+            // Preparar data compatible con la vista, que usaba FinancialMovement
+            // Los campos relevantes son: type (income/expense/transfer), entry_date, description, amount
+            // metadata (para transferencias), account (o paymentDistributions)
+            
+            // Transformar el type (0=income, 1=expense) a string para la vista
+            $movementType = $movement->type === 0 ? 'income' : 'expense';
+            $movement->type_string = $movementType;
+
+            // Obtener las cuentas afectadas y mapear nombres
+            $accountName = 'N/A';
+            if ($movement->paymentDistributions && $movement->paymentDistributions->count() > 0) {
+                $accountName = $movement->paymentDistributions->map(function($pd) {
+                    if (!$pd->account) return 'N/A';
+                    switch ($pd->account->id) {
+                        case 1: return 'EFECTIVO';
+                        case 2: return 'Banco Pichincha';
+                        case 3: return 'Banco Guayaquil';
+                        default: return 'EFECTIVO';
+                    }
+                })->implode(', ');
+            }
+
+            // Preparar el logo
+            $sucursal = \App\Models\Config\Sucursale::first();
+            $logoBase64 = '';
+            $logoPath = null;
+            if ($sucursal && $sucursal->logo) {
+                $tempPath = public_path($sucursal->logo);
+                if (file_exists($tempPath)) {
+                    $logoPath = $tempPath;
+                } else {
+                    $cleanLogo = str_replace('storage/', '', $sucursal->logo);
+                    $tempPath = storage_path('app/public/' . $cleanLogo);
+                    if (file_exists($tempPath)) {
+                        $logoPath = $tempPath;
+                    }
+                }
+            }
+            if (!$logoPath || !file_exists($logoPath)) {
+                $logoPath = public_path('assets/img/brand/logo.jpeg');
+            }
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoMime = 'image/jpeg';
+                $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                if ($ext === 'png') $logoMime = 'image/png';
+                elseif ($ext === 'gif') $logoMime = 'image/gif';
+                elseif ($ext === 'svg') $logoMime = 'image/svg+xml';
+                $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+            }
+
+            $pdf = Pdf::loadView('movimientos.single_pdf', [
+                'movement' => $movement,
+                'type_string' => $movementType,
+                'account_name' => $accountName,
+                'logoBase64' => $logoBase64
+            ]);
+
+            return $pdf->download('comprobante_' . $movementType . '_' . $id . '.pdf');
+        } catch (\Exception $e) {
+            Log::error('Error generating single movement PDF: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

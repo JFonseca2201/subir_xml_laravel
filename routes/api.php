@@ -140,6 +140,7 @@ Route::group(
         Route::delete('employee-expenses/{id}', [EmployeeExpenseController::class, 'destroy']);
         Route::get('employee-earnings/{id}', [EmployeeExpenseController::class, 'getEmployeeEarnings']);
         Route::get('employee-pending-advances/{id}', [EmployeeExpenseController::class, 'getEmployeePendingAdvances']);
+        Route::get('employee-expenses/{type}/{id}/pdf', [EmployeeExpenseController::class, 'generateSinglePDF']);
 
         // ============= RUTAS DE ADELANTOS ==========
         Route::post('employee-expenses/advance', [EmployeeExpenseController::class, 'storeAdvance']);
@@ -170,6 +171,7 @@ Route::group(
         // ============= RUTAS DE DASHBOARD FINANCIERO ==========
         Route::get('dashboard-financiero', [FinanzasController::class, 'getDashboardData']);
         Route::post('financial-movements/pdf', [FinanzasController::class, 'generatePDF']);
+        Route::get('financial-movements/{id}/pdf', [FinanzasController::class, 'generateSinglePDF']);
 
         // ============= RUTAS DE SALES ==========
         Route::get('sales/next-number', [SaleController::class, 'getNextNumber']);
