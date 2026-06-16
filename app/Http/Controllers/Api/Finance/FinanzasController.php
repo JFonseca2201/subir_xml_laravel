@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Models\Config\Sucursale;
 
 class FinanzasController extends Controller
 {
@@ -153,7 +154,7 @@ class FinanzasController extends Controller
             }
 
             // Preparar el logo
-            $sucursal = \App\Models\Config\Sucursale::first();
+            $sucursal = Sucursale::query()->first();
             $logoBase64 = '';
             $logoPath = null;
             if ($sucursal && $sucursal->logo) {

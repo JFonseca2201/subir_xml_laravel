@@ -658,7 +658,7 @@ class EmployeeExpenseController extends Controller
             }
 
             // Preparar el logo
-            $sucursal = \App\Models\Config\Sucursale::first();
+            $sucursal = \App\Models\Config\Sucursale::query()->first();
             $logoBase64 = '';
             $logoPath = null;
             if ($sucursal && $sucursal->logo) {
