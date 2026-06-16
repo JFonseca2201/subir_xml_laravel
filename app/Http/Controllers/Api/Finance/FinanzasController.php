@@ -37,7 +37,7 @@ class FinanzasController extends Controller
 
             // El balance actual se puede calcular restando totales o sumando todo
             'currentBalance' => (float) FinancialMovement::where('type', 'income')->sum('amount') -
-                               FinancialMovement::where('type', 'expense')->sum('amount')
+                FinancialMovement::where('type', 'expense')->sum('amount')
         ];
 
         return response()->json([
@@ -104,7 +104,7 @@ class FinanzasController extends Controller
                 'totalIncome' => (float) $movements->where('type', 'income')->sum('amount'),
                 'totalExpense' => (float) $movements->where('type', 'expense')->sum('amount'),
                 'balance' => (float) $movements->where('type', 'income')->sum('amount') -
-                            $movements->where('type', 'expense')->sum('amount'),
+                    $movements->where('type', 'expense')->sum('amount'),
                 'totalCount' => $movements->count()
             ];
 
@@ -121,7 +121,7 @@ class FinanzasController extends Controller
         }
     }
 
-    public function generateSinglePDF($id)
+    public function generateSinglePDF(int $id)
     {
         try {
             $movement = \App\Models\Finance\FinanceRecord::with(['paymentDistributions.account'])->findOrFail($id);
@@ -129,7 +129,7 @@ class FinanzasController extends Controller
             // Preparar data compatible con la vista, que usaba FinancialMovement
             // Los campos relevantes son: type (income/expense/transfer), entry_date, description, amount
             // metadata (para transferencias), account (o paymentDistributions)
-            
+
             // Transformar el type (0=income, 1=expense) a string para la vista
             $movementType = $movement->type === 0 ? 'income' : 'expense';
             $movement->type_string = $movementType;
@@ -137,13 +137,17 @@ class FinanzasController extends Controller
             // Obtener las cuentas afectadas y mapear nombres
             $accountName = 'N/A';
             if ($movement->paymentDistributions && $movement->paymentDistributions->count() > 0) {
-                $accountName = $movement->paymentDistributions->map(function($pd) {
+                $accountName = $movement->paymentDistributions->map(function ($pd) {
                     if (!$pd->account) return 'N/A';
                     switch ($pd->account->id) {
-                        case 1: return 'EFECTIVO';
-                        case 2: return 'Banco Pichincha';
-                        case 3: return 'Banco Guayaquil';
-                        default: return 'EFECTIVO';
+                        case 1:
+                            return 'EFECTIVO';
+                        case 2:
+                            return 'Banco Pichincha';
+                        case 3:
+                            return 'Banco Guayaquil';
+                        default:
+                            return 'EFECTIVO';
                     }
                 })->implode(', ');
             }
