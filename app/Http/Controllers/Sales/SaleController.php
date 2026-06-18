@@ -241,10 +241,11 @@ class SaleController extends Controller
             // 4. Iniciamos la transacción para asegurar consistencia atómica
             $sale = DB::transaction(function () use ($request, $linkedWorkOrder, $paymentMethod, $isDraft) {
 
-                // Generar el número de documento dentro de la transacción si no existe
-                $documentNumber = $request->document_number;
-                if (!$documentNumber) {
-                    $documentNumber = \App\Services\SequenceService::getNextDirectSaleNumber();
+                // Consumir el número de documento de forma segura solo si NO viene de una orden de trabajo
+                if ($linkedWorkOrder) {
+                    $documentNumber = $linkedWorkOrder->number;
+                } else {
+                    $documentNumber = \App\Services\SequenceService::consumeGlobalNumber($request->document_number);
                 }
 
                 // A. Crear la cabecera de la venta

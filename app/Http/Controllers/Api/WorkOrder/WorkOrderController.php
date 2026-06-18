@@ -98,9 +98,7 @@ class WorkOrderController extends Controller
         }
 
         $workOrder = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
-            if (empty($validated['number'])) {
-                $validated['number'] = \App\Services\SequenceService::getNextWorkOrderNumber();
-            }
+            $validated['number'] = \App\Services\SequenceService::consumeGlobalNumber($validated['number'] ?? null);
 
             $workOrder = WorkOrder::create($validated);
 
@@ -234,6 +232,30 @@ class WorkOrderController extends Controller
             'message' => 'Orden de trabajo actualizada exitosamente',
             'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items'])
         ], 200);
+    }
+
+    /**
+     * Remove the specified work order from storage.
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        $workOrder = WorkOrder::findOrFail($id);
+
+        if ($workOrder->sale()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede eliminar una orden de trabajo que ya ha sido facturada o cobrada.'
+            ], 400);
+        }
+
+        $workOrder->items()->delete();
+        $workOrder->technicians()->detach();
+        $workOrder->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Orden de trabajo eliminada exitosamente'
+        ]);
     }
 
     /**

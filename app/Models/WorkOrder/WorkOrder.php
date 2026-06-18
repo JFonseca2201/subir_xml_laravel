@@ -52,7 +52,7 @@ class WorkOrder extends Model
      */
     public function client()
     {
-        return $this->belongsTo(Client::class , 'client_id');
+        return $this->belongsTo(Client::class, 'client_id');
     }
 
     /**
@@ -60,7 +60,7 @@ class WorkOrder extends Model
      */
     public function vehicle()
     {
-        return $this->belongsTo(Vehicle::class , 'vehicle_id');
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
     }
 
     /**
@@ -68,7 +68,7 @@ class WorkOrder extends Model
      */
     public function user()
     {
-        return $this->belongsTo(User::class , 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
@@ -76,7 +76,7 @@ class WorkOrder extends Model
      */
     public function sale()
     {
-        return $this->hasOne(Sale::class , 'work_order_id');
+        return $this->hasOne(Sale::class, 'work_order_id');
     }
 
     /**
@@ -92,6 +92,6 @@ class WorkOrder extends Model
      */
     public function technicians()
     {
-        return $this->belongsToMany(Employee::class , 'work_order_technicians');
+        return $this->belongsToMany(Employee::class, 'work_order_technicians');
     }
 }

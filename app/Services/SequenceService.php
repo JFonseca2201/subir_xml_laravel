@@ -60,6 +60,57 @@ class SequenceService
     }
 
     /**
+     * Consume or generate the sequence number safely
+     */
+    public static function consumeGlobalNumber(?string $requestedNumber = null): string
+    {
+        $sequenceName = 'taller_global_sequence';
+        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
+        $current = $sequence ? $sequence->current_value : 0;
+
+        if (empty($requestedNumber)) {
+            $next = $current + 1;
+            self::updateSequence($sequenceName, $next, $sequence != null);
+            return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
+        }
+
+        $requestedInt = (int)$requestedNumber;
+        // Check if it's formatted as a standard sequence number or just a number
+        if ((string)$requestedInt === $requestedNumber || str_pad((string)$requestedInt, 9, '0', STR_PAD_LEFT) === $requestedNumber) {
+            if ($requestedInt <= $current) {
+                // Number already taken or old preview, generate a fresh one
+                $next = $current + 1;
+                self::updateSequence($sequenceName, $next, $sequence != null);
+                return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
+            } else {
+                // Number is ahead of sequence, fast-forward the sequence
+                self::updateSequence($sequenceName, $requestedInt, $sequence != null);
+                return str_pad((string) $requestedInt, 9, '0', STR_PAD_LEFT);
+            }
+        }
+
+        // Custom string (e.g. "FACT-999")
+        return $requestedNumber;
+    }
+
+    private static function updateSequence(string $sequenceName, int $value, bool $exists)
+    {
+        if ($exists) {
+            DB::table('sequences')->where('name', $sequenceName)->update([
+                'current_value' => $value,
+                'updated_at' => now(),
+            ]);
+        } else {
+            DB::table('sequences')->insert([
+                'name' => $sequenceName,
+                'current_value' => $value,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    /**
      * Preview the next sequence number for Direct Sales
      */
     public static function previewNextDirectSaleNumber(): string
