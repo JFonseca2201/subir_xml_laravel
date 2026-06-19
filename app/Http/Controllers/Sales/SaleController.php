@@ -41,7 +41,7 @@ class SaleController extends Controller
         try {
             // Iniciamos la consulta cargando las relaciones clave (Eager Loading)
             // Esto evita el problema de consultas N+1 y hace que la API vuele
-            $query = Sale::with(['client', 'vehicle', 'user', 'workOrder']);
+            $query = Sale::with(['client', 'vehicle', 'user', 'workOrder', 'financeRecord.paymentDistributions']);
 
             // 1. Filtro por búsqueda (nombre, cédula del cliente, placa de vehículo o número de documento)
             if ($request->has('search') && $request->search != '') {
@@ -147,7 +147,9 @@ class SaleController extends Controller
 
             // Validar pagos distribuidos solo si no es cotización y no es borrador
             if ($request->document_type !== 'quote' && !$isDraft) {
-                if (!$request->has('payment_distributions') || !is_array($request->payment_distributions) || count($request->payment_distributions) === 0) {
+                $hasDistributions = $request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0;
+                
+                if (!$hasDistributions && !$request->boolean('is_credited')) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Debe registrar al menos un pago para la venta.',
@@ -155,8 +157,9 @@ class SaleController extends Controller
                     ], 400);
                 }
 
-                $totalDist = array_sum(array_column($request->payment_distributions, 'amount'));
-                if ($totalDist <= 0) {
+                $totalDist = $hasDistributions ? array_sum(array_column($request->payment_distributions, 'amount')) : 0;
+                
+                if ($totalDist <= 0 && !$request->boolean('is_credited')) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Debe registrar al menos un pago para la venta.',
@@ -172,7 +175,14 @@ class SaleController extends Controller
                     ], 400);
                 }
 
-                $paymentStatus = (abs($totalDist - $request->total) <= 0.01) ? 'paid' : 'pending';
+                if (abs($totalDist - $request->total) <= 0.01) {
+                    $paymentStatus = 'paid';
+                } elseif ($totalDist > 0) {
+                    $paymentStatus = 'partial';
+                } else {
+                    $paymentStatus = 'pending';
+                }
+
                 $request->merge(['payment_status' => $paymentStatus]);
             }
 
@@ -403,13 +413,24 @@ class SaleController extends Controller
 
         $paymentMethod = $request->payment_method ?? $sale->payment_method ?? 'Efectivo';
 
+        $totalPaid = 0;
+        if ($request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0) {
+            $totalPaid = collect($request->payment_distributions)->sum('amount');
+        } else {
+            if ($sale->payment_status === 'paid') {
+                $totalPaid = $sale->total;
+            } else {
+                $totalPaid = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : $sale->total;
+            }
+        }
+
         // 3. Crear/Actualizar el registro financiero principal
         $financeRecord->fill([
             'entry_date' => $entryDate,
             'type' => FinanceRecord::TYPE_INCOME,
             'account_id' => 1, // Default
             'payment_method' => $paymentMethod,
-            'amount' => $sale->total,
+            'amount' => $totalPaid,
             'work_order_number' => WorkOrderSaleSync::resolveFinanceWorkOrderNumber(
                 $sale->work_order_id,
                 $sale->document_number
@@ -734,6 +755,7 @@ class SaleController extends Controller
             $docType = $request->has('document_type') ? $request->document_type : $sale->document_type;
             if ($docType !== 'quote' && !$isDraft) {
                 $hasDistributions = $request->has('payment_distributions');
+                $isCredited = $request->has('is_credited') ? $request->boolean('is_credited') : $sale->is_credited;
 
                 // Recalcular el total esperado de los items
                 $finalTotal = $sale->total;
@@ -748,7 +770,7 @@ class SaleController extends Controller
 
                 if ($hasDistributions) {
                     $distributions = $request->payment_distributions;
-                    if (!is_array($distributions) || count($distributions) === 0) {
+                    if ((!is_array($distributions) || count($distributions) === 0) && !$isCredited) {
                         return response()->json([
                             'success' => false,
                             'message' => 'Debe registrar al menos un pago para la venta.',
@@ -756,8 +778,8 @@ class SaleController extends Controller
                         ], 400);
                     }
 
-                    $totalDist = array_sum(array_column($distributions, 'amount'));
-                    if ($totalDist <= 0) {
+                    $totalDist = (is_array($distributions) && count($distributions) > 0) ? array_sum(array_column($distributions, 'amount')) : 0;
+                    if ($totalDist <= 0 && !$isCredited) {
                         return response()->json([
                             'success' => false,
                             'message' => 'Debe registrar al menos un pago para la venta.',
@@ -773,11 +795,17 @@ class SaleController extends Controller
                         ], 400);
                     }
 
-                    $paymentStatus = (abs($totalDist - $finalTotal) <= 0.01) ? 'paid' : 'pending';
+                    if (abs($totalDist - $finalTotal) <= 0.01) {
+                        $paymentStatus = 'paid';
+                    } elseif ($totalDist > 0) {
+                        $paymentStatus = 'partial';
+                    } else {
+                        $paymentStatus = 'pending';
+                    }
                     $request->merge(['payment_status' => $paymentStatus]);
                 } else {
                     $totalDist = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : 0;
-                    if ($totalDist <= 0) {
+                    if ($totalDist <= 0 && !$isCredited) {
                         return response()->json([
                             'success' => false,
                             'message' => 'Debe registrar al menos un pago para la venta.',
@@ -793,7 +821,13 @@ class SaleController extends Controller
                         ], 400);
                     }
 
-                    $paymentStatus = (abs($totalDist - $finalTotal) <= 0.01) ? 'paid' : 'pending';
+                    if (abs($totalDist - $finalTotal) <= 0.01) {
+                        $paymentStatus = 'paid';
+                    } elseif ($totalDist > 0) {
+                        $paymentStatus = 'partial';
+                    } else {
+                        $paymentStatus = 'pending';
+                    }
                     $request->merge(['payment_status' => $paymentStatus]);
                 }
             }
