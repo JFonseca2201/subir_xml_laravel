@@ -148,7 +148,7 @@ class SaleController extends Controller
             // Validar pagos distribuidos solo si no es cotización y no es borrador
             if ($request->document_type !== 'quote' && !$isDraft) {
                 $hasDistributions = $request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0;
-                
+
                 if (!$hasDistributions && !$request->boolean('is_credited')) {
                     return response()->json([
                         'success' => false,
@@ -158,7 +158,7 @@ class SaleController extends Controller
                 }
 
                 $totalDist = $hasDistributions ? array_sum(array_column($request->payment_distributions, 'amount')) : 0;
-                
+
                 if ($totalDist <= 0 && !$request->boolean('is_credited')) {
                     return response()->json([
                         'success' => false,
@@ -1553,12 +1553,12 @@ class SaleController extends Controller
             }
 
             // Validación de seguridad por si intentan dispararlo en un documento que no corresponde
-            if ($sale->document_type !== 'quote') {
+            /* if ($sale->document_type !== 'quote') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Este documento no es una cotización informativa.'
                 ], 400);
-            }
+            } */
 
             if (empty($sale->client->email)) {
                 return response()->json([
