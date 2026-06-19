@@ -512,7 +512,7 @@ class InvoiceXmlImportController extends Controller
                         'invoice_number' => $invoiceModel->invoice_number,
                         'description' => 'Pago por Compra XML a Proveedor ' . $supplierName,
                         'user_id' => Auth::check() ? Auth::id() : 1,
-                        'entry_date' => Carbon::now('America/Guayaquil')->toDateString()
+                        'entry_date' => \Carbon\Carbon::parse($invoiceModel->issue_date)->toDateString()
                     ]);
 
                     if (!$hasDistributions) {
@@ -604,7 +604,7 @@ class InvoiceXmlImportController extends Controller
                         'description' => 'Pago por Compra XML a Proveedor ' . $supplierName . ' (Financiado por Aporte de Socio)',
                         'user_id' => Auth::check() ? Auth::id() : 1,
                         'account_id' => $accountId,
-                        'entry_date' => Carbon::now('America/Guayaquil')->toDateString()
+                        'entry_date' => \Carbon\Carbon::parse($invoiceModel->issue_date)->toDateString()
                     ]);
 
                     $financeRecord->save();
