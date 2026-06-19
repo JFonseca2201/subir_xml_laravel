@@ -1567,20 +1567,24 @@ class SaleController extends Controller
                 ], 400);
             }
 
+            $isQuote = $sale->document_type === 'quote';
+
             // Preparamos los datos dinámicos utilizando las columnas exactas de tus modelos
             $data = [
-                'titulo_asunto' => 'Presupuesto / Cotización #' . $sale->document_number,
+                'titulo_asunto' => $isQuote ? 'Presupuesto / Cotización #' . $sale->document_number : 'Comprobante de Venta #' . $sale->document_number,
                 'cliente' => $sale->client->full_name ?? 'Cliente',
-                'mensaje_principal' => 'Adjuntamos la cotización y el presupuesto solicitado para los mantenimientos, servicios o repuestos de tu vehículo. Recuerda que este documento es de carácter informativo.',
+                'mensaje_principal' => $isQuote 
+                    ? 'Adjuntamos la cotización y el presupuesto solicitado para los mantenimientos, servicios o repuestos de tu vehículo. Recuerda que este documento es de carácter informativo.'
+                    : 'Adjuntamos el comprobante detallado de tu compra por los servicios o repuestos adquiridos. ¡Gracias por confiar en nosotros!',
                 'vehiculo' => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
                 'placa' => $sale->vehicle->license_plate ?? 'N/A',
-                'accion' => 'Cotización de Servicios de Taller'
+                'accion' => $isQuote ? 'Cotización de Servicios' : 'Comprobante de Venta'
             ];
 
-            // Dentro de tu método enviarCotizacionPorCorreo():
+            // Generamos el PDF
             $pdf = Pdf::loadView('sales.pdf_sale', ['sale' => $sale, 'isEmail' => true]);
             $pdfRawData = $pdf->output();
-            $pdfFileName = 'cotizacion_' . $sale->document_number . '.pdf';
+            $pdfFileName = ($isQuote ? 'cotizacion_' : 'comprobante_venta_') . $sale->document_number . '.pdf';
 
             Mail::to($sale->client->email)->send(
                 new \App\Mail\System\TestNotificationMail($data, $pdfRawData, $pdfFileName)
@@ -1588,12 +1592,12 @@ class SaleController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => '¡Cotización enviada al correo del cliente con éxito, mi compa!'
+                'message' => $isQuote ? '¡Cotización enviada al correo del cliente con éxito!' : '¡Comprobante de venta enviado al correo del cliente con éxito!'
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error al despachar el correo de la cotización.',
+                'message' => 'Error al despachar el correo.',
                 'error' => $e->getMessage()
             ], 500);
         }
