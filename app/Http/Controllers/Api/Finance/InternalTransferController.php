@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Finance;
 use App\Http\Controllers\Controller;
 use App\Models\Finance\InternalTransfer;
 use App\Models\Finance\Account;
+use App\Models\Finance\FinanceRecord;
+use App\Models\Finance\PaymentDistribution;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -130,6 +132,44 @@ class InternalTransferController extends Controller
                 $fromAccount->updateBalance($validated['amount'], 1); // 1 = Egreso
                 $toAccount->updateBalance($validated['amount'], 0);   // 0 = Ingreso
 
+                // Crear FinanceRecord para la cuenta de origen (Egreso)
+                $financeRecordFrom = FinanceRecord::create([
+                    'type' => FinanceRecord::TYPE_EXPENSE,
+                    'account_id' => $fromAccount->id,
+                    'payment_method' => $fromAccount->id === 1 ? 'cash' : 'transfer',
+                    'amount' => $validated['amount'],
+                    'description' => "Transferencia interna enviada: " . ($validated['description'] ?? 'Sin descripción'),
+                    'entry_date' => $entryDate,
+                    'user_id' => auth()->id() ?? 1,
+                    'invoice_number' => 'TRANSFER-OUT-' . $transfer->id,
+                ]);
+
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecordFrom->id,
+                    'account_id' => $fromAccount->id,
+                    'amount' => $validated['amount'],
+                    'payment_method' => $fromAccount->id === 1 ? 'cash' : 'transfer',
+                ]);
+
+                // Crear FinanceRecord para la cuenta de destino (Ingreso)
+                $financeRecordTo = FinanceRecord::create([
+                    'type' => FinanceRecord::TYPE_INCOME,
+                    'account_id' => $toAccount->id,
+                    'payment_method' => $toAccount->id === 1 ? 'cash' : 'transfer',
+                    'amount' => $validated['amount'],
+                    'description' => "Transferencia interna recibida: " . ($validated['description'] ?? 'Sin descripción'),
+                    'entry_date' => $entryDate,
+                    'user_id' => auth()->id() ?? 1,
+                    'invoice_number' => 'TRANSFER-IN-' . $transfer->id,
+                ]);
+
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecordTo->id,
+                    'account_id' => $toAccount->id,
+                    'amount' => $validated['amount'],
+                    'payment_method' => $toAccount->id === 1 ? 'cash' : 'transfer',
+                ]);
+
             return response()->json([
                 'message' => 'Transferencia realizada con éxito y movimientos registrados.',
                 'data' => $transfer->load(['sourceAccount', 'destinationAccount'])
@@ -190,6 +230,46 @@ class InternalTransferController extends Controller
             $newFromAccount->updateBalance($validated['amount'], 1); // Resta del nuevo origen
             $newToAccount->updateBalance($validated['amount'], 0);   // Sumar al nuevo destino
 
+            // Actualizar FinanceRecord de Origen (Egreso)
+            $financeRecordFrom = FinanceRecord::where('invoice_number', 'TRANSFER-OUT-' . $transfer->id)->first();
+            if ($financeRecordFrom) {
+                $financeRecordFrom->update([
+                    'account_id' => $newFromAccount->id,
+                    'payment_method' => $newFromAccount->id === 1 ? 'cash' : 'transfer',
+                    'amount' => $validated['amount'],
+                    'description' => "Transferencia interna enviada (Actualizada): " . ($validated['description'] ?? 'Sin descripción'),
+                    'entry_date' => $entryDate,
+                ]);
+                
+                $financeRecordFrom->paymentDistributions()->delete();
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecordFrom->id,
+                    'account_id' => $newFromAccount->id,
+                    'amount' => $validated['amount'],
+                    'payment_method' => $newFromAccount->id === 1 ? 'cash' : 'transfer',
+                ]);
+            }
+
+            // Actualizar FinanceRecord de Destino (Ingreso)
+            $financeRecordTo = FinanceRecord::where('invoice_number', 'TRANSFER-IN-' . $transfer->id)->first();
+            if ($financeRecordTo) {
+                $financeRecordTo->update([
+                    'account_id' => $newToAccount->id,
+                    'payment_method' => $newToAccount->id === 1 ? 'cash' : 'transfer',
+                    'amount' => $validated['amount'],
+                    'description' => "Transferencia interna recibida (Actualizada): " . ($validated['description'] ?? 'Sin descripción'),
+                    'entry_date' => $entryDate,
+                ]);
+                
+                $financeRecordTo->paymentDistributions()->delete();
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecordTo->id,
+                    'account_id' => $newToAccount->id,
+                    'amount' => $validated['amount'],
+                    'payment_method' => $newToAccount->id === 1 ? 'cash' : 'transfer',
+                ]);
+            }
+
             return response()->json([
                 'message' => 'Transferencia actualizada con éxito',
                 'data' => $transfer->load(['sourceAccount', 'destinationAccount'])
@@ -219,6 +299,19 @@ class InternalTransferController extends Controller
             // Eliminamos los movimientos financieros relacionados antes de borrar la transferencia.
             // Asumiendo que la relación en tu modelo se llama financialMovement()
             $internalTransfer->financialMovement()->delete();
+
+            // Eliminar FinanceRecords
+            $financeRecordFrom = FinanceRecord::where('invoice_number', 'TRANSFER-OUT-' . $internalTransfer->id)->first();
+            if ($financeRecordFrom) {
+                $financeRecordFrom->paymentDistributions()->delete();
+                $financeRecordFrom->delete();
+            }
+
+            $financeRecordTo = FinanceRecord::where('invoice_number', 'TRANSFER-IN-' . $internalTransfer->id)->first();
+            if ($financeRecordTo) {
+                $financeRecordTo->paymentDistributions()->delete();
+                $financeRecordTo->delete();
+            }
 
             // 3. Eliminar el registro de la transferencia
             $internalTransfer->delete();

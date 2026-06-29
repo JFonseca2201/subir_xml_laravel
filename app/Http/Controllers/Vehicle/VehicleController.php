@@ -38,7 +38,13 @@ class VehicleController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('license_plate', 'like', "%$search%")
                     ->orWhere('model', 'like', "%$search%")
-                    ->orWhere('description', 'like', "%$search%");
+                    ->orWhere('description', 'like', "%$search%")
+                    ->orWhereHas('client', function ($q2) use ($search) {
+                        $q2->where('name', 'like', "%$search%")
+                           ->orWhere('surname', 'like', "%$search%")
+                           ->orWhere('full_name', 'like', "%$search%")
+                           ->orWhere('n_document', 'like', "%$search%");
+                    });
             });
         }
 
@@ -81,6 +87,7 @@ class VehicleController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('license_plate', 'like', "%{$search}%")
                     ->orWhere('model', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
                     ->orWhereHas('client', function ($clientQuery) use ($search) {
                         $clientQuery->where('name', 'like', "%{$search}%")
                             ->orWhere('surname', 'like', "%{$search}%")

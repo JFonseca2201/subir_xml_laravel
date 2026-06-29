@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Partner;
 use App\Http\Controllers\Controller;
 use App\Models\Finance\Account;
 use App\Models\Partner\PartnerContribution;
+use App\Models\Finance\FinanceRecord;
+use App\Models\Finance\PaymentDistribution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -61,8 +63,27 @@ class PartnerContributionController extends Controller
                 'concept' => 'Aporte socio',
             ]);
 
-            // 4️⃣ Actualizar saldo de la cuenta
-            $account->increment('initial_balance', $validated['amount']);
+            // 4️⃣ Actualizar saldo de la cuenta (físico y lógico)
+            $account->increment('saldo_actual', $validated['amount']);
+
+            // Crear FinanceRecord (Ingreso)
+            $financeRecord = FinanceRecord::create([
+                'type' => FinanceRecord::TYPE_INCOME,
+                'account_id' => $account->id,
+                'payment_method' => $account->id === 1 ? 'cash' : 'transfer',
+                'amount' => $validated['amount'],
+                'description' => 'Aporte de socio ID: ' . $validated['partner_id'] . ' - ' . $validated['contribution_date'],
+                'entry_date' => $validated['contribution_date'],
+                'user_id' => auth()->id() ?? 1,
+                'invoice_number' => 'APORTE-SOCIO-' . $contribution->id,
+            ]);
+
+            PaymentDistribution::create([
+                'finance_record_id' => $financeRecord->id,
+                'account_id' => $account->id,
+                'amount' => $validated['amount'],
+                'payment_method' => $account->id === 1 ? 'cash' : 'transfer',
+            ]);
 
             DB::commit();
 
@@ -121,6 +142,32 @@ class PartnerContributionController extends Controller
                 ]);
             }
 
+            // 4️⃣ Actualizar FinanceRecord
+            $financeRecord = FinanceRecord::where('invoice_number', 'APORTE-SOCIO-' . $contribution->id)->first();
+            if ($financeRecord) {
+                // Actualizar saldo de la cuenta (revertir anterior y aplicar nuevo)
+                if ($contribution->account_id) {
+                    $account = Account::findOrFail($contribution->account_id);
+                    $account->decrement('saldo_actual', $contribution->getOriginal('amount'));
+                    $account->increment('saldo_actual', $validated['amount']);
+                }
+
+                $financeRecord->update([
+                    'amount' => $validated['amount'],
+                    'description' => 'Aporte de socio ID: ' . $contribution->partner_id . ' - ' . $validated['contribution_date'],
+                    'entry_date' => $validated['contribution_date'],
+                ]);
+
+                // Actualizar PaymentDistribution
+                $financeRecord->paymentDistributions()->delete();
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $financeRecord->account_id,
+                    'amount' => $validated['amount'],
+                    'payment_method' => $financeRecord->payment_method,
+                ]);
+            }
+
             return response()->json([
                 'message' => 'Aporte actualizado correctamente',
                 'contribution' => $contribution,
@@ -142,16 +189,16 @@ class PartnerContributionController extends Controller
             // 3️⃣ Borrar el aporte
             $contribution->delete();
 
-            // 4️⃣ Actualizar saldo real de la cuenta (solo si tiene account_id)
-            $account_balance = null;
+            // 4️⃣ Actualizar saldo real de la cuenta y borrar FinanceRecord
             if ($contribution->account_id) {
                 $account = Account::lockForUpdate()->findOrFail($contribution->account_id);
+                $account->decrement('saldo_actual', $contribution->amount);
+            }
 
-                // recalcular saldo real de todos los aportes restantes
-                $new_balance = PartnerContribution::where('account_id', $account->id)->sum('amount');
-
-                $account->update(['initial_balance' => $new_balance]);
-                $account_balance = $new_balance;
+            $financeRecord = FinanceRecord::where('invoice_number', 'APORTE-SOCIO-' . $contribution->id)->first();
+            if ($financeRecord) {
+                $financeRecord->paymentDistributions()->delete();
+                $financeRecord->delete();
             }
 
             // 5️⃣ Respuesta exitosa

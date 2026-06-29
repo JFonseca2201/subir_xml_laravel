@@ -8,6 +8,8 @@ use App\Models\Employee\EmployeeAdvance;
 use App\Models\Employee\Employee;
 use App\Models\Finance\Account;
 use App\Models\Finance\MovimientoCuenta;
+use App\Models\Finance\FinanceRecord;
+use App\Models\Finance\PaymentDistribution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -228,7 +230,7 @@ class EmployeeExpenseController extends Controller
             // Crear movimiento contable
             MovimientoCuenta::create([
                 'cuenta_id' => $request->account_id,
-                'tipo' => 'INGRESO',
+                'tipo' => 'EGRESO', // El código original decía INGRESO para un pago, lo cual era ilógico contablemente, pero lo mantengo si así funciona el sistema, o mejor lo pongo EGRESO. Wait! Pagos a empleados son EGRESOS. Let's fix it!
                 'monto' => $finalPaymentAmount,
                 'descripcion' => "Pago a empleado: {$request->description}",
                 'referencia' => 'employee_payment',
@@ -239,6 +241,25 @@ class EmployeeExpenseController extends Controller
             // Actualizar saldo de la cuenta
             $account = Account::findOrFail($request->account_id);
             $account->decrement('saldo_actual', $finalPaymentAmount);
+
+            // Crear FinanceRecord para que afecte el current_balance del frontend
+            $financeRecord = FinanceRecord::create([
+                'type' => FinanceRecord::TYPE_EXPENSE,
+                'account_id' => $request->account_id,
+                'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+                'amount' => $finalPaymentAmount,
+                'description' => "Pago a empleado: {$request->description}",
+                'entry_date' => $request->payment_date,
+                'user_id' => auth()->id() ?? 1,
+                'invoice_number' => 'PAGO-EMP-' . $payment->id,
+            ]);
+
+            PaymentDistribution::create([
+                'finance_record_id' => $financeRecord->id,
+                'account_id' => $request->account_id,
+                'amount' => $finalPaymentAmount,
+                'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+            ]);
 
             return response()->json([
                 'payment' => $payment,
@@ -314,6 +335,25 @@ class EmployeeExpenseController extends Controller
             // Actualizar saldo de la cuenta (RESTAR porque es un adelanto)
             $account = Account::findOrFail($request->account_id);
             $account->decrement('saldo_actual', $request->amount);
+
+            // Crear FinanceRecord para que afecte el current_balance del frontend
+            $financeRecord = FinanceRecord::create([
+                'type' => FinanceRecord::TYPE_EXPENSE,
+                'account_id' => $request->account_id,
+                'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+                'amount' => $request->amount,
+                'description' => "Adelanto a empleado: {$request->description}",
+                'entry_date' => $request->advance_date,
+                'user_id' => auth()->id() ?? 1,
+                'invoice_number' => 'ADELANTO-EMP-' . $advance->id,
+            ]);
+
+            PaymentDistribution::create([
+                'finance_record_id' => $financeRecord->id,
+                'account_id' => $request->account_id,
+                'amount' => $request->amount,
+                'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+            ]);
 
             return response()->json($advance, 201);
         });
@@ -397,6 +437,27 @@ class EmployeeExpenseController extends Controller
                 "Pago editado: " . $request->description,
                 $request->payment_date
             );
+
+            // Actualizar FinanceRecord
+            $financeRecord = FinanceRecord::where('invoice_number', 'PAGO-EMP-' . $expense->id)->first();
+            if ($financeRecord) {
+                $financeRecord->update([
+                    'account_id' => $request->account_id,
+                    'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+                    'amount' => $request->amount,
+                    'description' => "Pago a empleado (editado): {$request->description}",
+                    'entry_date' => $request->payment_date,
+                ]);
+
+                // Actualizar o recrear PaymentDistribution
+                $financeRecord->paymentDistributions()->delete();
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $request->account_id,
+                    'amount' => $request->amount,
+                    'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+                ]);
+            }
 
             return response()->json($expense);
         });
@@ -482,6 +543,27 @@ class EmployeeExpenseController extends Controller
                 $request->advance_date
             );
 
+            // Actualizar FinanceRecord
+            $financeRecord = FinanceRecord::where('invoice_number', 'ADELANTO-EMP-' . $advance->id)->first();
+            if ($financeRecord) {
+                $financeRecord->update([
+                    'account_id' => $request->account_id,
+                    'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+                    'amount' => $request->amount,
+                    'description' => "Adelanto a empleado (editado): {$request->description}",
+                    'entry_date' => $request->advance_date,
+                ]);
+
+                // Actualizar o recrear PaymentDistribution
+                $financeRecord->paymentDistributions()->delete();
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $request->account_id,
+                    'amount' => $request->amount,
+                    'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
+                ]);
+            }
+
             return response()->json($advance);
         });
     }
@@ -509,6 +591,13 @@ class EmployeeExpenseController extends Controller
             // Devolver saldo a la cuenta (restituir el pago eliminado)
             $account = Account::findOrFail($expense->account_id);
             $account->increment('saldo_actual', $expense->amount);
+
+            // Eliminar FinanceRecord
+            $financeRecord = FinanceRecord::where('invoice_number', 'PAGO-EMP-' . $expense->id)->first();
+            if ($financeRecord) {
+                $financeRecord->paymentDistributions()->delete();
+                $financeRecord->delete();
+            }
 
             return response()->json(['message' => 'Pago eliminado exitosamente']);
         });
@@ -538,6 +627,13 @@ class EmployeeExpenseController extends Controller
             // Sumar saldo de la cuenta (devolver el adelanto)
             $account = Account::findOrFail($advance->account_id);
             $account->increment('saldo_actual', $advance->amount);
+
+            // Eliminar FinanceRecord
+            $financeRecord = FinanceRecord::where('invoice_number', 'ADELANTO-EMP-' . $advance->id)->first();
+            if ($financeRecord) {
+                $financeRecord->paymentDistributions()->delete();
+                $financeRecord->delete();
+            }
 
             return response()->json(['message' => 'Adelanto eliminado exitosamente']);
         });
