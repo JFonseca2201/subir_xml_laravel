@@ -247,6 +247,8 @@ class ProductController extends Controller
             $data = $request->validate([
                 'description' => 'required|string|max:255',
                 'sku' => 'nullable|string|max:50|unique:products,sku',
+                'code_aux' => 'nullable|string|max:100',
+                'uses' => 'nullable|string|max:255',
                 'product_categorie_id' => 'required|integer|exists:product_categories,id',
                 'warehouse_id' => 'nullable|integer|exists:warehouses,id',
                 'unit_id' => 'nullable|integer|exists:units,id',
@@ -387,6 +389,8 @@ class ProductController extends Controller
             $data = $request->validate([
                 'description' => 'required|string|max:255',
                 'sku' => 'nullable|string|max:50|unique:products,sku,' . $id,
+                'code_aux' => 'nullable|string|max:100',
+                'uses' => 'nullable|string|max:255',
                 'product_categorie_id' => 'required|integer|exists:product_categories,id',
                 'warehouse_id' => 'nullable|integer|exists:warehouses,id',
                 'unit_id' => 'nullable|integer|exists:units,id',
@@ -504,12 +508,5 @@ class ProductController extends Controller
                 'error' => $th->getMessage(),
             ], 500);
         }
-    }
-    function test()
-    {
-        return response()->json([
-            'message' => 200,
-            'message_text' => 'Este es un test para el commit del backend',
-        ]);
     }
 }

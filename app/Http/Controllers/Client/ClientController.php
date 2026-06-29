@@ -112,7 +112,7 @@ class ClientController extends Controller
                 'errors' => ['n_document' => 'El número de documento ya existe'],
             ], 422);
         }
-       /*  $exists = Client::where('email', $request->get('email'))->first();
+        /*  $exists = Client::where('email', $request->get('email'))->first();
         if ($exists) {
             return response()->json([
                 'status' => 422,
@@ -128,14 +128,7 @@ class ClientController extends Controller
                 'errors' => ['phone' => 'El número de teléfono ya existe'],
             ], 422);
         } */
-        $exists = Client::where('full_name', $request->get('full_name'))->first();
-        if ($exists) {
-            return response()->json([
-                'status' => 422,
-                'message' => 'El nombre ya existe',
-                'errors' => ['full_name' => 'El nombre completo ya existe'],
-            ], 422);
-        }   
+        // Moved full_name existence check to after fullName generation
 
         $validator = Validator::make($request->all(), [
             'type_client' => 'required|integer|in:1,2',
@@ -143,7 +136,7 @@ class ClientController extends Controller
             'surname' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'full_name' => 'required_if:type_client,2|string|max:255|unique:clients',
             'phone' => ['required', 'string', 'max:20', 'regex:/^[0-9+\-\s()]+$/'],
-            'email' => 'nullable|email|max:255|unique:clients',
+            'email' => 'nullable|email|max:255',
             'type_document' => 'nullable|string|max:10',
             'n_document' => [
                 'required',
@@ -157,6 +150,17 @@ class ClientController extends Controller
                             $fail("El número de documento '$value' debe contener solo números.");
                             return;
                         }
+
+                        $len = strlen($value);
+                        if ($typeDoc === '1' && $len !== 10) {
+                            $fail("Si el documento es Cédula, debe tener exactamente 10 dígitos.");
+                            return;
+                        }
+                        if ($typeDoc === '2' && $len !== 13) {
+                            $fail("Si el documento es RUC, debe tener exactamente 13 dígitos.");
+                            return;
+                        }
+
                         if (!$this->validateEcuadorianDocument($value)) {
                             $fail("El número de documento '$value' no es una Cédula o RUC ecuatoriano válido.");
                         }
@@ -203,6 +207,16 @@ class ClientController extends Controller
             $fullName = $request->get('full_name');
             $name = null;
             $surname = null;
+        }
+
+        // Validate uniqueness of the generated full_name
+        $exists = Client::where('full_name', $fullName)->first();
+        if ($exists) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El cliente ya existe',
+                'errors' => ['full_name' => 'El cliente ya existe en otro registro'],
+            ], 422);
         }
 
         $client = Client::create([
@@ -291,6 +305,17 @@ class ClientController extends Controller
                             $fail("El número de documento '$value' debe contener solo números.");
                             return;
                         }
+
+                        $len = strlen($value);
+                        if ($typeDoc === '1' && $len !== 10) {
+                            $fail("Si el documento es Cédula, debe tener exactamente 10 dígitos.");
+                            return;
+                        }
+                        if ($typeDoc === '2' && $len !== 13) {
+                            $fail("Si el documento es RUC, debe tener exactamente 13 dígitos.");
+                            return;
+                        }
+
                         if (!$this->validateEcuadorianDocument($value)) {
                             $fail("El número de documento '$value' no es una Cédula o RUC ecuatoriano válido.");
                         }

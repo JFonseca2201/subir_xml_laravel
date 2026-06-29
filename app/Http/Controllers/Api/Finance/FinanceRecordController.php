@@ -43,6 +43,24 @@ class FinanceRecordController extends Controller
             $query->whereDate('entry_date', '<=', $request->end_date);
         }
 
+        // Búsqueda por número de orden de trabajo / factura
+        if ($request->has('search') && !empty($request->search)) {
+            $query->where(function ($q) use ($request) {
+                $q->where('work_order_number', 'like', '%' . $request->search . '%')
+                  ->orWhere('invoice_number', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        // Búsqueda específica por fecha exacta
+        if ($request->has('search_date') && !empty($request->search_date)) {
+            $query->whereDate('entry_date', $request->search_date);
+        }
+
+        // Incluir eliminados si el modelo usara SoftDeletes
+        if (in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive(FinanceRecord::class))) {
+            $query->withTrashed();
+        }
+
         $records = $query->with(['paymentDistributions.account'])->get();
 
         return FinanceRecordResource::collection($records);

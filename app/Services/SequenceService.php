@@ -152,4 +152,23 @@ class SequenceService
         $val = self::getNextSequenceValue($sequenceName);
         return 'P-' . $date . str_pad((string) $val, 3, '0', STR_PAD_LEFT);
     }
+
+    /**
+     * Decrement the global sequence number safely if it matches the given number
+     */
+    public static function decrementGlobalNumberIfMatches(string $deletedNumber): void
+    {
+        $sequenceName = 'taller_global_sequence';
+        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
+        
+        if ($sequence && $sequence->current_value > 0) {
+            $deletedInt = (int)$deletedNumber;
+            if ($deletedInt === $sequence->current_value) {
+                DB::table('sequences')->where('name', $sequenceName)->update([
+                    'current_value' => $sequence->current_value - 1,
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+    }
 }

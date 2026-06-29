@@ -225,7 +225,7 @@ class SaleController extends Controller
                             if ($itemDiscount > $maxAllowedByPct) {
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "El descuento excede el porcentaje máximo permitido ({$product->discount_percentage}%) para el producto: {$product->description}.",
+                                    'message' => "El descuento total excede el porcentaje máximo permitido ({$product->discount_percentage}%) para el producto: {$product->description}.",
                                     'error' => 'discount_exceeded'
                                 ], 400);
                             }
@@ -233,11 +233,11 @@ class SaleController extends Controller
 
                         // C. Validar max_discount (monto absoluto o porcentaje según lógica del sistema)
                         if ($product->max_discount > 0) {
-                            $maxAllowedByVal = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
+                            $maxAllowedByVal = $item['quantity'] * $product->max_discount;
                             if ($itemDiscount > $maxAllowedByVal) {
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "El descuento excede el máximo permitido para el producto: {$product->description}.",
+                                    'message' => "El descuento total excede el máximo permitido para el producto: {$product->description}.",
                                     'error' => 'discount_exceeded'
                                 ], 400);
                             }
@@ -884,7 +884,7 @@ class SaleController extends Controller
                                 if ($itemDiscount > $maxAllowedByPct) {
                                     return response()->json([
                                         'success' => false,
-                                        'message' => "El descuento excede el porcentaje máximo permitido ({$product->discount_percentage}%) para el producto: {$product->description}.",
+                                        'message' => "El descuento total excede el porcentaje máximo permitido ({$product->discount_percentage}%) para el producto: {$product->description}.",
                                         'error' => 'discount_exceeded'
                                     ], 400);
                                 }
@@ -892,11 +892,11 @@ class SaleController extends Controller
 
                             // C. Validar max_discount (monto absoluto o porcentaje según lógica del sistema)
                             if ($product->max_discount > 0) {
-                                $maxAllowedByVal = ($item['quantity'] * $item['price']) * ($product->max_discount / 100);
+                                $maxAllowedByVal = $item['quantity'] * $product->max_discount;
                                 if ($itemDiscount > $maxAllowedByVal) {
                                     return response()->json([
                                         'success' => false,
-                                        'message' => "El descuento excede el máximo permitido para el producto: {$product->description}.",
+                                        'message' => "El descuento total excede el máximo permitido para el producto: {$product->description}.",
                                         'error' => 'discount_exceeded'
                                     ], 400);
                                 }
@@ -1184,6 +1184,8 @@ class SaleController extends Controller
                 // 4. Eliminar los detalles y finalmente la venta
                 $sale->details()->delete();
                 $sale->delete();
+
+                \App\Services\SequenceService::decrementGlobalNumberIfMatches($sale->document_number);
             });
 
             return response()->json([

@@ -19,7 +19,7 @@ class ProductResource extends JsonResource
             'description' => strtoupper(trim($this->description)),
             'sku' => strtoupper(trim($this->sku)),
             'imagen' => $this->imagen ? env('APP_URL') . 'storage/' . $this->imagen : null,
-            'code_aux' => strtoupper(trim($this->code_aux)),
+            'code_aux' => $this->code_aux ? strtoupper(trim($this->code_aux)) : null,
             'uses' => $this->uses,
             'product_categorie_id' => $this->product_categorie_id,
             'warehouse_id' => $this->warehouse_id,

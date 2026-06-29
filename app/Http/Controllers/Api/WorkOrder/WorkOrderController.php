@@ -80,14 +80,14 @@ class WorkOrderController extends Controller
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = Product::find($item['product_id']);
                         if ($product && $product->item_type == 1 && $product->max_discount !== null) {
-                            $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
+                            $maxDiscountAmount = $item['quantity'] * $product->max_discount;
                             $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
                             if ($itemDiscount > $maxDiscountAmount) {
                                 $maxRounded = number_format($maxDiscountAmount, 2);
                                 $ingresadoRounded = number_format($itemDiscount, 2);
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "El descuento de \${$ingresadoRounded} ingresado en el producto '{$product->description}' supera el límite permitido. El descuento máximo aceptado para este producto es de \${$maxRounded} ({$product->max_discount}%).",
+                                    'message' => "El descuento total de \${$ingresadoRounded} ingresado en el producto '{$product->description}' supera el límite permitido. El descuento máximo total aceptado para este producto es de \${$maxRounded}.",
                                     'error' => 'discount_exceeded'
                                 ], 400);
                             }
@@ -187,14 +187,14 @@ class WorkOrderController extends Controller
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = Product::find($item['product_id']);
                         if ($product && $product->item_type == 1 && $product->max_discount !== null) {
-                            $maxDiscountAmount = ($item['quantity'] * $item['unit_price']) * ($product->max_discount / 100);
+                            $maxDiscountAmount = $item['quantity'] * $product->max_discount;
                             $itemDiscount = isset($item['discount']) ? $item['discount'] : 0;
                             if ($itemDiscount > $maxDiscountAmount) {
                                 $maxRounded = number_format($maxDiscountAmount, 2);
                                 $ingresadoRounded = number_format($itemDiscount, 2);
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "El descuento de \${$ingresadoRounded} ingresado en el producto '{$product->description}' supera el límite permitido. El descuento máximo aceptado para este producto es de \${$maxRounded} ({$product->max_discount}%).",
+                                    'message' => "El descuento total de \${$ingresadoRounded} ingresado en el producto '{$product->description}' supera el límite permitido. El descuento máximo total aceptado para este producto es de \${$maxRounded}.",
                                     'error' => 'discount_exceeded'
                                 ], 400);
                             }
@@ -251,6 +251,8 @@ class WorkOrderController extends Controller
         $workOrder->items()->delete();
         $workOrder->technicians()->detach();
         $workOrder->delete();
+
+        \App\Services\SequenceService::decrementGlobalNumberIfMatches($workOrder->number);
 
         return response()->json([
             'success' => true,
