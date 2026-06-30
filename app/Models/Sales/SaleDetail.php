@@ -22,6 +22,8 @@ class SaleDetail extends Model
         'quantity',
         'price',
         'discount',
+        'tax_rate',
+        'tax_value',
         'total'
     ];
 

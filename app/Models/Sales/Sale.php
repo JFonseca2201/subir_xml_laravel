@@ -27,7 +27,17 @@ class Sale extends Model
         'is_credited',
         'payment_method',
         'observations',
-        'user_id'
+        'user_id',
+        'subtotal_iva_15',
+        'subtotal_iva_0',
+        'subtotal_no_objeto',
+        'subtotal_exento',
+        'sri_access_key',
+        'sri_authorization_date',
+        'sri_status',
+        'sri_error',
+        'xml_path',
+        'pdf_path'
     ];
 
     protected $casts = [
