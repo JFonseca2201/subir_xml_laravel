@@ -19,6 +19,12 @@ class SupplierController extends Controller
             $search = $request->search;
             $perPage = $request->get('per_page', 10);
 
+            if ($perPage == -1 || $perPage == '-1' || $perPage === 'all') {
+                $perPage = 10000;
+            } else {
+                $perPage = (int) $perPage;
+            }
+
             $suppliers = Supplier::where("name", "like", "%{$search}%")
                 ->orWhere("ruc", "like", "%{$search}%")
                 ->orderBy("id", "desc")
@@ -43,6 +49,7 @@ class SupplierController extends Controller
                 'total_pages' => $suppliers->lastPage(),
             ], 200);
         } catch (\Throwable $th) {
+            \Illuminate\Support\Facades\Log::error('Supplier API Error: ' . $th->getMessage());
             return response()->json([
                 'status' => 500,
                 'message' => $th->getMessage(),
