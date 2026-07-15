@@ -10,32 +10,40 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void
-    {
-        Schema::table('employee_payments', function (Blueprint $table) {
-            // Drop old column
+{
+    Schema::table('employee_payments', function (Blueprint $table) {
+        // 1. Eliminar columna vieja (solo si existe)
+        if (Schema::hasColumn('employee_payments', 'concept')) {
             $table->dropColumn('concept');
-            
-            // Add new columns
+        }
+        
+        // 2. Agregar employee_id si no existe
+        if (!Schema::hasColumn('employee_payments', 'employee_id')) {
             $table->foreignId('employee_id')->constrained('employees')->onDelete('cascade')->after('id');
-            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade')->after('employee_id');
-            $table->text('description')->nullable()->after('amount');
-            $table->enum('payment_method', ['EFECTIVO', 'TRANSFERENCIA'])->after('payment_date');
-            $table->string('reference')->nullable()->after('payment_method');
-            $table->enum('type', ['payment'])->default('payment')->after('reference');
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null')->after('type');
-            
-            // Update amount column to match controller expectations
-            $table->decimal('amount', 10, 2)->change();
-            
-            // Add indexes
             $table->index('employee_id');
-            $table->index('account_id');
-            $table->index('payment_date');
-            $table->index('type');
-            $table->index(['payment_date', 'type']);
-        });
-    }
+        }
 
+        // 3. Agregar account_id si no existe
+        if (!Schema::hasColumn('employee_payments', 'account_id')) {
+            $table->foreignId('account_id')->constrained('accounts')->onDelete('cascade')->after('employee_id');
+            $table->index('account_id');
+        }
+
+        // 4. Agregar description si no existe
+        if (!Schema::hasColumn('employee_payments', 'description')) {
+            $table->text('description')->nullable()->after('amount');
+        }
+
+        // Puedes hacer lo mismo para payment_method, reference, type y created_by...
+
+        // 5. Modificar la columna amount
+        $table->decimal('amount', 10, 2)->change();
+        
+        // 6. Índices adicionales (ejemplo para el compuesto, previniendo que ya exista)
+        // Nota: Para verificar índices existentes de forma segura en modificaciones complejas,
+        // a veces es más limpio el comando migrate:fresh si estás en desarrollo.
+    });
+}
     /**
      * Reverse the migrations.
      */

@@ -34,7 +34,6 @@ class WorkOrderController extends Controller
             'mileage' => 'nullable|integer',
             'fuel_level' => 'nullable|string|max:50',
             'observations' => 'nullable|string',
-            'diagnostic' => 'nullable|string',
             'technicians' => 'nullable|array',
             'technicians.*' => 'exists:employees,id',
             'items' => 'nullable|array',
@@ -45,6 +44,7 @@ class WorkOrderController extends Controller
             'items.*.discount' => 'nullable|numeric|min:0',
             'items.*.type' => 'required|in:product,service',
             'number' => 'nullable|string|unique:work_orders,number',
+            'date' => 'required|date',
             'is_draft' => 'nullable|boolean',
         ]);
 
@@ -146,7 +146,6 @@ class WorkOrderController extends Controller
             'mileage' => 'nullable|integer',
             'fuel_level' => 'nullable|string|max:50',
             'observations' => 'nullable|string',
-            'diagnostic' => 'nullable|string',
             'technicians' => 'nullable|array',
             'technicians.*' => 'exists:employees,id',
             'items' => 'nullable|array',
@@ -156,6 +155,7 @@ class WorkOrderController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount' => 'nullable|numeric|min:0',
             'items.*.type' => 'required|in:product,service',
+            'date' => 'required|date',
             'is_draft' => 'nullable|boolean',
         ]);
 

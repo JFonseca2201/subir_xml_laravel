@@ -37,16 +37,31 @@ class Sale extends Model
         'sri_status',
         'sri_error',
         'xml_path',
-        'pdf_path'
+        'pdf_path',
+        'converted_to_sale_id'
     ];
 
     protected $casts = [
-        'service_date' => 'date',
-        'is_credited' => 'boolean',
-        'subtotal' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
-        'total' => 'decimal:2',
+        'service_date'           => 'date',
+        'sri_authorization_date' => 'datetime',
+        'is_credited'            => 'boolean',
+        'subtotal'               => 'decimal:2',
+        'tax_amount'             => 'decimal:2',
+        'total'                  => 'decimal:2',
+        'subtotal_iva_15'        => 'decimal:2',
+        'subtotal_iva_0'         => 'decimal:2',
+        'subtotal_no_objeto'     => 'decimal:2',
+        'subtotal_exento'        => 'decimal:2',
     ];
+
+    /**
+     * Facturas electrónicas que aún no han sido autorizadas.
+     */
+    public function scopePendientesSRI($query)
+    {
+        return $query->where('document_type', 'invoice')
+            ->whereIn('sri_status', ['CREADA', 'ENVIADA', 'DEVUELTA']);
+    }
 
     /**
      * Una venta tiene muchos detalles (items).
@@ -102,5 +117,21 @@ class Sale extends Model
     public function technicians()
     {
         return $this->belongsToMany(\App\Models\Employee\Employee::class, 'sale_technicians');
+    }
+
+    /**
+     * Relación: cotización convertida apunta a la venta/factura resultante.
+     */
+    public function convertedSale()
+    {
+        return $this->belongsTo(Sale::class, 'converted_to_sale_id');
+    }
+
+    /**
+     * Accessor: verifica si la cotización ya fue convertida.
+     */
+    public function getIsConvertedAttribute(): bool
+    {
+        return !is_null($this->converted_to_sale_id);
     }
 }

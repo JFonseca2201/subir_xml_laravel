@@ -93,7 +93,8 @@ class Product extends Model
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', '%' . $search . '%')
                     ->orWhere('sku', 'like', '%' . $search . '%')
-                    ->orWhere('code_aux', 'like', '%' . $search . '%');
+                    ->orWhere('code_aux', 'like', '%' . $search . '%')
+                    ->orWhere('uses', 'like', '%' . $search . '%');
             });
         }
         if ($categorie_id) {

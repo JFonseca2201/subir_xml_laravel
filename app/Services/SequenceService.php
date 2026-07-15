@@ -127,7 +127,55 @@ class SequenceService
     }
 
     /**
-     * Preview the next sequence number for Work Orders
+     * Preview the next sequence number for Quotes (independent sequence)
+     */
+    public static function previewNextQuoteNumber(): string
+    {
+        $val = self::previewNextSequenceValue('quote_sequence');
+        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Get the next sequence number for Quotes (independent sequence)
+     */
+    public static function getNextQuoteNumber(): string
+    {
+        $val = self::getNextSequenceValue('quote_sequence');
+        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Consume or generate the quote sequence number safely
+     */
+    public static function consumeQuoteNumber(?string $requestedNumber = null): string
+    {
+        $sequenceName = 'quote_sequence';
+        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
+        $current = $sequence ? $sequence->current_value : 0;
+
+        if (empty($requestedNumber)) {
+            $next = $current + 1;
+            self::updateSequence($sequenceName, $next, $sequence != null);
+            return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
+        }
+
+        $requestedInt = (int)$requestedNumber;
+        if ((string)$requestedInt === $requestedNumber || str_pad((string)$requestedInt, 9, '0', STR_PAD_LEFT) === $requestedNumber) {
+            if ($requestedInt <= $current) {
+                $next = $current + 1;
+                self::updateSequence($sequenceName, $next, $sequence != null);
+                return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
+            } else {
+                self::updateSequence($sequenceName, $requestedInt, $sequence != null);
+                return str_pad((string) $requestedInt, 9, '0', STR_PAD_LEFT);
+            }
+        }
+
+        return $requestedNumber;
+    }
+
+    /**
+     * Preview the next sequence number for Work Orders (shares sequence with sales/invoices)
      */
     public static function previewNextWorkOrderNumber(): string
     {
@@ -135,7 +183,7 @@ class SequenceService
     }
 
     /**
-     * Get the next sequence number for Work Orders
+     * Get the next sequence number for Work Orders (shares sequence with sales/invoices)
      */
     public static function getNextWorkOrderNumber(): string
     {
@@ -161,11 +209,11 @@ class SequenceService
         $sequenceName = 'taller_global_sequence';
         $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
         
-        if ($sequence && $sequence->current_value > 0) {
+        if ($sequence && (int)$sequence->current_value > 0) {
             $deletedInt = (int)$deletedNumber;
-            if ($deletedInt === $sequence->current_value) {
+            if ($deletedInt === (int)$sequence->current_value) {
                 DB::table('sequences')->where('name', $sequenceName)->update([
-                    'current_value' => $sequence->current_value - 1,
+                    'current_value' => (int)$sequence->current_value - 1,
                     'updated_at' => now(),
                 ]);
             }

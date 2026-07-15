@@ -12,18 +12,31 @@ use App\Models\Product\Product as ModelsProduct;
 use App\Services\SequenceService;
 use App\Services\WorkOrder\WorkOrderSaleSync;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
 use Illuminate\Support\Facades\Mail;
+use App\Jobs\ProcessElectronicInvoice;
+use App\Services\SRI\ElectronicInvoiceService;
 
 class SaleController extends Controller
 {
     /**
      * Get next sequence number
      */
-    public function getNextNumber()
+    public function getNextNumber(Request $request)
     {
+        // Si es cotización, devolver secuencia independiente
+        if ($request->query('document_type') === 'quote') {
+            return response()->json([
+                'success' => true,
+                'data' => SequenceService::previewNextQuoteNumber()
+            ]);
+        }
+
         return response()->json([
             'success' => true,
             'data' => SequenceService::previewNextDirectSaleNumber()
@@ -68,6 +81,11 @@ class SaleController extends Controller
                 $query->where('client_id', $request->client_id);
             }
 
+            // 3.5 Filtro por vehículo específico
+            if ($request->has('vehicle_id') && $request->vehicle_id != '') {
+                $query->where('vehicle_id', $request->vehicle_id);
+            }
+
             // 4. Filtro por rango de fechas de atención (Muy útil para cierres de caja)
             if ($request->filled('start_date') && $request->filled('end_date')) {
                 $query->whereBetween('service_date', [$request->start_date, $request->end_date]);
@@ -80,6 +98,11 @@ class SaleController extends Controller
             // 5. Filtro por estado de pago (paid, partial, pending)
             if ($request->has('payment_status') && $request->payment_status != '') {
                 $query->where('payment_status', $request->payment_status);
+            }
+
+            // 6. Excluir cotizaciones del listado de ventas (para la página de ventas/facturas)
+            if ($request->boolean('exclude_quotes')) {
+                $query->where('document_type', '!=', 'quote');
             }
 
             // Ordenamos para que las más recientes salgan primerito
@@ -254,6 +277,9 @@ class SaleController extends Controller
                 // Consumir el número de documento de forma segura solo si NO viene de una orden de trabajo
                 if ($linkedWorkOrder) {
                     $documentNumber = $linkedWorkOrder->number;
+                } elseif ($request->document_type === 'quote') {
+                    // Cotizaciones usan su propia secuencia independiente
+                    $documentNumber = \App\Services\SequenceService::consumeQuoteNumber($request->document_number);
                 } else {
                     $documentNumber = \App\Services\SequenceService::consumeGlobalNumber($request->document_number);
                 }
@@ -280,13 +306,22 @@ class SaleController extends Controller
 
                 // B. Registrar cada producto/servicio del detalle
                 foreach ($request->items as $item) {
+                    $qty      = (float)($item['quantity'] ?? 1);
+                    $price    = (float)($item['price'] ?? 0);
+                    $discount = (float)($item['discount'] ?? 0);
+                    $taxRate  = (float)($item['tax_rate'] ?? 15.00);
+                    $base     = ($qty * $price) - $discount;
+                    $taxValue = round($base * ($taxRate / 100), 2);
+
                     $sale->details()->create([
-                        'product_id' => $item['product_id'] ?? null,
+                        'product_id'  => $item['product_id'] ?? null,
                         'description' => $item['description'],
-                        'quantity' => $item['quantity'],
-                        'price' => $item['price'],
-                        'discount' => $item['discount'] ?? 0.00,
-                        'total' => ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0.00),
+                        'quantity'    => $qty,
+                        'price'       => $price,
+                        'discount'    => $discount,
+                        'tax_rate'    => $taxRate,
+                        'tax_value'   => $taxValue,
+                        'total'       => $base,
                     ]);
 
                     // Deducir stock solo si no es cotización y es producto físico
@@ -315,8 +350,19 @@ class SaleController extends Controller
                     WorkOrderSaleSync::markAsDelivered($linkedWorkOrder);
                 }
 
+                // Marcar la factura electrónica como CREADA (antes de que el job la procese)
+                if ($request->document_type === 'invoice' && !$isDraft) {
+                    $sale->update(['sri_status' => 'CREADA']);
+                }
+
                 return $sale;
             });
+
+            // ── Despachar job de Facturación Electrónica SRI ─────────────
+            if ($sale->document_type === 'invoice' && $sale->status !== 'draft') {
+                ProcessElectronicInvoice::dispatch($sale->id);
+                Log::info("[SRI] Job despachado para venta #{$sale->id}");
+            }
 
 
             // =================================================================🚀
@@ -655,7 +701,7 @@ class SaleController extends Controller
     /**
      * Ver el detalle completo de una sola venta o cotización (Para cargar en el frente).
      */
-    public function show($id)
+    public function show(int $id)
     {
         try {
             // Buscamos la venta cargando al mismo tiempo sus detalles, el cliente, el vehículo y los registros financieros con pagos distribuidos y cuentas
@@ -731,6 +777,14 @@ class SaleController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'No se puede editar una venta que ya ha sido anulada.'
+                ], 400);
+            }
+
+            // Regla: Si la cotización ya fue convertida, está bloqueada
+            if ($sale->document_type === 'quote' && $sale->is_converted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta cotización ya fue convertida en venta/factura y no puede modificarse.'
                 ], 400);
             }
 
@@ -1575,7 +1629,7 @@ class SaleController extends Controller
             $data = [
                 'titulo_asunto' => $isQuote ? 'Presupuesto / Cotización #' . $sale->document_number : 'Comprobante de Venta #' . $sale->document_number,
                 'cliente' => $sale->client->full_name ?? 'Cliente',
-                'mensaje_principal' => $isQuote 
+                'mensaje_principal' => $isQuote
                     ? 'Adjuntamos la cotización y el presupuesto solicitado para los mantenimientos, servicios o repuestos de tu vehículo. Recuerda que este documento es de carácter informativo.'
                     : 'Adjuntamos el comprobante detallado de tu compra por los servicios o repuestos adquiridos. ¡Gracias por confiar en nosotros!',
                 'vehiculo' => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
@@ -1600,6 +1654,352 @@ class SaleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al despachar el correo.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // =========================================================================
+    // ║               MÉTODOS DE FACTURACIÓN ELECTRÓNICA SRI                  ║
+    // =========================================================================
+
+    /**
+     * Reenvía al SRI una factura que fue DEVUELTA o RECHAZADA.
+     */
+    public function reenviarSri(int $id)
+    {
+        try {
+            $sale = Sale::findOrFail($id);
+
+            if ($sale->document_type !== 'invoice') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo las facturas pueden enviarse al SRI.',
+                ], 422);
+            }
+
+            if ($sale->sri_status === 'AUTORIZADA') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta factura ya está autorizada por el SRI.',
+                ], 422);
+            }
+
+            ProcessElectronicInvoice::dispatch($sale->id);
+            $sale->update(['sri_status' => 'CREADA', 'sri_error' => null]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Factura encolada para reenvío al SRI.',
+                'data'    => $sale->only(['id', 'document_number', 'sri_status']),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al reenviar al SRI.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Consulta en tiempo real el estado SRI de una factura electrónica.
+     */
+    public function estadoSri(int $id)
+    {
+        try {
+            $sale = Sale::select([
+                'id',
+                'document_number',
+                'document_type',
+                'sri_access_key',
+                'sri_status',
+                'sri_authorization_date',
+                'sri_error',
+                'xml_path',
+                'pdf_path',
+            ])->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $sale,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo obtener el estado SRI.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Descarga el XML firmado de la factura electrónica.
+     */
+    public function descargarXml(int $id)
+    {
+        try {
+            $sale = Sale::findOrFail($id);
+
+            if (!$sale->xml_path || !Storage::exists($sale->xml_path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El XML de esta factura aún no está disponible.',
+                ], 404);
+            }
+
+            $filename = 'factura_' . $sale->document_number . '.xml';
+
+            return response(Storage::get($sale->xml_path), 200, [
+                'Content-Type'        => 'application/xml',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al descargar el XML.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Descarga el RIDE (PDF de representación impresa) de la factura electrónica.
+     */
+    public function descargarRide(int $id)
+    {
+        try {
+            $sale = Sale::findOrFail($id);
+
+            if (!$sale->pdf_path || !Storage::exists($sale->pdf_path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El RIDE (PDF) de esta factura aún no está disponible. Puede que la autorización esté en proceso.',
+                ], 404);
+            }
+
+            $filename = 'RIDE_' . $sale->document_number . '.pdf';
+
+            return response(Storage::get($sale->pdf_path), 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al descargar el RIDE.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Convertir una cotización en venta (sale_note) o factura (invoice).
+     * Crea un nuevo documento y bloquea la cotización original.
+     */
+    public function convertQuote(Request $request, int $quoteId)
+    {
+        $request->validate([
+            'document_type' => 'required|in:sale_note,invoice',
+            'payment_method' => 'required|string',
+            'payment_status' => 'required|in:paid,partial,pending',
+            'is_credited' => 'nullable|boolean',
+            'payment_distributions' => 'nullable|array',
+            'payment_distributions.*.account_id' => 'required|exists:accounts,id',
+            'payment_distributions.*.amount' => 'required|numeric|min:0',
+            'payment_distributions.*.payment_method' => 'required|string',
+        ]);
+
+        try {
+            $quote = Sale::with(['details', 'technicians'])->findOrFail($quoteId);
+
+            // Validar que sea una cotización
+            if ($quote->document_type !== 'quote') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo se pueden convertir cotizaciones.'
+                ], 400);
+            }
+
+            // Validar que no esté ya convertida
+            if ($quote->is_converted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta cotización ya fue convertida anteriormente.',
+                    'converted_sale_id' => $quote->converted_to_sale_id
+                ], 400);
+            }
+
+            // Validar que no esté anulada
+            if ($quote->status === 'canceled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede convertir una cotización anulada.'
+                ], 400);
+            }
+
+            $newSale = null;
+
+            DB::transaction(function () use ($quote, $request, &$newSale) {
+                $newDocType = $request->document_type;
+
+                // Generar nuevo número secuencial
+                $newDocNumber = SequenceService::consumeGlobalNumber();
+
+                // Recalcular totales (el IVA aplica solo para facturas)
+                $subtotal = 0;
+                foreach ($quote->details as $detail) {
+                    $subtotal += ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
+                }
+                $taxAmount = $newDocType === 'invoice' ? round($subtotal * 0.15, 2) : 0;
+                $total = $subtotal + $taxAmount;
+
+                // Crear la nueva venta/factura
+                $newSale = Sale::create([
+                    'document_type' => $newDocType,
+                    'document_number' => $newDocNumber,
+                    'client_id' => $quote->client_id,
+                    'vehicle_id' => $quote->vehicle_id,
+                    'work_order_id' => $quote->work_order_id,
+                    'mileage' => $quote->mileage,
+                    'service_date' => now()->toDateString(),
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'total' => $total,
+                    'status' => 'completed',
+                    'payment_status' => $request->payment_status,
+                    'is_credited' => $request->boolean('is_credited'),
+                    'payment_method' => $request->payment_method,
+                    'observations' => $quote->observations,
+                    'user_id' => $quote->user_id,
+                ]);
+
+                // Copiar los detalles de la cotización
+                foreach ($quote->details as $detail) {
+                    $newSale->details()->create([
+                        'product_id' => $detail->product_id,
+                        'description' => $detail->description,
+                        'quantity' => $detail->quantity,
+                        'price' => $detail->price,
+                        'discount' => $detail->discount ?? 0,
+                        'total' => ($detail->quantity * $detail->price) - ($detail->discount ?? 0),
+                    ]);
+                }
+
+                // Copiar técnicos si existen
+                if ($quote->technicians->isNotEmpty()) {
+                    $newSale->technicians()->sync($quote->technicians->pluck('id'));
+                }
+
+                // Crear registro financiero si no es crédito pendiente
+                if ($request->payment_status !== 'pending') {
+                    $financeRecord = FinanceRecord::create([
+                        'type' => FinanceRecord::TYPE_INCOME,
+                        'amount' => $total,
+                        'description' => 'Venta: ' . $newDocType . ' - ' . $newDocNumber,
+                        'invoice_number' => $newDocNumber,
+                        'user_id' => $quote->user_id,
+                        'entry_date' => now()->toDateString(),
+                    ]);
+
+                    // Procesar pagos distribuidos
+                    if ($request->has('payment_distributions') && is_array($request->payment_distributions)) {
+                        foreach ($request->payment_distributions as $distribution) {
+                            PaymentDistribution::create([
+                                'finance_record_id' => $financeRecord->id,
+                                'account_id' => $distribution['account_id'],
+                                'amount' => $distribution['amount'],
+                                'payment_method' => $distribution['payment_method'],
+                            ]);
+
+                            $account = Account::find($distribution['account_id']);
+                            if ($account) {
+                                $account->updateBalance($distribution['amount'], FinanceRecord::TYPE_INCOME);
+                            }
+
+                            $newSale->registerMovement(
+                                $distribution['account_id'],
+                                'income',
+                                $distribution['amount'],
+                                'Venta: ' . $newDocType . ' - ' . $newDocNumber . ' - ' . $distribution['payment_method'],
+                                now()->toDateString(),
+                                [
+                                    'document_type' => $newDocType,
+                                    'document_number' => $newDocNumber,
+                                    'payment_method' => $distribution['payment_method'],
+                                    'finance_record_id' => $financeRecord->id,
+                                ]
+                            );
+                        }
+                    } else {
+                        // Pago único
+                        $accountId = 1; // Caja chica (Efectivo)
+                        if (strtolower($request->payment_method) === 'transferencia' || strtolower($request->payment_method) === 'transfer') {
+                            $accountId = 2;
+                        }
+
+                        PaymentDistribution::create([
+                            'finance_record_id' => $financeRecord->id,
+                            'account_id' => $accountId,
+                            'amount' => $total,
+                            'payment_method' => $request->payment_method,
+                        ]);
+
+                        $account = Account::find($accountId);
+                        if ($account) {
+                            $account->updateBalance($total, FinanceRecord::TYPE_INCOME);
+                        }
+
+                        $newSale->registerMovement(
+                            $accountId,
+                            'income',
+                            $total,
+                            'Venta: ' . $newDocType . ' - ' . $newDocNumber . ' - ' . $request->payment_method,
+                            now()->toDateString(),
+                            [
+                                'document_type' => $newDocType,
+                                'document_number' => $newDocNumber,
+                                'payment_method' => $request->payment_method,
+                                'finance_record_id' => $financeRecord->id,
+                            ]
+                        );
+                    }
+                }
+
+                // Descontar stock de los productos
+                foreach ($newSale->details as $detail) {
+                    if ($detail->product_id) {
+                        $product = ModelsProduct::find($detail->product_id);
+                        if ($product && $product->stock !== null) {
+                            $product->decrement('stock', $detail->quantity);
+                        }
+                    }
+                }
+
+                // Bloquear la cotización original
+                $quote->update(['converted_to_sale_id' => $newSale->id]);
+
+                // Procesar factura electrónica si es invoice
+                if ($newDocType === 'invoice') {
+                    ProcessElectronicInvoice::dispatch($newSale->id)->afterCommit();
+                }
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cotización convertida exitosamente a ' . ($request->document_type === 'invoice' ? 'factura' : 'nota de venta') . '.',
+                'data' => $newSale->load(['details', 'client', 'vehicle'])
+            ], 201);
+
+        } catch (Exception $e) {
+            Log::error('Error al convertir cotización: ' . $e->getMessage(), [
+                'quote_id' => $quoteId,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al convertir la cotización.',
                 'error' => $e->getMessage()
             ], 500);
         }

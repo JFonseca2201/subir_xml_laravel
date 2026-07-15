@@ -918,34 +918,44 @@
             </table>
 
             <table class="line-items-container">
-                <thead>
-                    <tr>
+                      <tr>
                         <th class="heading-item center">#</th>
                         <th class="heading-description">Descripción</th>
                         <th class="heading-quantity center">Cantidad</th>
-                        <th class="heading-price right">Precio</th>
+                        <th class="heading-price right">PVP (Sin IVA)</th>
                         <th class="heading-price right">Descuento</th>
-                        <th class="heading-subtotal right">Total</th>
+                        <th class="heading-price right">IVA (15%)</th>
+                        <th class="heading-subtotal right">Total (Con IVA)</th>
                     </tr>
                 </thead>
                 <tbody>
                     @php
                     $cont = 0;
+                    $isQuotePdf = ($sale->document_type === 'quote');
                     @endphp
                     @foreach ($sale->details as $detail)
+                    @php
+                    // Para cotizaciones y ventas: el precio ya incluye IVA, mostramos base sin IVA
+                    $displayPrice = $detail->price / 1.15;
+                    $displayDiscount = ($detail->discount ?? 0) / 1.15;
+                    $displaySubtotalNeto = ($displayPrice * $detail->quantity) - $displayDiscount;
+                    $displayIva = $displaySubtotalNeto * 0.15;
+                    $displayTotal = $displaySubtotalNeto + $displayIva;
+                    @endphp
                     <tr>
                         <td class="center">{{ $cont = $cont + 1 }}</td>
                         <td>
                             {{ $detail->description }}
                             @if ($detail->product?->sku)
                             <br>
-                            <small style="color: #666;">SKU: {{ $detail->product->sku }}</small>
+                            <small style="color: #666;">Cod.: {{ $detail->product->sku }}</small>
                             @endif
                         </td>
                         <td class="center">{{ $detail->quantity }}</td>
-                        <td class="right">${{ number_format($detail->price, 2) }}</td>
-                        <td class="right">${{ number_format($detail->discount ?? 0.0, 2) }}</td>
-                        <td class="right bold">${{ number_format($detail->total, 2) }}</td>
+                        <td class="right">${{ number_format($displayPrice, 2) }}</td>
+                        <td class="right">${{ number_format($displayDiscount, 2) }}</td>
+                        <td class="right">${{ number_format($displayIva, 2) }}</td>
+                        <td class="right bold">${{ number_format($displayTotal, 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -973,10 +983,18 @@
             ],
             );
             }
-            $totalDiscount = $sale->details->sum('discount') ?? 0;
-            $grossSubtotal = $sale->details->sum(function ($item) {
-            return $item->quantity * $item->price;
+            // Calcular los totales de forma unificada a partir de los ítems con IVA incluido
+            $calculatedGrossSubtotal = $sale->details->sum(function ($item) {
+                return $item->quantity * ($item->price / 1.15);
             });
+            $calculatedTotalDiscount = $sale->details->sum(function ($item) {
+                return ($item->discount ?? 0) / 1.15;
+            });
+            $calculatedNetSubtotal = $calculatedGrossSubtotal - $calculatedTotalDiscount;
+            $calculatedTotal = $sale->details->sum(function ($item) {
+                return ($item->price * $item->quantity) - ($item->discount ?? 0);
+            });
+            $calculatedIva = $calculatedTotal - $calculatedNetSubtotal;
             @endphp
 
             @if ($sale->document_type == 'sale_note' || $sale->document_type == 'invoice')
@@ -1005,11 +1023,11 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; width:25%; white-space:nowrap; border:none; font-weight: bold;">
-                                        ${{ number_format($grossSubtotal, 2) }}
+                                        ${{ number_format($calculatedGrossSubtotal, 2) }}
                                     </td>
                                 </tr>
 
-                                @if ($totalDiscount > 0)
+                                @if ($calculatedTotalDiscount > 0)
                                 <tr style="border:none;">
                                     <td class=""
                                         style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; color:#d38181; font-weight: bold;">
@@ -1017,20 +1035,20 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; white-space:nowrap; border:none; font-weight: bold;">
-                                        -${{ number_format($totalDiscount, 2) }}
+                                        -${{ number_format($calculatedTotalDiscount, 2) }}
                                     </td>
                                 </tr>
                                 @endif
 
-                                @if ($sale->tax_amount > 0)
+                                @if ($calculatedIva > 0)
                                 <tr style="border:none;">
                                     <td class=""
-                                        style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
+                                        style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; color:#d38181; font-weight: bold;">
                                         IVA (15%):
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none;">
-                                        ${{ number_format($sale->tax_amount, 2) }}
+                                        ${{ number_format($calculatedIva, 2) }}
                                     </td>
                                 </tr>
                                 @endif
@@ -1043,7 +1061,7 @@
                                     <td
                                         style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
                                         <span
-                                            class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
+                                            class="total_cancelar total_cancelar_value">${{ number_format($calculatedTotal, 2) }}</span>
                                     </td>
                                 </tr>
 
@@ -1099,11 +1117,11 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; width:25%; white-space:nowrap; border:none; font-weight: bold;">
-                                        ${{ number_format($grossSubtotal, 2) }}
+                                        ${{ number_format($calculatedGrossSubtotal, 2) }}
                                     </td>
                                 </tr>
 
-                                @if ($totalDiscount > 0)
+                                @if ($calculatedTotalDiscount > 0)
                                 <tr style="border:none;">
                                     <td class=""
                                         style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; color:#d38181; font-weight: bold;">
@@ -1111,12 +1129,12 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; white-space:nowrap; border:none; font-weight: bold;">
-                                        -${{ number_format($totalDiscount, 2) }}
+                                        -${{ number_format($calculatedTotalDiscount, 2) }}
                                     </td>
                                 </tr>
                                 @endif
 
-                                @if ($sale->tax_amount > 0)
+                                @if ($calculatedIva > 0)
                                 <tr style="border:none;">
                                     <td class=""
                                         style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
@@ -1124,7 +1142,7 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none;">
-                                        ${{ number_format($sale->tax_amount, 2) }}
+                                        ${{ number_format($calculatedIva, 2) }}
                                     </td>
                                 </tr>
                                 @endif
@@ -1136,9 +1154,15 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #2e7d32;">
-                                        ${{ number_format($sale->paid_out ?? $payments->sum('amount'), 2) }}
+                                        ${{ number_format($payments->sum('amount'), 2) }}
                                     </td>
                                 </tr>
+
+                                @php
+                                    $rawSaldo = $sale->debt ?? ($calculatedTotal - $payments->sum('amount'));
+                                    $saldoFinal = $rawSaldo < 0 ? 0 : $rawSaldo;
+                                    $vuelto = $rawSaldo < 0 ? abs($rawSaldo) : 0;
+                                @endphp
 
                                 <tr style="border:none;">
                                     <td class=""
@@ -1147,9 +1171,22 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #d32f2f;">
-                                        ${{ number_format($sale->debt ?? $sale->total - $payments->sum('amount'), 2) }}
+                                        ${{ number_format($saldoFinal, 2) }}
                                     </td>
                                 </tr>
+
+                                @if ($vuelto > 0)
+                                <tr style="border:none;">
+                                    <td class=""
+                                        style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
+                                        VUELTO:
+                                    </td>
+                                    <td class=""
+                                        style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #2e7d32;">
+                                        ${{ number_format($vuelto, 2) }}
+                                    </td>
+                                </tr>
+                                @endif
 
                                 <tr style="border:none;">
                                     <td
@@ -1159,7 +1196,7 @@
                                     <td
                                         style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
                                         <span
-                                            class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
+                                            class="total_cancelar total_cancelar_value">${{ number_format($calculatedTotal, 2) }}</span>
                                     </td>
                                 </tr>
 
@@ -1173,6 +1210,12 @@
                 </tbody>
             </table>
             @elseif ($sale->document_type == 'quote')
+            @php
+                $quoteGrossSubtotal = $quoteGrossSubtotal ?? $calculatedGrossSubtotal;
+                $quoteTotalDiscount = $quoteTotalDiscount ?? $calculatedTotalDiscount;
+                $quoteIva = $quoteIva ?? $calculatedIva;
+                $quoteTotal = $quoteTotal ?? $calculatedTotal;
+            @endphp
             <table class="line-items-container has-bottom-border"
                 style="border-collapse: collapse; border:none; page-break-inside: avoid;">
                 <thead>
@@ -1190,15 +1233,15 @@
                                 <tr style="border:none;">
                                     <td class=""
                                         style="padding:4px 0; text-align:right; padding-right:15px; width:75%; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
-                                        SUBTOTAL:
+                                        SUBTOTAL (SIN IVA):
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; width:25%; white-space:nowrap; border:none; font-weight:700;">
-                                        ${{ number_format($grossSubtotal, 2) }}
+                                        ${{ number_format($quoteGrossSubtotal, 2) }}
                                     </td>
                                 </tr>
 
-                                @if ($totalDiscount > 0)
+                                @if ($quoteTotalDiscount > 0)
                                 <tr style="border:none;">
                                     <td class=""
                                         style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; color:#d38181; font-weight:700;">
@@ -1206,12 +1249,11 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; white-space:nowrap; border:none; font-weight:700;">
-                                        -${{ number_format($totalDiscount, 2) }}
+                                        -${{ number_format($quoteTotalDiscount, 2) }}
                                     </td>
                                 </tr>
                                 @endif
 
-                                @if ($sale->tax_amount > 0)
                                 <tr style="border:none;">
                                     <td class=""
                                         style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight:700;">
@@ -1219,19 +1261,18 @@
                                     </td>
                                     <td class=""
                                         style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none;">
-                                        ${{ number_format($sale->tax_amount, 2) }}
+                                        ${{ number_format($quoteIva, 2) }}
                                     </td>
                                 </tr>
-                                @endif
 
                                 <tr style="border:none;">
                                     <td
                                         style="padding-top:10px; text-align:right; padding-right:15px; white-space:nowrap; border:none;">
-                                        <span class="total_cancelar">TOTAL:</span>
+                                        <span class="total_cancelar">TOTAL (IVA INCLUIDO):</span>
                                     </td>
                                     <td style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
                                         <span
-                                            class="total_cancelar total_cancelar_value">${{ number_format($sale->total, 2) }}</span>
+                                            class="total_cancelar total_cancelar_value">${{ number_format($quoteTotal, 2) }}</span>
                                     </td>
                                 </tr>
 

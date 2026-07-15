@@ -27,6 +27,7 @@ use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Roles\RoleController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Sales\ProductReturnController;
+use App\Http\Controllers\Sales\QuoteController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
 use App\Http\Controllers\Api\Geographic\GeographicController;
@@ -180,6 +181,21 @@ Route::group(
         Route::post('sales/dispatch', [SaleController::class, 'dispatchSale']);
         Route::post('sales/{id}/register-payment', [SaleController::class, 'registerPayment']);
         Route::post('sales/{id}/enviar-cotizacion', [SaleController::class, 'enviarCotizacionPorCorreo']);
+        Route::post('sales/{id}/convert-quote', [SaleController::class, 'convertQuote']);
+
+        // ============= RUTAS DE COTIZACIONES (INDIVIDUALES) ==========
+        Route::get('quotes/next-number', [QuoteController::class, 'getNextNumber']);
+        Route::resource('quotes', QuoteController::class);
+        Route::post('quotes/{id}/convert', [QuoteController::class, 'convert']);
+        Route::post('quotes/{id}/enviar-cotizacion', [QuoteController::class, 'enviarCotizacionPorCorreo']);
+        Route::get('quotes/{id}/pdf', [QuoteController::class, 'generateSinglePDF']);
+
+        // ============= RUTAS SRI FACTURACIÓN ELECTRÓNICA ==========
+        Route::post('sales/{id}/sri/reenviar', [SaleController::class, 'reenviarSri']);
+        Route::get('sales/{id}/sri/estado',    [SaleController::class, 'estadoSri']);
+        Route::get('sales/{id}/xml',           [SaleController::class, 'descargarXml']);
+        Route::get('sales/{id}/ride',          [SaleController::class, 'descargarRide']);
+
 
         // ============= RUTAS DE DEVOLUCIONES ==========
         Route::get('returns', [ProductReturnController::class, 'index']);

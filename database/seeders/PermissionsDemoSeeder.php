@@ -349,8 +349,7 @@ class PermissionsDemoSeeder extends Seeder
             ['name' => 'METRO', 'state' => 1],
             ['name' => 'PAR', 'state' => 1],
             ['name' => 'DOCENA', 'state' => 1],
-            ['name' => 'GALÓN', 'state' => 1],
-            ['name' => 'BULTO', 'state' => 1],
+            ['name' => 'GALÓN', 'state' => 1],            
         ];
 
         foreach ($units as $unit) {
@@ -376,6 +375,8 @@ class PermissionsDemoSeeder extends Seeder
             ['title' => 'SERVICIOS DE TALLER', 'imagen' => 'http://localhost:8000/storage/categories/servicios_taller.png', 'state' => 1],
             ['title' => 'PRODUCTOS DE LIMPIEZA', 'imagen' => 'http://localhost:8000/storage/categories/productos_limpieza.png', 'state' => 1],
             ['title' => 'ADITIVOS Y QUÍMICOS', 'imagen' => 'http://localhost:8000/storage/categories/aditivos_quimicos.png', 'state' => 1],
+            ['title' => 'AMORTIGUADORES', 'imagen' => 'http://localhost:8000/storage/categories/amortiguadores.png', 'state' => 1],
+            ['title' => 'BASE DE AMORTIGUADOR', 'imagen' => 'http://localhost:8000/storage/categories/base_amortiguador.png', 'state' => 1],
         ];
 
         foreach ($categories as $category) {
@@ -387,11 +388,9 @@ class PermissionsDemoSeeder extends Seeder
 
         // ============= CREAR ALMACENES ==============
         $warehouses = [
-            ['name' => 'ALMACÉN PRINCIPAL', 'sucursale_id' => '1', 'state' => 0],
+            ['name' => 'ALMACÉN LUXURY EVYS CIA. LTDA.', 'sucursale_id' => '1', 'state' => 0],
             ['name' => 'ALMACÉN SECUNDARIO', 'sucursale_id' => '1', 'state' => 0],
-            ['name' => 'ALMACÉN DE REPUESTOS', 'sucursale_id' => '1', 'state' => 0],
-            ['name' => 'ALMACÉN DE LUBRICANTES', 'sucursale_id' => '1', 'state' => 0],
-            ['name' => 'ALMACÉN DE HERRAMIENTAS', 'sucursale_id' => '1', 'state' => 0],
+            
         ];
 
         foreach ($warehouses as $warehouse) {

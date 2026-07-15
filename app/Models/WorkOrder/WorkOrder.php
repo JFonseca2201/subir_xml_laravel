@@ -19,13 +19,13 @@ class WorkOrder extends Model
 
     protected $fillable = [
         'number',
+        'date',
         'client_id',
         'vehicle_id',
         'user_id',
         'mileage',
         'fuel_level',
         'observations',
-        'diagnostic',
         'status',
     ];
 
