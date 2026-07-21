@@ -350,7 +350,7 @@ class QuoteController extends Controller
 
             DB::transaction(function () use ($quote, $request, &$newSale) {
                 $newDocType = $request->document_type;
-                $newDocNumber = SequenceService::consumeGlobalNumber();
+                $newDocNumber = SequenceService::consumeNumber($newDocType);
 
                 // Recalcular totales (el IVA aplica solo para facturas)
                 $subtotal = 0;
@@ -367,6 +367,7 @@ class QuoteController extends Controller
                     'client_id' => $quote->client_id,
                     'vehicle_id' => $quote->vehicle_id,
                     'work_order_id' => $quote->work_order_id,
+                    'work_order_number' => $quote->workOrder ? $quote->workOrder->number : null,
                     'mileage' => $quote->mileage,
                     'service_date' => now()->toDateString(),
                     'subtotal' => $subtotal,

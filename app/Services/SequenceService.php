@@ -7,34 +7,48 @@ use Illuminate\Support\Facades\DB;
 class SequenceService
 {
     /**
+     * Formats a sequence number using a prefix and value.
+     */
+    public static function formatNumber(int $val, ?string $prefix): string
+    {
+        if ($prefix) {
+            return $prefix . '-' . str_pad((string) $val, 7, '0', STR_PAD_LEFT);
+        }
+        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * Preview generic sequence value WITHOUT incrementing (for frontend display)
      */
-    public static function previewNextSequenceValue(string $sequenceName, int $startValue = 0): int
+    public static function previewNextSequenceValue(string $type, int $startValue = 0): int
     {
-        $sequence = DB::table('sequences')->where('name', $sequenceName)->first();
-        return $sequence ? $sequence->current_value + 1 : $startValue + 1;
+        $sequence = DB::table('sequences')->where('type', $type)->first();
+        return $sequence ? $sequence->current_number + 1 : $startValue + 1;
     }
 
     /**
      * Generic sequence getter with lock (Must be used inside DB::transaction)
      */
-    public static function getNextSequenceValue(string $sequenceName, int $startValue = 0): int
+    public static function getNextSequenceValue(string $type, int $startValue = 0): int
     {
-        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
+        $sequence = DB::table('sequences')->where('type', $type)->lockForUpdate()->first();
 
         if (!$sequence) {
+            $prefix = null;
+
             DB::table('sequences')->insert([
-                'name' => $sequenceName,
-                'current_value' => $startValue + 1,
+                'type' => $type,
+                'current_number' => $startValue + 1,
+                'prefix' => $prefix,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
             return $startValue + 1;
         }
 
-        $newValue = $sequence->current_value + 1;
-        DB::table('sequences')->where('name', $sequenceName)->update([
-            'current_value' => $newValue,
+        $newValue = $sequence->current_number + 1;
+        DB::table('sequences')->where('type', $type)->update([
+            'current_number' => $newValue,
             'updated_at' => now(),
         ]);
 
@@ -42,68 +56,180 @@ class SequenceService
     }
 
     /**
-     * PREVIEW the unified global sequence number
+     * PREVIEW the next formatted sequence number by type
      */
-    public static function previewNextGlobalNumber(): string
+    public static function previewNumber(string $type, int $startValue = 0): string
     {
-        $val = self::previewNextSequenceValue('taller_global_sequence');
-        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
-    }
+        $sequence = DB::table('sequences')->where('type', $type)->first();
+        $prefix = $sequence ? $sequence->prefix : null;
+        if (!$sequence) {
+            $prefix = null;
+        }
+        $val = $sequence ? (int)$sequence->current_number : $startValue;
 
-    /**
-     * GENERATE the unified global sequence number
-     */
-    public static function getNextGlobalNumber(): string
-    {
-        $val = self::getNextSequenceValue('taller_global_sequence');
-        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
+        // Auto-heal sequence if it falls behind DB table max
+        $dbMax = self::getDatabaseMaxNumber($type);
+        if ($dbMax !== null && $dbMax > $val) {
+            self::updateSequenceByType($type, $dbMax, $sequence != null, $prefix);
+            $val = $dbMax;
+        }
+
+        return self::formatNumber($val + 1, $prefix);
     }
 
     /**
      * Consume or generate the sequence number safely
      */
-    public static function consumeGlobalNumber(?string $requestedNumber = null): string
+    public static function consumeNumber(string $type, ?string $requestedNumber = null): string
     {
-        $sequenceName = 'taller_global_sequence';
-        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
-        $current = $sequence ? $sequence->current_value : 0;
-
-        if (empty($requestedNumber)) {
-            $next = $current + 1;
-            self::updateSequence($sequenceName, $next, $sequence != null);
-            return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
+        $sequence = DB::table('sequences')->where('type', $type)->lockForUpdate()->first();
+        
+        $prefix = null;
+        if ($sequence) {
+            $prefix = $sequence->prefix;
+            $current = (int)$sequence->current_number;
+        } else {
+            $prefix = null;
+            $current = 0;
         }
 
-        $requestedInt = (int)$requestedNumber;
-        // Check if it's formatted as a standard sequence number or just a number
-        if ((string)$requestedInt === $requestedNumber || str_pad((string)$requestedInt, 9, '0', STR_PAD_LEFT) === $requestedNumber) {
-            if ($requestedInt <= $current) {
-                // Number already taken or old preview, generate a fresh one
-                $next = $current + 1;
-                self::updateSequence($sequenceName, $next, $sequence != null);
-                return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
-            } else {
-                // Number is ahead of sequence, fast-forward the sequence
-                self::updateSequence($sequenceName, $requestedInt, $sequence != null);
-                return str_pad((string) $requestedInt, 9, '0', STR_PAD_LEFT);
+        // Auto-heal sequence if it falls behind DB table max
+        $dbMax = self::getDatabaseMaxNumber($type);
+        if ($dbMax !== null && $dbMax > $current) {
+            self::updateSequenceByType($type, $dbMax, $sequence != null, $prefix);
+            $current = $dbMax;
+        }
+
+        if (!empty($requestedNumber)) {
+            // Strip prefix if matches
+            $parsedNum = $requestedNumber;
+            if ($prefix && str_starts_with(strtoupper($requestedNumber), strtoupper($prefix) . '-')) {
+                $parsedNum = substr($requestedNumber, strlen($prefix) + 1);
             }
+            
+            $requestedInt = (int)$parsedNum;
+            
+            // Check if the remaining part is a valid integer representation
+            if ((string)$requestedInt === $parsedNum || str_pad((string)$requestedInt, strlen($parsedNum), '0', STR_PAD_LEFT) === $parsedNum) {
+                if ($requestedInt <= $current) {
+                    $next = $current + 1;
+                    self::updateSequenceByType($type, $next, $sequence != null, $prefix);
+                    return self::formatNumber($next, $prefix);
+                } else {
+                    self::updateSequenceByType($type, $requestedInt, $sequence != null, $prefix);
+                    return self::formatNumber($requestedInt, $prefix);
+                }
+            }
+            
+            return $requestedNumber;
         }
 
-        // Custom string (e.g. "FACT-999")
-        return $requestedNumber;
+        $next = $current + 1;
+        self::updateSequenceByType($type, $next, $sequence != null, $prefix);
+        return self::formatNumber($next, $prefix);
     }
 
-    private static function updateSequence(string $sequenceName, int $value, bool $exists)
+    private static function getDatabaseMaxNumber(string $type): ?int
+    {
+        try {
+            if ($type === 'work_order') {
+                if (\Illuminate\Support\Facades\Schema::hasTable('work_orders')) {
+                    $numbers = DB::table('work_orders')->pluck('number');
+                    $maxVal = 0;
+                    foreach ($numbers as $number) {
+                        if ($number) {
+                            if (preg_match('/(?:OT)-?(\d+)/i', $number, $matches)) {
+                                $val = (int)$matches[1];
+                                if ($val < 1000000) {
+                                    $maxVal = max($maxVal, $val);
+                                }
+                            } elseif (preg_match('/^\d+$/', $number)) {
+                                $val = (int)$number;
+                                if ($val < 1000000) {
+                                    $maxVal = max($maxVal, $val);
+                                }
+                            }
+                        }
+                    }
+                    return $maxVal > 0 ? $maxVal : null;
+                }
+            } elseif ($type === 'sale_note') {
+                if (\Illuminate\Support\Facades\Schema::hasTable('sales')) {
+                    $numbers = DB::table('sales')->where('document_type', 'sale_note')->pluck('document_number');
+                    $maxVal = 0;
+                    foreach ($numbers as $number) {
+                        $parsedNum = $number;
+                        if ($number && str_starts_with(strtoupper($number), 'NV-')) {
+                            $parsedNum = substr($number, 3);
+                        }
+                        if ($parsedNum && preg_match('/^\d+$/', $parsedNum)) {
+                            $val = (int)$parsedNum;
+                            if ($val < 1000000) {
+                                $maxVal = max($maxVal, $val);
+                            }
+                        }
+                    }
+                    return $maxVal > 0 ? $maxVal : null;
+                }
+            } elseif ($type === 'invoice') {
+                if (\Illuminate\Support\Facades\Schema::hasTable('sales')) {
+                    $numbers = DB::table('sales')->where('document_type', 'invoice')->pluck('document_number');
+                    $maxVal = 0;
+                    foreach ($numbers as $number) {
+                        $parsedNum = $number;
+                        if ($number && str_starts_with(strtoupper($number), 'FAC-')) {
+                            $parsedNum = substr($number, 4);
+                        }
+                        if ($parsedNum && preg_match('/^\d+$/', $parsedNum)) {
+                            $val = (int)$parsedNum;
+                            if ($val < 1000000) {
+                                $maxVal = max($maxVal, $val);
+                            }
+                        }
+                    }
+                    return $maxVal > 0 ? $maxVal : null;
+                }
+            } elseif ($type === 'quote_sequence') {
+                if (\Illuminate\Support\Facades\Schema::hasTable('quotes')) {
+                    $numbers = DB::table('quotes')->pluck('document_number');
+                    $maxVal = 0;
+                    foreach ($numbers as $number) {
+                        $parsedNum = $number;
+                        if ($parsedNum && preg_match('/^\d+$/', $parsedNum)) {
+                            $val = (int)$parsedNum;
+                            if ($val < 1000000) {
+                                $maxVal = max($maxVal, $val);
+                            }
+                        } else {
+                            if ($parsedNum && preg_match('/(\d+)/', $parsedNum, $matches)) {
+                                $val = (int)$matches[1];
+                                if ($val < 1000000) {
+                                    $maxVal = max($maxVal, $val);
+                                }
+                            }
+                        }
+                    }
+                    return $maxVal > 0 ? $maxVal : null;
+                }
+            }
+        } catch (\Exception $e) {
+            logger()->error("Error syncing sequence '{$type}': " . $e->getMessage());
+        }
+        return null;
+    }
+
+    private static function updateSequenceByType(string $type, int $value, bool $exists, ?string $prefix = null)
     {
         if ($exists) {
-            DB::table('sequences')->where('name', $sequenceName)->update([
-                'current_value' => $value,
+            DB::table('sequences')->where('type', $type)->update([
+                'current_number' => $value,
                 'updated_at' => now(),
             ]);
         } else {
             DB::table('sequences')->insert([
-                'name' => $sequenceName,
-                'current_value' => $value,
+                'type' => $type,
+                'current_number' => $value,
+                'prefix' => $prefix,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -111,88 +237,90 @@ class SequenceService
     }
 
     /**
-     * Preview the next sequence number for Direct Sales
+     * Decrement sequence number safely if it matches the given number
      */
-    public static function previewNextDirectSaleNumber(): string
+    public static function decrementNumberIfMatches(string $type, string $deletedNumber): void
     {
-        return self::previewNextGlobalNumber();
-    }
-
-    /**
-     * Get the next sequence number for Direct Sales
-     */
-    public static function getNextDirectSaleNumber(): string
-    {
-        return self::getNextGlobalNumber();
-    }
-
-    /**
-     * Preview the next sequence number for Quotes (independent sequence)
-     */
-    public static function previewNextQuoteNumber(): string
-    {
-        $val = self::previewNextSequenceValue('quote_sequence');
-        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Get the next sequence number for Quotes (independent sequence)
-     */
-    public static function getNextQuoteNumber(): string
-    {
-        $val = self::getNextSequenceValue('quote_sequence');
-        return str_pad((string) $val, 9, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Consume or generate the quote sequence number safely
-     */
-    public static function consumeQuoteNumber(?string $requestedNumber = null): string
-    {
-        $sequenceName = 'quote_sequence';
-        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
-        $current = $sequence ? $sequence->current_value : 0;
-
-        if (empty($requestedNumber)) {
-            $next = $current + 1;
-            self::updateSequence($sequenceName, $next, $sequence != null);
-            return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
+        $sequence = DB::table('sequences')->where('type', $type)->lockForUpdate()->first();
+        if (!$sequence) {
+            return;
         }
-
-        $requestedInt = (int)$requestedNumber;
-        if ((string)$requestedInt === $requestedNumber || str_pad((string)$requestedInt, 9, '0', STR_PAD_LEFT) === $requestedNumber) {
-            if ($requestedInt <= $current) {
-                $next = $current + 1;
-                self::updateSequence($sequenceName, $next, $sequence != null);
-                return str_pad((string) $next, 9, '0', STR_PAD_LEFT);
-            } else {
-                self::updateSequence($sequenceName, $requestedInt, $sequence != null);
-                return str_pad((string) $requestedInt, 9, '0', STR_PAD_LEFT);
+        
+        $prefix = $sequence->prefix;
+        $current = (int)$sequence->current_number;
+        
+        if ($current > 0) {
+            $parsedNum = $deletedNumber;
+            if ($prefix && str_starts_with(strtoupper($deletedNumber), strtoupper($prefix) . '-')) {
+                $parsedNum = substr($deletedNumber, strlen($prefix) + 1);
+            }
+            
+            $deletedInt = (int)$parsedNum;
+            if ($deletedInt === $current) {
+                DB::table('sequences')->where('type', $type)->update([
+                    'current_number' => $current - 1,
+                    'updated_at' => now(),
+                ]);
             }
         }
-
-        return $requestedNumber;
     }
 
-    /**
-     * Preview the next sequence number for Work Orders (shares sequence with sales/invoices)
+    /*
+     * ==========================================
+     * COMPATIBILIDAD CON FLUJOS ANTERIORES
+     * ==========================================
      */
+
+    public static function previewNextGlobalNumber(): string
+    {
+        return self::previewNumber('work_order');
+    }
+
+    public static function getNextGlobalNumber(): string
+    {
+        return self::formatNumber(self::getNextSequenceValue('work_order'), null);
+    }
+
+    public static function consumeGlobalNumber(?string $requestedNumber = null): string
+    {
+        return self::consumeNumber('work_order', $requestedNumber);
+    }
+
+    public static function previewNextDirectSaleNumber(): string
+    {
+        return self::previewNumber('sale_note');
+    }
+
+    public static function getNextDirectSaleNumber(): string
+    {
+        return self::formatNumber(self::getNextSequenceValue('sale_note'), null);
+    }
+
+    public static function previewNextQuoteNumber(): string
+    {
+        return self::previewNumber('quote_sequence');
+    }
+
+    public static function getNextQuoteNumber(): string
+    {
+        return self::formatNumber(self::getNextSequenceValue('quote_sequence'), null);
+    }
+
+    public static function consumeQuoteNumber(?string $requestedNumber = null): string
+    {
+        return self::consumeNumber('quote_sequence', $requestedNumber);
+    }
+
     public static function previewNextWorkOrderNumber(): string
     {
-        return self::previewNextGlobalNumber();
+        return self::previewNumber('work_order');
     }
 
-    /**
-     * Get the next sequence number for Work Orders (shares sequence with sales/invoices)
-     */
     public static function getNextWorkOrderNumber(): string
     {
-        return self::getNextGlobalNumber();
+        return self::formatNumber(self::getNextSequenceValue('work_order'), null);
     }
 
-    /**
-     * Get the next sequence number for Pedidos a Distribuidor (P-YYYYMMDDXXX)
-     */
     public static function getNextPedidoNumber(): string
     {
         $date = now()->format('Ymd');
@@ -201,22 +329,15 @@ class SequenceService
         return 'P-' . $date . str_pad((string) $val, 3, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Decrement the global sequence number safely if it matches the given number
-     */
     public static function decrementGlobalNumberIfMatches(string $deletedNumber): void
     {
-        $sequenceName = 'taller_global_sequence';
-        $sequence = DB::table('sequences')->where('name', $sequenceName)->lockForUpdate()->first();
-        
-        if ($sequence && (int)$sequence->current_value > 0) {
-            $deletedInt = (int)$deletedNumber;
-            if ($deletedInt === (int)$sequence->current_value) {
-                DB::table('sequences')->where('name', $sequenceName)->update([
-                    'current_value' => (int)$sequence->current_value - 1,
-                    'updated_at' => now(),
-                ]);
-            }
+        $type = 'work_order';
+        if (str_starts_with(strtoupper($deletedNumber), 'NV-')) {
+            $type = 'sale_note';
+        } elseif (str_starts_with(strtoupper($deletedNumber), 'FAC-')) {
+            $type = 'invoice';
         }
+        
+        self::decrementNumberIfMatches($type, $deletedNumber);
     }
 }

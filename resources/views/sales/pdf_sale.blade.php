@@ -791,8 +791,11 @@
                     <td style="width: 50%; padding-bottom: 8px; font-size: 12px; text-align: left; border: none;">
                         {{ $sale->document_type === 'quote' ? 'COTIZACIÓN' : ($sale->document_type === 'invoice' ? 'FACTURA' : 'NOTA DE VENTA') }}#
                         {{ $sale->id }}-{{ $sale->document_number }}
+                        @if($sale->work_order_number)
+                        <br><span style="font-size: 8px; color: #555; font-weight: normal;">ORDEN TRABAJO: #{{ $sale->work_order_number }}</span>
+                        @endif
                     </td>
-                    <td style="width: 50%; padding-bottom: 8px; text-align: right; font-size: 12px; border: none;">
+                    <td style="width: 50%; padding-bottom: 8px; text-align: right; font-size: 12px; border: none; vertical-align: top;">
                         FECHA: {{ $sale->service_date->format('d/m/Y') }}
                     </td>
                 </tr>
@@ -918,15 +921,15 @@
             </table>
 
             <table class="line-items-container">
-                      <tr>
-                        <th class="heading-item center">#</th>
-                        <th class="heading-description">Descripción</th>
-                        <th class="heading-quantity center">Cantidad</th>
-                        <th class="heading-price right">PVP (Sin IVA)</th>
-                        <th class="heading-price right">Descuento</th>
-                        <th class="heading-price right">IVA (15%)</th>
-                        <th class="heading-subtotal right">Total (Con IVA)</th>
-                    </tr>
+                <tr>
+                    <th class="heading-item center">#</th>
+                    <th class="heading-description">Descripción</th>
+                    <th class="heading-quantity center">Cantidad</th>
+                    <th class="heading-price right">PVP (Sin IVA)</th>
+                    <th class="heading-price right">Descuento</th>
+                    <th class="heading-price right">IVA (15%)</th>
+                    <th class="heading-subtotal right">Total (Con IVA)</th>
+                </tr>
                 </thead>
                 <tbody>
                     @php
@@ -985,14 +988,14 @@
             }
             // Calcular los totales de forma unificada a partir de los ítems con IVA incluido
             $calculatedGrossSubtotal = $sale->details->sum(function ($item) {
-                return $item->quantity * ($item->price / 1.15);
+            return $item->quantity * ($item->price / 1.15);
             });
             $calculatedTotalDiscount = $sale->details->sum(function ($item) {
-                return ($item->discount ?? 0) / 1.15;
+            return ($item->discount ?? 0) / 1.15;
             });
             $calculatedNetSubtotal = $calculatedGrossSubtotal - $calculatedTotalDiscount;
             $calculatedTotal = $sale->details->sum(function ($item) {
-                return ($item->price * $item->quantity) - ($item->discount ?? 0);
+            return ($item->price * $item->quantity) - ($item->discount ?? 0);
             });
             $calculatedIva = $calculatedTotal - $calculatedNetSubtotal;
             @endphp
@@ -1159,12 +1162,12 @@
                                 </tr>
 
                                 @php
-                                    $rawSaldo = $sale->debt ?? ($calculatedTotal - $payments->sum('amount'));
-                                    $saldoFinal = $rawSaldo < 0 ? 0 : $rawSaldo;
-                                    $vuelto = $rawSaldo < 0 ? abs($rawSaldo) : 0;
-                                @endphp
+                                $rawSaldo = $sale->debt ?? ($calculatedTotal - $payments->sum('amount'));
+                                $saldoFinal = $rawSaldo < 0 ? 0 : $rawSaldo;
+                                    $vuelto=$rawSaldo < 0 ? abs($rawSaldo) : 0;
+                                    @endphp
 
-                                <tr style="border:none;">
+                                    <tr style="border:none;">
                                     <td class=""
                                         style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
                                         SALDO:
@@ -1173,48 +1176,48 @@
                                         style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #d32f2f;">
                                         ${{ number_format($saldoFinal, 2) }}
                                     </td>
-                                </tr>
-
-                                @if ($vuelto > 0)
-                                <tr style="border:none;">
-                                    <td class=""
-                                        style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
-                                        VUELTO:
-                                    </td>
-                                    <td class=""
-                                        style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #2e7d32;">
-                                        ${{ number_format($vuelto, 2) }}
-                                    </td>
-                                </tr>
-                                @endif
-
-                                <tr style="border:none;">
-                                    <td
-                                        style="padding-top:10px; text-align:right; padding-right:15px; white-space:nowrap; border:none;">
-                                        <span class="total_cancelar">TOTAL:</span>
-                                    </td>
-                                    <td
-                                        style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
-                                        <span
-                                            class="total_cancelar total_cancelar_value">${{ number_format($calculatedTotal, 2) }}</span>
-                                    </td>
-                                </tr>
-
-                            </table>
-                        </td>
-                        @endif
-
                     </tr>
-                    @endforeach
+
+                    @if ($vuelto > 0)
+                    <tr style="border:none;">
+                        <td class=""
+                            style="padding:4px 0; text-align:right; padding-right:15px; white-space:nowrap; border:none; font-weight: bold;">
+                            VUELTO:
+                        </td>
+                        <td class=""
+                            style="padding:4px 0; text-align:right; font-weight:bold; white-space:nowrap; border:none; color: #2e7d32;">
+                            ${{ number_format($vuelto, 2) }}
+                        </td>
+                    </tr>
                     @endif
-                </tbody>
+
+                    <tr style="border:none;">
+                        <td
+                            style="padding-top:10px; text-align:right; padding-right:15px; white-space:nowrap; border:none;">
+                            <span class="total_cancelar">TOTAL:</span>
+                        </td>
+                        <td
+                            style="padding-top:10px; text-align:right; white-space:nowrap; border:none;">
+                            <span
+                                class="total_cancelar total_cancelar_value">${{ number_format($calculatedTotal, 2) }}</span>
+                        </td>
+                    </tr>
+
+            </table>
+            </td>
+            @endif
+
+            </tr>
+            @endforeach
+            @endif
+            </tbody>
             </table>
             @elseif ($sale->document_type == 'quote')
             @php
-                $quoteGrossSubtotal = $quoteGrossSubtotal ?? $calculatedGrossSubtotal;
-                $quoteTotalDiscount = $quoteTotalDiscount ?? $calculatedTotalDiscount;
-                $quoteIva = $quoteIva ?? $calculatedIva;
-                $quoteTotal = $quoteTotal ?? $calculatedTotal;
+            $quoteGrossSubtotal = $quoteGrossSubtotal ?? $calculatedGrossSubtotal;
+            $quoteTotalDiscount = $quoteTotalDiscount ?? $calculatedTotalDiscount;
+            $quoteIva = $quoteIva ?? $calculatedIva;
+            $quoteTotal = $quoteTotal ?? $calculatedTotal;
             @endphp
             <table class="line-items-container has-bottom-border"
                 style="border-collapse: collapse; border:none; page-break-inside: avoid;">

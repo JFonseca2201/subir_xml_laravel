@@ -4,15 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte Financiero</title>
+    <title>Reporte Financiero Consolidado</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 12px;
+            font-size: 11px;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             background-color: white;
-            color: #333;
+            color: #1e293b;
+            line-height: 1.4;
         }
 
         .container {
@@ -21,161 +22,131 @@
         }
 
         .header {
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #ccc;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #cbd5e1;
         }
 
         .header h1 {
-            font-size: 20px;
-            margin: 0 0 5px 0;
-            color: #333;
-            font-weight: bold;
+            font-size: 18px;
+            margin: 0 0 4px 0;
+            color: #0f172a;
+            font-weight: 800;
+            text-transform: uppercase;
         }
 
         .header .subtitle {
-            font-size: 12px;
-            color: #666;
+            font-size: 11px;
+            color: #64748b;
             margin: 0;
         }
 
         .header .info {
-            margin-top: 10px;
-            font-size: 11px;
-            color: #888;
+            margin-top: 8px;
+            font-size: 10px;
+            color: #64748b;
         }
 
-        table {
+        .kpi-grid {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: separate;
+            border-spacing: 8px;
+        }
+
+        .kpi-box {
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .kpi-title {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .kpi-val {
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .section-banner {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 800;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            page-break-after: avoid;
+        }
+
+        .section-banner-income {
+            background-color: #dcfce7;
+            color: #166534;
+            border-left: 4px solid #16a34a;
+        }
+
+        .section-banner-transfer {
+            background-color: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #2563eb;
+        }
+
+        .section-banner-expense {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #dc2626;
+        }
+
+        table.data-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
         }
 
-        thead {
-            border-bottom: 2px solid #333;
-        }
-
-        th {
-            padding: 10px 8px;
+        table.data-table th {
+            padding: 8px 6px;
             text-align: left;
-            font-weight: bold;
-            font-size: 11px;
-            text-transform: uppercase;
-            color: #333;
-            border-bottom: 1px solid #ccc;
-        }
-
-        td {
-            padding: 12px 8px;
-            text-align: left;
-            color: #333;
-            border-bottom: 1px solid #eee;
-        }
-
-        tbody tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
+            font-weight: 700;
             font-size: 9px;
-            font-weight: normal;
             text-transform: uppercase;
+            color: #475569;
+            background-color: #f8fafc;
+            border-bottom: 1px solid #cbd5e1;
         }
 
-        .badge-income {
-            color: #2e7d32;
+        table.data-table td {
+            padding: 7px 6px;
+            text-align: left;
+            color: #334155;
+            font-size: 10px;
+            border-bottom: 1px solid #f1f5f9;
         }
 
-        .badge-expense {
-            color: #c62828;
+        table.data-table tbody tr:nth-child(even) td {
+            background-color: #f8fafc;
         }
 
-        .badge-transfer {
-            color: #f9a825;
-        }
-
-        .total-section {
-            margin-top: 30px;
-            padding: 15px;
+        .text-right {
             text-align: right;
-            border-top: 2px solid #333;
         }
 
-        .total-section .label {
-            font-size: 11px;
-            font-weight: bold;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            color: #666;
-        }
-
-        .total-section .amount {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0;
-            color: #333;
-        }
-
-        .summary-section {
-
-
-            margin-top: 20px;
-            padding: 15px 0;
-            border-top: 1px solid #eee;
-            border-bottom: 1px solid #eee;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-
-        .summary-row:last-child {
-            margin-bottom: 0;
-        }
-
-        .summary-label {
-            font-size: 11px;
-            color: #666;
-            font-weight: normal;
-        }
-
-        .summary-value {
-            font-size: 11px;
-            color: #333;
-            font-weight: bold;
+        .font-bold {
+            font-weight: 700;
         }
 
         .footer {
             margin-top: 30px;
             text-align: center;
-            font-size: 10px;
-            color: #999;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-        }
-
-        .amount {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .amount-income {
-            font-weight: bold;
-            color: #1e55a7;
-        }
-
-        .amount-expense {
-            font-weight: bold;
-            color: #f10d0dce;
-        }
-
-        .amount-transfer {
-            font-weight: bold;
-            color: #ffae2cec;
+            font-size: 9px;
+            color: #94a3b8;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+            page-break-inside: avoid;
         }
 
         @media print {
@@ -187,89 +158,164 @@
 </head>
 
 <body>
+    @php
+        $incomes = collect($movements)->filter(function($m) {
+            return $m->type === 'income' || $m->type === 0;
+        });
+
+        $transfers = collect($movements)->filter(function($m) {
+            return $m->type === 'transfer';
+        });
+
+        $expenses = collect($movements)->filter(function($m) {
+            return $m->type === 'expense' || $m->type === 1;
+        });
+
+        $totalIncome = $incomes->sum('amount');
+        $totalTransfer = $transfers->sum('amount');
+        $totalExpense = $expenses->sum('amount');
+        $balance = $totalIncome - $totalExpense;
+    @endphp
+
     <div class="container">
         <div class="header">
-            <h1>Reporte Financiero</h1>
-            <p class="subtitle">Sistema de Gestión Comercial</p>
+            <h1>Reporte Financiero Consolidado</h1>
+            <p class="subtitle">Sistema de Gestión Comercial - Módulo Financiero</p>
             <div class="info">
-                <span>Fecha: {{ date('d/m/Y H:i:s') }}</span> | <span>Registros: {{ $summary['totalCount'] }}</span>
+                <span>Fecha de Emisión: {{ date('d/m/Y H:i:s') }}</span> | <span>Total Movimientos: {{ count($movements) }}</span>
             </div>
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Descripción</th>
-                    <th>Cuenta</th>
-                    <th style="width: 75px;">Monto</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($movements as $movement)
-                <tr>
-                    <td>{{ \Carbon\Carbon::parse($movement->entry_date)->format('d/m/Y') }}</td>
-                    <td>
-                        @if ($movement->type == 'income')
-                        <span class="badge badge-income">Ingreso</span>
-                        @elseif($movement->type == 'expense')
-                        <span class="badge badge-expense">Egreso</span>
-                        @else
-                        <span class="badge badge-transfer">{{ $movement->type }}</span>
-                        @endif
-                    </td>
-                    <td>{{ $movement->description ?? ($movement->movable?->descripcion ?? 'N/A') }}</td>
-                    <td>
-                        @if ($movement->type == 'transfer')
-                        @if (isset($movement->metadata['from_account_name']) && isset($movement->metadata['to_account_name']))
-                        {{ $movement->metadata['from_account_name'] }} ->
-                        {{ $movement->metadata['to_account_name'] }}
-                        @elseif(isset($movement->metadata['from_account_name']))
-                        {{ $movement->metadata['from_account_name'] }} -> Externo
-                        @elseif(isset($movement->metadata['to_account_name']))
-                        Externo -> {{ $movement->metadata['to_account_name'] }}
-                        @else
-                        {{ $movement->metadata['from_account'] ?? 'N/A' }} →
-                        {{ $movement->metadata['to_account'] ?? 'N/A' }}
-                        @endif
-                        @else
-                        {{ $movement->account ? $movement->account->name : 'N/A' }}
-                        @endif
-                    </td>
-                    <td
-                        class="{{ $movement->type == 'income' ? 'amount-income' : ($movement->type == 'expense' ? 'amount-expense' : 'amount-transfer') }}">
-                        {{ $movement->type == 'income' ? '+' : ($movement->type == 'expense' ? '-' : '') }}
-                        ${{ number_format($movement->amount, 2) }}
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-
-        <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
+        <!-- Resumen KPI -->
+        <table class="kpi-grid">
             <tr>
-                <td style="width: 50%; vertical-align: top; padding-right: 20px;">
-                    <div class="summary-row">
-                        <span class="summary-label">Total Ingresos:</span>
-                        <span class="summary-value">${{ number_format($summary['totalIncome'], 2) }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span class="summary-label">Total Egresos:</span>
-                        <span class="summary-value">${{ number_format($summary['totalExpense'], 2) }}</span>
+                <td style="width: 25%; padding: 0;">
+                    <div class="kpi-box" style="background-color: #f0fdf4; border-color: #bbf7d0;">
+                        <div class="kpi-title" style="color: #166534;">Ingresos Totales</div>
+                        <div class="kpi-val" style="color: #15803d;">${{ number_format($totalIncome, 2) }}</div>
                     </div>
                 </td>
-                <td style="width: 50%; vertical-align: top; padding-left: 20px;">
-                    <div class="total-section">
-                        <div class="label">Balance General</div>
-                        <p class="amount">${{ number_format($summary['balance'], 2) }}</p>
+                <td style="width: 25%; padding: 0;">
+                    <div class="kpi-box" style="background-color: #eff6ff; border-color: #bfdbfe;">
+                        <div class="kpi-title" style="color: #1e40af;">Transferencias</div>
+                        <div class="kpi-val" style="color: #1d4ed8;">${{ number_format($totalTransfer, 2) }}</div>
+                    </div>
+                </td>
+                <td style="width: 25%; padding: 0;">
+                    <div class="kpi-box" style="background-color: #fef2f2; border-color: #fecaca;">
+                        <div class="kpi-title" style="color: #991b1b;">Egresos Totales</div>
+                        <div class="kpi-val" style="color: #dc2626;">${{ number_format($totalExpense, 2) }}</div>
+                    </div>
+                </td>
+                <td style="width: 25%; padding: 0;">
+                    <div class="kpi-box" style="background-color: #f8fafc; border-color: #cbd5e1;">
+                        <div class="kpi-title" style="color: #334155;">Balance Neto</div>
+                        <div class="kpi-val" style="color: #0f172a;">${{ number_format($balance, 2) }}</div>
                     </div>
                 </td>
             </tr>
         </table>
 
+        <!-- SECCIÓN 1: INGRESOS -->
+        <div class="section-banner section-banner-income">
+            1. REGISTROS DE INGRESOS ({{ count($incomes) }}) — SUBTOTAL: ${{ number_format($totalIncome, 2) }}
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Fecha</th>
+                    <th>Descripción</th>
+                    <th style="width: 200px;">Cuenta</th>
+                    <th style="width: 100px;" class="text-right">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($incomes as $m)
+                <tr>
+                    <td>{{ \Carbon\Carbon::parse($m->entry_date)->format('d/m/Y') }}</td>
+                    <td>{{ $m->description ?? ($m->movable?->descripcion ?? 'Ingreso General') }}</td>
+                    <td>{{ $m->account ? $m->account->name : 'N/A' }}</td>
+                    <td class="text-right font-bold" style="color: #15803d;">+${{ number_format($m->amount, 2) }}</td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #94a3b8; padding: 12px;">No se encontraron registros de ingresos.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+
+        <!-- SECCIÓN 2: TRANSFERENCIAS -->
+        <div class="section-banner section-banner-transfer">
+            2. TRANSFERENCIAS ENTRE CUENTAS ({{ count($transfers) }}) — SUBTOTAL: ${{ number_format($totalTransfer, 2) }}
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Fecha</th>
+                    <th>Descripción</th>
+                    <th style="width: 250px;">Cuentas (Origen → Destino)</th>
+                    <th style="width: 100px;" class="text-right">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($transfers as $m)
+                <tr>
+                    <td>{{ \Carbon\Carbon::parse($m->entry_date)->format('d/m/Y') }}</td>
+                    <td>{{ $m->description ?? 'Transferencia entre cuentas' }}</td>
+                    <td>
+                        @if (isset($m->metadata['from_account_name']) && isset($m->metadata['to_account_name']))
+                            <span style="color: #dc2626; font-weight: bold;">{{ $m->metadata['from_account_name'] }}</span> → 
+                            <span style="color: #15803d; font-weight: bold;">{{ $m->metadata['to_account_name'] }}</span>
+                        @elseif(isset($m->metadata['from_account_name']))
+                            <span style="color: #dc2626; font-weight: bold;">{{ $m->metadata['from_account_name'] }}</span> → Externo
+                        @elseif(isset($m->metadata['to_account_name']))
+                            Externo → <span style="color: #15803d; font-weight: bold;">{{ $m->metadata['to_account_name'] }}</span>
+                        @else
+                            {{ $m->metadata['from_account'] ?? 'N/A' }} → {{ $m->metadata['to_account'] ?? 'N/A' }}
+                        @endif
+                    </td>
+                    <td class="text-right font-bold" style="color: #1d4ed8;">${{ number_format($m->amount, 2) }}</td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #94a3b8; padding: 12px;">No se encontraron transferencias registradas.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+
+        <!-- SECCIÓN 3: EGRESOS -->
+        <div class="section-banner section-banner-expense">
+            3. REGISTROS DE EGRESOS ({{ count($expenses) }}) — SUBTOTAL: ${{ number_format($totalExpense, 2) }}
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Fecha</th>
+                    <th>Descripción</th>
+                    <th style="width: 200px;">Cuenta</th>
+                    <th style="width: 100px;" class="text-right">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($expenses as $m)
+                <tr>
+                    <td>{{ \Carbon\Carbon::parse($m->entry_date)->format('d/m/Y') }}</td>
+                    <td>{{ $m->description ?? ($m->movable?->descripcion ?? 'Egreso General') }}</td>
+                    <td>{{ $m->account ? $m->account->name : 'N/A' }}</td>
+                    <td class="text-right font-bold" style="color: #dc2626;">-${{ number_format($m->amount, 2) }}</td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #94a3b8; padding: 12px;">No se encontraron registros de egresos.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+
         <div class="footer">
-            <p>Sistema de Gestión © {{ date('Y') }} | Generado automáticamente</p>
+            <p>Sistema de Gestión © {{ date('Y') }} | Reporte generado automáticamente por tipo de movimiento</p>
         </div>
     </div>
 </body>

@@ -18,6 +18,7 @@ class Sale extends Model
         'client_id',
         'vehicle_id',
         'work_order_id',
+        'work_order_number',
         'mileage',
         'service_date',
         'subtotal',

@@ -252,7 +252,7 @@ class WorkOrderController extends Controller
         $workOrder->technicians()->detach();
         $workOrder->delete();
 
-        \App\Services\SequenceService::decrementGlobalNumberIfMatches($workOrder->number);
+        \App\Services\SequenceService::decrementNumberIfMatches('work_order', $workOrder->number);
 
         return response()->json([
             'success' => true,

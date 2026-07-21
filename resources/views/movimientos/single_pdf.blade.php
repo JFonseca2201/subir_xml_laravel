@@ -148,9 +148,9 @@
             </div>
             @endif
             @if(isset($custom_title))
-                <h1>{{ $custom_title }}</h1>
+            <h1>{{ $custom_title }}</h1>
             @else
-                <h1>Comprobante de {{ $type_string == 'income' ? 'Ingreso' : ($type_string == 'expense' ? 'Egreso' : 'Transferencia') }}</h1>
+            <h1>Comprobante de {{ $type_string == 'income' ? 'Ingreso' : ($type_string == 'expense' ? 'Egreso' : 'Transferencia') }}</h1>
             @endif
             <p class="subtitle">Sistema de Gestión Comercial</p>
             <p style="margin-top: 10px; font-size: 12px; color: #888;">Comprobante #{{ str_pad($movement->id, 6, '0', STR_PAD_LEFT) }}</p>

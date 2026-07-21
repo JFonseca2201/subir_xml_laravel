@@ -29,17 +29,21 @@ class SaleController extends Controller
      */
     public function getNextNumber(Request $request)
     {
-        // Si es cotización, devolver secuencia independiente
-        if ($request->query('document_type') === 'quote') {
-            return response()->json([
-                'success' => true,
-                'data' => SequenceService::previewNextQuoteNumber()
-            ]);
+        $docType = $request->query('document_type', 'sale_note');
+        
+        if ($docType === 'quote') {
+            $number = SequenceService::previewNextQuoteNumber();
+        } elseif ($docType === 'invoice') {
+            $number = SequenceService::previewNumber('invoice');
+        } elseif ($docType === 'work_order') {
+            $number = SequenceService::previewNumber('work_order');
+        } else {
+            $number = SequenceService::previewNumber('sale_note');
         }
 
         return response()->json([
             'success' => true,
-            'data' => SequenceService::previewNextDirectSaleNumber()
+            'data' => $number
         ]);
     }
 
@@ -274,14 +278,13 @@ class SaleController extends Controller
             // 4. Iniciamos la transacción para asegurar consistencia atómica
             $sale = DB::transaction(function () use ($request, $linkedWorkOrder, $paymentMethod, $isDraft) {
 
-                // Consumir el número de documento de forma segura solo si NO viene de una orden de trabajo
-                if ($linkedWorkOrder) {
-                    $documentNumber = $linkedWorkOrder->number;
-                } elseif ($request->document_type === 'quote') {
+                // Consumir el número de documento de forma segura según el tipo de documento
+                if ($request->document_type === 'quote') {
                     // Cotizaciones usan su propia secuencia independiente
                     $documentNumber = \App\Services\SequenceService::consumeQuoteNumber($request->document_number);
                 } else {
-                    $documentNumber = \App\Services\SequenceService::consumeGlobalNumber($request->document_number);
+                    // Si viene de una OT, igualmente le asignamos un secuencial de venta NV o FAC
+                    $documentNumber = \App\Services\SequenceService::consumeNumber($request->document_type, $request->document_number);
                 }
 
                 // A. Crear la cabecera de la venta
@@ -291,6 +294,7 @@ class SaleController extends Controller
                     'client_id' => $request->client_id,
                     'vehicle_id' => $request->vehicle_id,
                     'work_order_id' => $request->work_order_id,
+                    'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : null,
                     'user_id' => $request->user_id,
                     'mileage' => $request->mileage,
                     'service_date' => $request->service_date ?? now()->format('Y-m-d'),
@@ -972,7 +976,7 @@ class SaleController extends Controller
             // Ejecutar la actualización completa dentro de una transacción para garantizar consistencia atómica
             DB::transaction(function () use ($sale, $request, $status, $oldDocumentNumber, $wasQuote, $isNowSale, $wasDraft, $isFinishingDraft) {
                 // Actualizar campos operativos básicos
-                $sale->update($request->only([
+                $updateData = $request->only([
                     'document_number',
                     'client_id',
                     'vehicle_id',
@@ -982,8 +986,14 @@ class SaleController extends Controller
                     'payment_method',
                     'document_type',
                     'payment_status',
-                    'is_credited'
-                ]) + ['status' => $status]);
+                    'is_credited',
+                    'work_order_id'
+                ]);
+                if ($request->has('work_order_id')) {
+                    $wo = \App\Models\WorkOrder\WorkOrder::find($request->work_order_id);
+                    $updateData['work_order_number'] = $wo ? $wo->number : null;
+                }
+                $sale->update($updateData + ['status' => $status]);
 
                 if ($request->has('technicians')) {
                     $technicianIds = WorkOrderSaleSync::resolveTechnicianIds($request, null);
@@ -1239,7 +1249,7 @@ class SaleController extends Controller
                 $sale->details()->delete();
                 $sale->delete();
 
-                \App\Services\SequenceService::decrementGlobalNumberIfMatches($sale->document_number);
+                \App\Services\SequenceService::decrementNumberIfMatches($sale->document_type, $sale->document_number);
             });
 
             return response()->json([
@@ -1320,13 +1330,16 @@ class SaleController extends Controller
             }
 
             $sale = DB::transaction(function () use ($request, $linkedWorkOrder) {
+                $documentNumber = \App\Services\SequenceService::consumeNumber('sale_note', $request->document_number);
+                
                 // Crear la venta con pago pendiente
                 $sale = Sale::create([
                     'document_type' => 'sale_note',
-                    'document_number' => $request->document_number,
+                    'document_number' => $documentNumber,
                     'client_id' => $request->client_id,
                     'vehicle_id' => $request->vehicle_id,
                     'work_order_id' => $request->work_order_id,
+                    'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : null,
                     'user_id' => $request->user_id,
                     'mileage' => $request->mileage,
                     'service_date' => $request->service_date ?? now()->format('Y-m-d'),
@@ -1844,7 +1857,7 @@ class SaleController extends Controller
                 $newDocType = $request->document_type;
 
                 // Generar nuevo número secuencial
-                $newDocNumber = SequenceService::consumeGlobalNumber();
+                $newDocNumber = SequenceService::consumeNumber($newDocType);
 
                 // Recalcular totales (el IVA aplica solo para facturas)
                 $subtotal = 0;
@@ -1861,6 +1874,7 @@ class SaleController extends Controller
                     'client_id' => $quote->client_id,
                     'vehicle_id' => $quote->vehicle_id,
                     'work_order_id' => $quote->work_order_id,
+                    'work_order_number' => $quote->workOrder ? $quote->workOrder->number : null,
                     'mileage' => $quote->mileage,
                     'service_date' => now()->toDateString(),
                     'subtotal' => $subtotal,
