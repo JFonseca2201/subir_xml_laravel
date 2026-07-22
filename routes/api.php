@@ -171,6 +171,7 @@ Route::group(
 
         // ============= RUTAS DE DASHBOARD FINANCIERO ==========
         Route::get('dashboard-financiero', [FinanzasController::class, 'getDashboardData']);
+        Route::get('financial-movements', [FinanzasController::class, 'getMovements']);
         Route::post('financial-movements/pdf', [FinanzasController::class, 'generatePDF']);
         Route::get('financial-movements/{id}/pdf', [FinanzasController::class, 'generateSinglePDF']);
 

@@ -50,11 +50,47 @@ class FinanzasController extends Controller
     public function generatePDF(Request $request)
     {
         try {
-            // Obtener todos los movimientos sin límite
-            $movements = FinancialMovement::with(['movable', 'account'])
+            $query = FinancialMovement::with(['movable', 'account'])
                 ->orderBy('entry_date', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->get();
+                ->orderBy('created_at', 'desc');
+
+            // Filtrar por tipo (income, expense, transfer)
+            if ($request->has('type') && !empty($request->type)) {
+                $query->where('type', $request->type);
+            }
+
+            // Filtrar por mes (formato Y-m, ej. '2026-07')
+            if ($request->has('month') && !empty($request->month)) {
+                $month = $request->month;
+                $query->whereYear('entry_date', substr($month, 0, 4))
+                      ->whereMonth('entry_date', substr($month, 5, 2));
+            }
+
+            // Búsqueda (OT, Factura, Descripción)
+            if ($request->has('search') && !empty($request->search)) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('description', 'like', "%{$search}%")
+                      ->orWhereHas('movable', function ($mQuery) use ($search) {
+                          $mQuery->where('work_order_number', 'like', "%{$search}%")
+                                 ->orWhere('invoice_number', 'like', "%{$search}%")
+                                 ->orWhere('descripcion', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            // Rango de fechas
+            if ($request->has('start_date') && !empty($request->start_date)) {
+                $query->whereDate('entry_date', '>=', $request->start_date);
+            }
+            if ($request->has('end_date') && !empty($request->end_date)) {
+                $query->whereDate('entry_date', '<=', $request->end_date);
+            }
+
+            $movements = $query->get();
+            $movements->loadMorph('movable', [
+                \App\Models\Finance\PaymentDistribution::class => ['financeRecord']
+            ]);
 
             Log::info('Total movements for PDF: ' . $movements->count());
 
@@ -125,32 +161,42 @@ class FinanzasController extends Controller
     public function generateSinglePDF(int $id)
     {
         try {
-            $movement = \App\Models\Finance\FinanceRecord::with(['paymentDistributions.account'])->findOrFail($id);
+            $movement = \App\Models\Finance\FinancialMovement::with(['movable', 'account'])->findOrFail($id);
 
-            // Preparar data compatible con la vista, que usaba FinancialMovement
-            // Los campos relevantes son: type (income/expense/transfer), entry_date, description, amount
-            // metadata (para transferencias), account (o paymentDistributions)
-
-            // Transformar el type (0=income, 1=expense) a string para la vista
-            $movementType = $movement->type === 0 ? 'income' : 'expense';
+            // Determinar tipo como string
+            $movementType = $movement->type; // 'income', 'expense', 'transfer'
             $movement->type_string = $movementType;
 
-            // Obtener las cuentas afectadas y mapear nombres
+            // Determinar nombre de la cuenta o cuentas
             $accountName = 'N/A';
-            if ($movement->paymentDistributions && $movement->paymentDistributions->count() > 0) {
-                $accountName = $movement->paymentDistributions->map(function ($pd) {
-                    if (!$pd->account) return 'N/A';
-                    switch ($pd->account->id) {
-                        case 1:
-                            return 'EFECTIVO';
-                        case 2:
-                            return 'Banco Pichincha';
-                        case 3:
-                            return 'Banco Guayaquil';
-                        default:
-                            return 'EFECTIVO';
-                    }
-                })->implode(', ');
+            if ($movementType === 'transfer' && is_array($movement->metadata)) {
+                $fromAcc = $movement->metadata['from_account_name'] ?? 'N/A';
+                $toAcc = $movement->metadata['to_account_name'] ?? 'N/A';
+                $accountName = "{$fromAcc} → {$toAcc}";
+            } else if ($movement->account) {
+                $accountName = $movement->account->name;
+            } else if ($movement->movable_type === \App\Models\Finance\PaymentDistribution::class) {
+                $movement->load('movable.financeRecord.paymentDistributions.account');
+                $financeRecord = $movement->movable->financeRecord ?? null;
+                if ($financeRecord && $financeRecord->paymentDistributions && $financeRecord->paymentDistributions->count() > 0) {
+                    $accountName = $financeRecord->paymentDistributions->map(function ($pd) {
+                        return $pd->account ? $pd->account->name : 'N/A';
+                    })->implode(', ');
+                }
+            }
+
+            // Mapear referencias para compatibilidad con la vista
+            $movement->work_order_number = null;
+            $movement->invoice_number = null;
+
+            if (is_array($movement->metadata)) {
+                $movement->work_order_number = $movement->metadata['work_order_number'] ?? null;
+                $movement->invoice_number = $movement->metadata['invoice_number'] ?? null;
+            }
+
+            if (!$movement->work_order_number && !$movement->invoice_number && $movement->movable) {
+                $movement->work_order_number = $movement->movable->work_order_number ?? null;
+                $movement->invoice_number = $movement->movable->invoice_number ?? null;
             }
 
             // Preparar el logo
@@ -192,6 +238,72 @@ class FinanzasController extends Controller
             return $pdf->download('comprobante_' . $movementType . '_' . $id . '.pdf');
         } catch (\Exception $e) {
             Log::error('Error generating single movement PDF: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getMovements(Request $request)
+    {
+        try {
+            $query = FinancialMovement::with(['account'])
+                ->orderBy('entry_date', 'desc')
+                ->orderBy('created_at', 'desc');
+
+            // Filtrar por tipo (income, expense, transfer)
+            if ($request->has('type') && !empty($request->type)) {
+                $query->where('type', $request->type);
+            }
+
+            // Filtrar por mes (formato Y-m, ej. '2026-07')
+            if ($request->has('month') && !empty($request->month)) {
+                $month = $request->month;
+                $query->whereYear('entry_date', substr($month, 0, 4))
+                      ->whereMonth('entry_date', substr($month, 5, 2));
+            }
+
+            // Búsqueda (OT, Factura, Descripción)
+            if ($request->has('search') && !empty($request->search)) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('description', 'like', "%{$search}%")
+                      ->orWhereHas('movable', function ($mQuery) use ($search) {
+                          $mQuery->where('work_order_number', 'like', "%{$search}%")
+                                 ->orWhere('invoice_number', 'like', "%{$search}%")
+                                 ->orWhere('descripcion', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            // Rango de fechas
+            if ($request->has('start_date') && !empty($request->start_date)) {
+                $query->whereDate('entry_date', '>=', $request->start_date);
+            }
+            if ($request->has('end_date') && !empty($request->end_date)) {
+                $query->whereDate('entry_date', '<=', $request->end_date);
+            }
+
+            $movements = $query->get();
+            $movements->load('movable');
+            $movements->loadMorph('movable', [
+                \App\Models\Finance\PaymentDistribution::class => ['financeRecord']
+            ]);
+
+            // Calcular totales/resumen dinámicos
+            $totalIncome = (float) $movements->where('type', 'income')->sum('amount');
+            $totalExpense = (float) $movements->where('type', 'expense')->sum('amount');
+            $totalTransfer = (float) $movements->where('type', 'transfer')->sum('amount');
+
+            return response()->json([
+                'movements' => $movements,
+                'totals' => [
+                    'income' => $totalIncome,
+                    'expense' => $totalExpense,
+                    'transfer' => $totalTransfer,
+                    'balance' => $totalIncome - $totalExpense
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error loading movements: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
