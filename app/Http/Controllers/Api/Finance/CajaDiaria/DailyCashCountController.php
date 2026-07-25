@@ -43,13 +43,15 @@ class DailyCashCountController extends Controller
                 'pichincha' => $previousCount->pichincha_total,
                 'guayaquil' => $previousCount->guayaquil_total,
                 'total' => $previousCount->grand_total,
-                'origin_date' => $previousCount->count_date->format('Y-m-d')
+                'origin_date' => $previousCount->count_date->format('Y-m-d'),
+                'cash_details' => $previousCount->cash_details
             ] : [
                 'cash' => 0,
                 'pichincha' => 0,
                 'guayaquil' => 0,
                 'total' => 0,
-                'origin_date' => null
+                'origin_date' => null,
+                'cash_details' => null
             ],
             // 🛠️ CORRECCIÓN DEFINITIVA: Limpiamos las flechas para usar el valor numérico directo
             'system_balances' => [

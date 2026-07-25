@@ -288,6 +288,31 @@ class FinanzasController extends Controller
                 \App\Models\Finance\PaymentDistribution::class => ['financeRecord']
             ]);
 
+            // Cargar nombres de cuentas para transferencias
+            $allAccounts = Account::all()->keyBy('id');
+            foreach ($movements as $movement) {
+                try {
+                    if ($movement->type === 'transfer' && is_array($movement->metadata)) {
+                        $fromAccountId = $movement->metadata['from_account'] ?? null;
+                        $toAccountId = $movement->metadata['to_account'] ?? null;
+
+                        $metadata = $movement->metadata;
+
+                        if ($fromAccountId && isset($allAccounts[$fromAccountId])) {
+                            $metadata['from_account_name'] = $allAccounts[$fromAccountId]->name;
+                        }
+
+                        if ($toAccountId && isset($allAccounts[$toAccountId])) {
+                            $metadata['to_account_name'] = $allAccounts[$toAccountId]->name;
+                        }
+
+                        $movement->metadata = $metadata;
+                    }
+                } catch (\Exception $e) {
+                    // Ignorar errores al cargar
+                }
+            }
+
             // Calcular totales/resumen dinámicos
             $totalIncome = (float) $movements->where('type', 'income')->sum('amount');
             $totalExpense = (float) $movements->where('type', 'expense')->sum('amount');

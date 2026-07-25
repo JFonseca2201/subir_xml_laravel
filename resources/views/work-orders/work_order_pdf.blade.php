@@ -380,7 +380,7 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Tipo:</span>
-                    {{ $workOrder->vehicle ? $workOrder->vehicle->vehicle_type : 'N/A' }}
+                    {{ $workOrder->vehicle ? ($workOrder->vehicle->vehicle_type ? mb_strtoupper(config('vehicle_types')[(int)$workOrder->vehicle->vehicle_type] ?? $workOrder->vehicle->vehicle_type, 'UTF-8') : 'N/A') : 'N/A' }}
                 </div>
             </td>
             <td style="width: 48%; vertical-align: top; padding-left: 20px;">

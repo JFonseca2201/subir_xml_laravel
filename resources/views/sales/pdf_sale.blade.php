@@ -830,11 +830,51 @@
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">CIUDAD/PROVINCIA:</span>
-                            @if ($sale->client->ubigeo_provincia || $sale->client->ubigeo_distrito)
-                            {{ $sale->client->ubigeo_provincia ?? 'PICHINCHA' }}/{{ $sale->client->ubigeo_distrito ?? 'QUITO' }}
-                            @else
-                            QUITO/PICHINCHA
-                            @endif
+                            @php
+                                $provinceName = $sale->client->provincia ?? '';
+                                $districtName = $sale->client->distrito ?? '';
+
+                                if (empty($provinceName) || is_numeric($provinceName) || empty($districtName) || is_numeric($districtName)) {
+                                    $provId = $sale->client->ubigeo_provincia;
+                                    $distId = $sale->client->ubigeo_distrito;
+                                    
+                                    $path = storage_path('app/ubigeo.json');
+                                    if (file_exists($path)) {
+                                        $json = file_get_contents($path);
+                                        $data = json_decode($json, true) ?? [];
+                                        
+                                        foreach ($data as $region) {
+                                            if (isset($region['provinces'])) {
+                                                foreach ($region['provinces'] as $prov) {
+                                                    if ($prov['id'] === $provId) {
+                                                        if (empty($provinceName) || is_numeric($provinceName)) {
+                                                            $provinceName = $prov['name'];
+                                                        }
+                                                        if (isset($prov['districts'])) {
+                                                            foreach ($prov['districts'] as $dist) {
+                                                                if ($dist['id'] === $distId) {
+                                                                    if (empty($districtName) || is_numeric($districtName)) {
+                                                                        $districtName = $dist['name'];
+                                                                    }
+                                                                    break 3;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (empty($provinceName) || is_numeric($provinceName)) {
+                                    $provinceName = 'PICHINCHA';
+                                }
+                                if (empty($districtName) || is_numeric($districtName)) {
+                                    $districtName = 'QUITO';
+                                }
+                            @endphp
+                            {{ strtoupper($provinceName) }}/{{ strtoupper($districtName) }}
                         </div>
                     </td>
                     <td
@@ -861,7 +901,7 @@
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">TIPO:</span>
-                            {{ $sale->vehicle->vehicle_type ?? 'Sin información' }}
+                            {{ $sale->vehicle->vehicle_type ? mb_strtoupper(config('vehicle_types')[(int)$sale->vehicle->vehicle_type] ?? $sale->vehicle->vehicle_type, 'UTF-8') : 'Sin información' }}
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">KILOMETRAJE:</span>
