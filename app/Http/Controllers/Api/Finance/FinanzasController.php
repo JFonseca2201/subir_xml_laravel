@@ -71,10 +71,21 @@ class FinanzasController extends Controller
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', "%{$search}%")
-                      ->orWhereHas('movable', function ($mQuery) use ($search) {
+                      ->orWhere('metadata->invoice', 'like', "%{$search}%")
+                      ->orWhere('metadata->work_order', 'like', "%{$search}%")
+                      ->orWhere('metadata->invoice_number', 'like', "%{$search}%")
+                      ->orWhere('metadata->work_order_number', 'like', "%{$search}%")
+                      ->orWhereHasMorph('movable', [\App\Models\Finance\PaymentDistribution::class], function ($mQuery) use ($search) {
+                          $mQuery->whereHas('financeRecord', function ($frQuery) use ($search) {
+                              $frQuery->where('work_order_number', 'like', "%{$search}%")
+                                      ->orWhere('invoice_number', 'like', "%{$search}%")
+                                      ->orWhere('description', 'like', "%{$search}%");
+                          });
+                      })
+                      ->orWhereHasMorph('movable', [\App\Models\Finance\FinanceRecord::class], function ($mQuery) use ($search) {
                           $mQuery->where('work_order_number', 'like', "%{$search}%")
                                  ->orWhere('invoice_number', 'like', "%{$search}%")
-                                 ->orWhere('descripcion', 'like', "%{$search}%");
+                                 ->orWhere('description', 'like', "%{$search}%");
                       });
                 });
             }
@@ -266,10 +277,21 @@ class FinanzasController extends Controller
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', "%{$search}%")
-                      ->orWhereHas('movable', function ($mQuery) use ($search) {
+                      ->orWhere('metadata->invoice', 'like', "%{$search}%")
+                      ->orWhere('metadata->work_order', 'like', "%{$search}%")
+                      ->orWhere('metadata->invoice_number', 'like', "%{$search}%")
+                      ->orWhere('metadata->work_order_number', 'like', "%{$search}%")
+                      ->orWhereHasMorph('movable', [\App\Models\Finance\PaymentDistribution::class], function ($mQuery) use ($search) {
+                          $mQuery->whereHas('financeRecord', function ($frQuery) use ($search) {
+                              $frQuery->where('work_order_number', 'like', "%{$search}%")
+                                      ->orWhere('invoice_number', 'like', "%{$search}%")
+                                      ->orWhere('description', 'like', "%{$search}%");
+                          });
+                      })
+                      ->orWhereHasMorph('movable', [\App\Models\Finance\FinanceRecord::class], function ($mQuery) use ($search) {
                           $mQuery->where('work_order_number', 'like', "%{$search}%")
                                  ->orWhere('invoice_number', 'like', "%{$search}%")
-                                 ->orWhere('descripcion', 'like', "%{$search}%");
+                                 ->orWhere('description', 'like', "%{$search}%");
                       });
                 });
             }
