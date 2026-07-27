@@ -27,6 +27,11 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasRole('Super-Admin') ? true : null;
         });
 
+        // Configurar serialización global de fechas usando la zona horaria local (America/Guayaquil)
+        \Illuminate\Support\Carbon::serializeUsing(function ($date) {
+            return $date->setTimezone(new \DateTimeZone('America/Guayaquil'))->format('Y-m-d\TH:i:sP');
+        });
+
         // Ensure database morph types from before the refactor can still resolve
         Relation::morphMap([
             'App\Models\Sales\Sale' => \App\Models\Sales\Sale::class,

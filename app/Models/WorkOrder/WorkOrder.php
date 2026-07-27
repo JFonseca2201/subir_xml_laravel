@@ -35,17 +35,7 @@ class WorkOrder extends Model
         'updated_at' => 'datetime:Y-m-d H:i:s',
     ];
 
-    public function setCreatedAtAttribute($value)
-    {
-        date_default_timezone_set('America/Guayaquil');
-        $this->attributes['created_at'] = Carbon::now();
-    }
 
-    public function setUpdatedAtAttribute($value)
-    {
-        date_default_timezone_set('America/Guayaquil');
-        $this->attributes['updated_at'] = Carbon::now();
-    }
 
     /**
      * Una orden de trabajo pertenece a un cliente.

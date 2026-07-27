@@ -1859,13 +1859,19 @@ class SaleController extends Controller
                 // Generar nuevo número secuencial
                 $newDocNumber = SequenceService::consumeNumber($newDocType);
 
-                // Recalcular totales (el IVA aplica solo para facturas)
-                $subtotal = 0;
+                // Recalcular totales (los precios de cotización ya incluyen el IVA, por lo que el total es la suma directa)
+                $total = 0;
                 foreach ($quote->details as $detail) {
-                    $subtotal += ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
+                    $total += ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
                 }
-                $taxAmount = $newDocType === 'invoice' ? round($subtotal * 0.15, 2) : 0;
-                $total = $subtotal + $taxAmount;
+
+                if ($newDocType === 'invoice') {
+                    $subtotal = round($total / 1.15, 2);
+                    $taxAmount = round($total - $subtotal, 2);
+                } else {
+                    $subtotal = $total;
+                    $taxAmount = 0;
+                }
 
                 // Crear la nueva venta/factura
                 $newSale = Sale::create([

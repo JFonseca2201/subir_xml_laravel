@@ -352,13 +352,19 @@ class QuoteController extends Controller
                 $newDocType = $request->document_type;
                 $newDocNumber = SequenceService::consumeNumber($newDocType);
 
-                // Recalcular totales (el IVA aplica solo para facturas)
-                $subtotal = 0;
+                // Recalcular totales (los precios de cotización ya incluyen el IVA, por lo que el total es la suma directa)
+                $total = 0;
                 foreach ($quote->details as $detail) {
-                    $subtotal += ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
+                    $total += ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
                 }
-                $taxAmount = $newDocType === 'invoice' ? round($subtotal * 0.15, 2) : 0;
-                $total = $subtotal + $taxAmount;
+
+                if ($newDocType === 'invoice') {
+                    $subtotal = round($total / 1.15, 2);
+                    $taxAmount = round($total - $subtotal, 2);
+                } else {
+                    $subtotal = $total;
+                    $taxAmount = 0;
+                }
 
                 // Crear nueva venta/factura
                 $newSale = Sale::create([
@@ -516,6 +522,10 @@ class QuoteController extends Controller
     {
         try {
             $quote = Quote::with(['client', 'vehicle', 'details.product'])->findOrFail($id);
+
+            if (request()->has('print')) {
+                return view('sales.pdf_quote', compact('quote'));
+            }
 
             $pdf = Pdf::loadView('sales.pdf_quote', ['quote' => $quote]);
             return $pdf->stream('cotizacion_' . $quote->document_number . '.pdf');
