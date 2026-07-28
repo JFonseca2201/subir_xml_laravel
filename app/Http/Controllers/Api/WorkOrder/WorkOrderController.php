@@ -162,20 +162,26 @@ class WorkOrderController extends Controller
         $validated['status'] = $request->boolean('is_draft') ? 'draft' : 'received';
 
         if (!$request->boolean('is_draft')) {
-            // Validar stock antes de actualizar
+            // Validar stock antes de actualizar (restando la cantidad que ya estaba asignada previamente a esta orden)
             if (isset($validated['items']) && is_array($validated['items'])) {
+                $existingItems = $workOrder->items()->whereNotNull('product_id')->pluck('quantity', 'product_id')->toArray();
                 foreach ($validated['items'] as $item) {
                     if (isset($item['type']) && $item['type'] === 'service') {
                         continue;
                     }
                     if (isset($item['product_id']) && $item['product_id']) {
                         $product = Product::find($item['product_id']);
-                        if ($product && $product->stock < $item['quantity']) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
-                                'error' => 'stock_insufficient'
-                            ], 400);
+                        if ($product) {
+                            $existingQty = $existingItems[$item['product_id']] ?? 0;
+                            $additionalQty = $item['quantity'] - $existingQty;
+
+                            if ($additionalQty > 0 && $product->stock < $additionalQty) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Requerido adicional: {$additionalQty}",
+                                    'error' => 'stock_insufficient'
+                                ], 400);
+                            }
                         }
                     }
                 }
