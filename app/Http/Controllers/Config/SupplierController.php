@@ -39,6 +39,8 @@ class SupplierController extends Controller
                         'ruc' => $supplier->ruc,
                         'name' => $supplier->name,
                         'address' => $supplier->address,
+                        'phone' => $supplier->phone,
+                        'email' => $supplier->email,
                         'formatted_ruc' => $supplier->formatted_ruc,
                         'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                     ];
@@ -68,6 +70,8 @@ class SupplierController extends Controller
                 'ruc' => 'required|string|max:13|unique:suppliers,ruc',
                 'name' => 'required|string|max:255',
                 'address' => 'nullable|string|max:500',
+                'phone' => 'nullable|string|max:50',
+                'email' => 'nullable|email|max:255',
             ], [
                 'tax_id.required' => 'El campo tax_id es obligatorio',
                 'tax_id.string' => 'El campo tax_id debe ser texto',
@@ -96,6 +100,8 @@ class SupplierController extends Controller
             $data['ruc'] = trim($data['ruc']);
             $data['name'] = strtoupper(trim($data['name']));
             $data['address'] = isset($data['address']) ? strtoupper(trim($data['address'])) : null;
+            $data['phone'] = isset($data['phone']) ? trim($data['phone']) : null;
+            $data['email'] = isset($data['email']) ? strtolower(trim($data['email'])) : null;
 
 
 
@@ -109,6 +115,8 @@ class SupplierController extends Controller
                     'ruc' => $supplier->ruc,
                     'name' => $supplier->name,
                     'address' => $supplier->address,
+                    'phone' => $supplier->phone,
+                    'email' => $supplier->email,
                     'formatted_ruc' => $supplier->formatted_ruc,
                     'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                 ],
@@ -137,6 +145,8 @@ class SupplierController extends Controller
                     'ruc' => $supplier->ruc,
                     'name' => $supplier->name,
                     'address' => $supplier->address,
+                    'phone' => $supplier->phone,
+                    'email' => $supplier->email,
                     'formatted_ruc' => $supplier->formatted_ruc,
                     'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                 ],
@@ -167,6 +177,8 @@ class SupplierController extends Controller
                 'ruc' => 'nullable|string|max:13|unique:suppliers,ruc,' . $supplier->id,
                 'name' => 'nullable|string|max:255',
                 'address' => 'nullable|string|max:500',
+                'phone' => 'nullable|string|max:50',
+                'email' => 'nullable|email|max:255',
             ], [
                 'tax_id.string' => 'El campo tax_id debe ser texto',
                 'tax_id.max' => 'El campo tax_id no debe exceder 255 caracteres',
@@ -200,6 +212,12 @@ class SupplierController extends Controller
             if (isset($data['address'])) {
                 $data['address'] = strtoupper(trim($data['address']));
             }
+            if (isset($data['phone'])) {
+                $data['phone'] = trim($data['phone']);
+            }
+            if (isset($data['email'])) {
+                $data['email'] = strtolower(trim($data['email']));
+            }
 
             $supplier->update($data);
 
@@ -211,6 +229,8 @@ class SupplierController extends Controller
                     'ruc' => $supplier->ruc,
                     'name' => $supplier->name,
                     'address' => $supplier->address,
+                    'phone' => $supplier->phone,
+                    'email' => $supplier->email,
                     'formatted_ruc' => $supplier->formatted_ruc,
                     'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                 ],

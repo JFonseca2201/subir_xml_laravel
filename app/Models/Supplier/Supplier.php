@@ -14,7 +14,9 @@ class Supplier extends Model
         'ruc',
         'supplier_id',
         'name',
-        'address'
+        'address',
+        'phone',
+        'email',
     ];
 
     protected $casts = [

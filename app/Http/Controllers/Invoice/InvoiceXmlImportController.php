@@ -119,6 +119,20 @@ class InvoiceXmlImportController extends Controller
             /** -----------------------------
              * 4. SUPPLIER
              * ------------------------------*/
+            $phone = null;
+            $email = null;
+            if (isset($xml->infoAdicional->campoAdicional)) {
+                foreach ($xml->infoAdicional->campoAdicional as $campo) {
+                    $nombre = strtolower((string) $campo['nombre']);
+                    if (str_contains($nombre, 'email') || str_contains($nombre, 'correo') || str_contains($nombre, 'mail')) {
+                        $email = trim((string) $campo);
+                    }
+                    if (str_contains($nombre, 'telefono') || str_contains($nombre, 'celular') || str_contains($nombre, 'telf') || str_contains($nombre, 'phone')) {
+                        $phone = trim((string) $campo);
+                    }
+                }
+            }
+
             $supplier = Supplier::firstOrCreate(
                 [
                     'tax_id' => (string) $xml->infoTributaria->ruc,
@@ -128,8 +142,22 @@ class InvoiceXmlImportController extends Controller
                     'ruc' => (string) $xml->infoTributaria->ruc,
                     'trade_name' => (string) $xml->infoTributaria->nombreComercial,
                     'address' => (string) $xml->infoTributaria->dirMatriz,
+                    'phone' => $phone,
+                    'email' => $email,
                 ],
             );
+
+            // Si el proveedor ya existía pero no tenía teléfono o correo y los encontramos en este XML, actualizarlos
+            $updatedData = [];
+            if (empty($supplier->phone) && !empty($phone)) {
+                $updatedData['phone'] = $phone;
+            }
+            if (empty($supplier->email) && !empty($email)) {
+                $updatedData['email'] = $email;
+            }
+            if (!empty($updatedData)) {
+                $supplier->update($updatedData);
+            }
 
             /** -----------------------------
              * 5. INVOICE
