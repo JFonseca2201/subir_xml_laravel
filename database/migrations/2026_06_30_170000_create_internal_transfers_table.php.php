@@ -11,22 +11,24 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('internal_transfers', function (Blueprint $table) {
-            $table->id();
-            $table->date('transfer_date');
-            $table->unsignedBigInteger('from_account_id');
-            $table->unsignedBigInteger('to_account_id');
-            $table->decimal('amount', 12, 2);
-            $table->string('reference_number')->nullable();
-            $table->text('description')->nullable();
-            $table->unsignedBigInteger('user_id');
-            $table->timestamps();
+        if (!Schema::hasTable('internal_transfers')) {
+            Schema::create('internal_transfers', function (Blueprint $table) {
+                $table->id();
+                $table->date('transfer_date');
+                $table->unsignedBigInteger('from_account_id');
+                $table->unsignedBigInteger('to_account_id');
+                $table->decimal('amount', 12, 2);
+                $table->string('reference_number')->nullable();
+                $table->text('description')->nullable();
+                $table->unsignedBigInteger('user_id');
+                $table->timestamps();
 
-            // Foreign keys
-            $table->foreign('from_account_id')->references('id')->on('accounts')->onDelete('restrict');
-            $table->foreign('to_account_id')->references('id')->on('accounts')->onDelete('restrict');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
-        });
+                // Foreign keys
+                $table->foreign('from_account_id')->references('id')->on('accounts')->onDelete('restrict');
+                $table->foreign('to_account_id')->references('id')->on('accounts')->onDelete('restrict');
+                $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
+            });
+        }
     }
 
     /**

@@ -69,11 +69,19 @@ class VehicleController extends Controller
         $search = trim($request->get('q', $request->get('search', '')));
         $clientId = $request->get('client_id');
 
+        if (strlen($search) < 2 && !$clientId) {
+            return response()->json([
+                'status' => 200,
+                'data' => [],
+            ]);
+        }
+
         $query = Vehicle::select([
             'id',
             'client_id',
             'license_plate',
             'model',
+            'brand',
             'description',
             'vehicle_type',
             'status',
@@ -97,7 +105,7 @@ class VehicleController extends Controller
             });
         }
 
-        $vehicles = $query->orderBy('id', 'desc')->limit(20)->get();
+        $vehicles = $query->orderBy('id', 'desc')->limit(15)->get();
 
         return response()->json([
             'status' => 200,

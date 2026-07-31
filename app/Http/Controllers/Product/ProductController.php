@@ -73,6 +73,13 @@ class ProductController extends Controller
     {
         $search = trim($request->get('q', $request->get('search', '')));
 
+        if (strlen($search) < 2) {
+            return response()->json([
+                'status' => 200,
+                'data' => [],
+            ]);
+        }
+
         $query = Product::select([
             'id',
             'description',
@@ -81,18 +88,18 @@ class ProductController extends Controller
             'item_type',
             'price_sale',
             'stock',
-        ])->where('state', 1);
+            'purchase_price',
+            'unit_id'
+        ])->where('state', 1)->with('unit');
 
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('sku', 'like', "%{$search}%")
-                    ->orWhere('code_aux', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('uses', 'like', "%{$search}%");
-            });
-        }
+        $query->where(function ($q) use ($search) {
+            $q->where('sku', 'like', "%{$search}%")
+                ->orWhere('code_aux', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%")
+                ->orWhere('uses', 'like', "%{$search}%");
+        });
 
-        $products = $query->orderBy('id', 'desc')->limit(20)->get();
+        $products = $query->orderBy('id', 'desc')->limit(15)->get();
 
         return response()->json([
             'status' => 200,
