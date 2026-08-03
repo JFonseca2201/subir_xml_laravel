@@ -5,8 +5,11 @@ namespace App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\SerializeDateLocal;
+
 class PedidoDistribuidor extends Model
 {
+    use SerializeDateLocal;
     protected $table = 'pedidos_distribuidor';
 
     protected $fillable = [

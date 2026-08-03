@@ -5,9 +5,11 @@ namespace App\Models\Sales;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\SerializeDateLocal;
+
 class Quote extends Model
 {
-    use HasFactory;
+    use HasFactory, SerializeDateLocal;
 
     protected $fillable = [
         'document_number',

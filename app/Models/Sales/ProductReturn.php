@@ -10,9 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\User;
 use App\Traits\RecordsFinancialMovements;
 
+use App\Traits\SerializeDateLocal;
+
 class ProductReturn extends Model
 {
-    use HasFactory, SoftDeletes, RecordsFinancialMovements;
+    use HasFactory, SoftDeletes, RecordsFinancialMovements, SerializeDateLocal;
 
     protected $fillable = [
         'return_number',

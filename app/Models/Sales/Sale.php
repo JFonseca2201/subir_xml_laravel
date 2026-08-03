@@ -7,10 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Sales\SaleDetail;
 use App\Traits\RecordsFinancialMovements;
 
+use App\Traits\SerializeDateLocal;
+
 class Sale extends Model
 
 {
-    use HasFactory, RecordsFinancialMovements;
+    use HasFactory, RecordsFinancialMovements, SerializeDateLocal;
 
     protected $fillable = [
         'document_type',
