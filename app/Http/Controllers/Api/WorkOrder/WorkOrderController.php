@@ -128,7 +128,7 @@ class WorkOrderController extends Controller
 
         return response()->json([
             'message' => 'Orden de trabajo creada exitosamente',
-            'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items'])
+            'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items.product'])
         ], 201);
     }
 
@@ -236,7 +236,7 @@ class WorkOrderController extends Controller
 
         return response()->json([
             'message' => 'Orden de trabajo actualizada exitosamente',
-            'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items'])
+            'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items.product'])
         ], 200);
     }
 
@@ -271,7 +271,7 @@ class WorkOrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = WorkOrder::with(['client', 'vehicle', 'user', 'sale', 'items', 'technicians']);
+        $query = WorkOrder::with(['client', 'vehicle', 'user', 'sale', 'items.product', 'technicians']);
 
         // Filtrar por estado si se proporciona
         if ($request->has('status')) {
@@ -296,7 +296,7 @@ class WorkOrderController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'technicians', 'items'])
+        $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'technicians', 'items.product'])
             ->findOrFail($id);
 
         return response()->json([
@@ -327,7 +327,7 @@ class WorkOrderController extends Controller
      */
     public function getReadyToInvoice(): JsonResponse
     {
-        $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items', 'technicians'])
+        $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items.product', 'technicians'])
             ->where('status', 'ready')
             ->whereDoesntHave('sale')
             ->orderBy('created_at', 'desc')

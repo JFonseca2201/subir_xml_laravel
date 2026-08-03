@@ -33,6 +33,7 @@ use App\Http\Controllers\Vehicle\VehicleController;
 use App\Http\Controllers\Api\Geographic\GeographicController;
 use App\Http\Controllers\ExcelImportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Api\Sale\RepuestosReposicionController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(
@@ -176,6 +177,9 @@ Route::group(
         Route::get('financial-movements/{id}/pdf', [FinanzasController::class, 'generateSinglePDF']);
 
         // ============= RUTAS DE SALES ==========
+        Route::get('sales/repuestos/historial', [SaleController::class, 'getRepuestosHistorial']);
+        Route::get('repuestos-reposicion/pending', [RepuestosReposicionController::class, 'getPending']);
+        Route::put('repuestos-reposicion/{id}/adquirido', [RepuestosReposicionController::class, 'markAsAcquired']);
         Route::get('sales/next-number', [SaleController::class, 'getNextNumber']);
         Route::delete('sales/details/{id}', [SaleController::class, 'destroyDetail']);
         Route::resource('sales', SaleController::class);
