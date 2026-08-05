@@ -466,7 +466,9 @@ class SaleController extends Controller
         $paymentMethod = $request->payment_method ?? $sale->payment_method ?? 'Efectivo';
 
         $totalPaid = 0;
-        if ($request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0) {
+        if ($sale->payment_status === 'pending') {
+            $totalPaid = 0;
+        } elseif ($request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0) {
             $totalPaid = collect($request->payment_distributions)->sum('amount');
         } else {
             if ($sale->payment_status === 'paid') {
@@ -493,73 +495,75 @@ class SaleController extends Controller
         ]);
         $financeRecord->save();
 
-        // 4. Procesar pagos distribuidos si existen
-        if ($request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0) {
-            foreach ($request->payment_distributions as $distribution) {
-                // Crear la distribución de pago
+        // 4. Procesar pagos distribuidos si existen (solo si no es pendiente)
+        if ($sale->payment_status !== 'pending') {
+            if ($request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0) {
+                foreach ($request->payment_distributions as $distribution) {
+                    // Crear la distribución de pago
+                    PaymentDistribution::create([
+                        'finance_record_id' => $financeRecord->id,
+                        'account_id' => $distribution['account_id'],
+                        'amount' => $distribution['amount'],
+                        'payment_method' => $distribution['payment_method'],
+                    ]);
+
+                    // Actualizar el saldo de la cuenta correspondiente
+                    $account = Account::find($distribution['account_id']);
+                    if ($account) {
+                        $account->updateBalance($distribution['amount'], FinanceRecord::TYPE_INCOME);
+                    }
+
+                    // Registrar movimiento financiero en financial_movements
+                    $sale->registerMovement(
+                        $distribution['account_id'],
+                        'income',
+                        $distribution['amount'],
+                        'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'],
+                        $entryDate,
+                        [
+                            'document_type' => $sale->document_type,
+                            'document_number' => $sale->document_number,
+                            'payment_method' => $distribution['payment_method'],
+                            'finance_record_id' => $financeRecord->id,
+                        ]
+                    );
+                }
+            } else {
+                // Si no hay pagos distribuidos, usar el método de pago único
+                $accountId = 1; // Default: Caja chica (Efectivo)
+                if (strtolower($paymentMethod) === 'transferencia' || strtolower($paymentMethod) === 'transfer') {
+                    $accountId = 2; // Banco Pichincha
+                }
+
+                // Crear distribución de pago única
                 PaymentDistribution::create([
                     'finance_record_id' => $financeRecord->id,
-                    'account_id' => $distribution['account_id'],
-                    'amount' => $distribution['amount'],
-                    'payment_method' => $distribution['payment_method'],
+                    'account_id' => $accountId,
+                    'amount' => $sale->total,
+                    'payment_method' => $paymentMethod,
                 ]);
 
-                // Actualizar el saldo de la cuenta correspondiente
-                $account = Account::find($distribution['account_id']);
+                // Actualizar el saldo de la cuenta
+                $account = Account::find($accountId);
                 if ($account) {
-                    $account->updateBalance($distribution['amount'], FinanceRecord::TYPE_INCOME);
+                    $account->updateBalance($sale->total, FinanceRecord::TYPE_INCOME);
                 }
 
                 // Registrar movimiento financiero en financial_movements
                 $sale->registerMovement(
-                    $distribution['account_id'],
+                    $accountId,
                     'income',
-                    $distribution['amount'],
-                    'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'],
+                    $sale->total,
+                    'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $paymentMethod,
                     $entryDate,
                     [
                         'document_type' => $sale->document_type,
                         'document_number' => $sale->document_number,
-                        'payment_method' => $distribution['payment_method'],
+                        'payment_method' => $paymentMethod,
                         'finance_record_id' => $financeRecord->id,
                     ]
                 );
             }
-        } else {
-            // Si no hay pagos distribuidos, usar el método de pago único
-            $accountId = 1; // Default: Caja chica (Efectivo)
-            if (strtolower($paymentMethod) === 'transferencia' || strtolower($paymentMethod) === 'transfer') {
-                $accountId = 2; // Banco Pichincha
-            }
-
-            // Crear distribución de pago única
-            PaymentDistribution::create([
-                'finance_record_id' => $financeRecord->id,
-                'account_id' => $accountId,
-                'amount' => $sale->total,
-                'payment_method' => $paymentMethod,
-            ]);
-
-            // Actualizar el saldo de la cuenta
-            $account = Account::find($accountId);
-            if ($account) {
-                $account->updateBalance($sale->total, FinanceRecord::TYPE_INCOME);
-            }
-
-            // Registrar movimiento financiero en financial_movements
-            $sale->registerMovement(
-                $accountId,
-                'income',
-                $sale->total,
-                'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $paymentMethod,
-                $entryDate,
-                [
-                    'document_type' => $sale->document_type,
-                    'document_number' => $sale->document_number,
-                    'payment_method' => $paymentMethod,
-                    'finance_record_id' => $financeRecord->id,
-                ]
-            );
         }
 
         // Si es crédito ('is_credited' => true), registramos solo el abono inicial si lo hay
@@ -864,7 +868,11 @@ class SaleController extends Controller
                     }
                     $request->merge(['payment_status' => $paymentStatus]);
                 } else {
-                    $totalDist = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : 0;
+                    if ($request->payment_status === 'pending') {
+                        $totalDist = 0;
+                    } else {
+                        $totalDist = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : 0;
+                    }
                     if ($totalDist <= 0 && !$isCredited) {
                         return response()->json([
                             'success' => false,
