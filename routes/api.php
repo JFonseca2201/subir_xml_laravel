@@ -248,6 +248,9 @@ Route::group(
         // ============= RUTAS DE DASHBOARD GENERAL ==========
         Route::get('dashboard/search', [DashboardController::class, 'search']);
         Route::get('dashboard', [DashboardController::class, 'index']);
+
+        // ============= RUTAS DE GESTIÓN Y BÚSQUEDA DE REPUESTOS POR VEHÍCULO =============
+        Route::apiResource('spare-part-requests', \App\Http\Controllers\SparePartRequestController::class);
     },
 
 );
