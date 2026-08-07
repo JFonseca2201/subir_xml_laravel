@@ -15,7 +15,7 @@ class SparePartRequestController extends Controller
     {
         $query = SparePartRequest::query()->with('user');
 
-        // Filtro por palabra clave (Concepto, Marca, Modelo o Detalle de repuesto)
+        // Filtro por palabra clave (Concepto, Marca, Modelo, Año o Detalle de repuesto)
         if ($request->filled('search')) {
             $search = $request->get('search');
             $words = array_filter(explode(' ', $search));
@@ -25,6 +25,7 @@ class SparePartRequestController extends Controller
                     $q->where(function ($subQ) use ($word) {
                         $subQ->where('brand', 'like', "%{$word}%")
                              ->orWhere('model', 'like', "%{$word}%")
+                             ->orWhere('year', 'like', "%{$word}%")
                              ->orWhere('items', 'like', "%{$word}%");
                     });
                 }
@@ -36,9 +37,9 @@ class SparePartRequestController extends Controller
             $query->where('traction', $request->get('traction'));
         }
 
-        // Filtro por Año
+        // Filtro por Año (soporta búsqueda exacta o parcial conforme escribe)
         if ($request->filled('year')) {
-            $query->where('year', $request->get('year'));
+            $query->where('year', 'like', $request->get('year') . '%');
         }
 
         $per_page = $request->get('per_page', 10);

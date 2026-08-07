@@ -395,7 +395,8 @@ class SaleController extends Controller
                         'mensaje_principal' => 'Tu transacción ha sido procesada con éxito. Agradecemos tu confianza en Luxury Evys. Adjunto a este correo encontrarás el comprobante oficial en formato PDF con el detalle de los servicios prestados.',
                         'vehiculo' => $sale->vehicle ? ($sale->vehicle->brand . ' ' . $sale->vehicle->model) : 'N/A',
                         'placa' => $sale->vehicle->license_plate ?? 'N/A',
-                        'accion' => 'Comprobante de Servicio Generado'
+                        'accion' => 'Comprobante de Servicio Generado',
+                        'encuesta_url' => 'https://docs.google.com/forms/d/1pcVsHD2XcGbghjW4j7XgDVihb5-oB7otvnvMbd4sBY0/viewform'
                     ];
 
                     // 4. Enviamos pasando la data y el PDF generado
@@ -1661,6 +1662,10 @@ class SaleController extends Controller
                 'placa' => $sale->vehicle->license_plate ?? 'N/A',
                 'accion' => $isQuote ? 'Cotización de Servicios' : 'Comprobante de Venta'
             ];
+
+            if (!$isQuote) {
+                $data['encuesta_url'] = 'https://docs.google.com/forms/d/1pcVsHD2XcGbghjW4j7XgDVihb5-oB7otvnvMbd4sBY0/viewform';
+            }
 
             // Generamos el PDF
             $pdf = Pdf::loadView('sales.pdf_sale', ['sale' => $sale, 'isEmail' => true]);

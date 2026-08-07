@@ -83,6 +83,19 @@
                             <p style="font-size: 14px; color: #64748b; margin-bottom: 0; font-weight: 400; line-height: 1.5;">
                                 Si tienes dudas o comentarios sobre este reporte, comunícate directamente con nuestro equipo técnico en el local.
                             </p>
+
+                            @if(!empty($data['encuesta_url']))
+                            <!-- Botón de Encuesta de Satisfacción -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 25px 0; text-align: center;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ $data['encuesta_url'] }}" target="_blank" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 8px; display: inline-block; box-shadow: 0 4px 10px rgba(2, 132, 199, 0.2);">
+                                            📝 Responder Encuesta de Satisfacción
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            @endif
                         </td>
                     </tr>
 
