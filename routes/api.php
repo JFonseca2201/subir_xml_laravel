@@ -251,6 +251,9 @@ Route::group(
 
         // ============= RUTAS DE GESTIÓN Y BÚSQUEDA DE REPUESTOS POR VEHÍCULO =============
         Route::apiResource('spare-part-requests', \App\Http\Controllers\SparePartRequestController::class);
+
+        Route::get('parallel-transactions/pdf', [\App\Http\Controllers\ParallelTransactionController::class, 'generatePDF']);
+        Route::apiResource('parallel-transactions', \App\Http\Controllers\ParallelTransactionController::class);
     },
 
 );
