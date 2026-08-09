@@ -254,6 +254,15 @@ Route::group(
 
         Route::get('parallel-transactions/pdf', [\App\Http\Controllers\ParallelTransactionController::class, 'generatePDF']);
         Route::apiResource('parallel-transactions', \App\Http\Controllers\ParallelTransactionController::class);
+
+        Route::get('parallel-categories', [\App\Http\Controllers\CategoryController::class, 'index']);
+        Route::post('parallel-categories', [\App\Http\Controllers\CategoryController::class, 'store']);
+        
+        Route::get('parallel-unit-types', [\App\Http\Controllers\UnitTypeController::class, 'index']);
+        Route::post('parallel-unit-types', [\App\Http\Controllers\UnitTypeController::class, 'store']);
+
+        Route::get('parallel-income-products', [\App\Http\Controllers\IncomeProductController::class, 'index']);
+        Route::post('parallel-income-products', [\App\Http\Controllers\IncomeProductController::class, 'store']);
     },
 
 );

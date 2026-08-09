@@ -21,7 +21,9 @@ class ParallelTransactionController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
-                  ->orWhere('unit', 'like', "%{$search}%");
+                  ->orWhere('unit', 'like', "%{$search}%")
+                  ->orWhere('amount', 'like', "%{$search}%")
+                  ->orWhere('unit_cost', 'like', "%{$search}%");
             });
         }
 
@@ -55,6 +57,7 @@ class ParallelTransactionController extends Controller
             'unit_cost' => 'nullable|required_if:type,income|numeric|min:0.01',
             'cost' => 'nullable|required_if:type,expense|numeric|min:0.01',
             'unit' => 'nullable|string|max:255',
+            'category' => 'nullable|string|max:255',
             'account' => 'required|string|in:EFECTIVO,TRANSFERENCIA',
             'date' => 'required|date',
         ]);
@@ -117,6 +120,7 @@ class ParallelTransactionController extends Controller
             'unit_cost' => 'nullable|required_if:type,income|numeric|min:0.01',
             'cost' => 'nullable|required_if:type,expense|numeric|min:0.01',
             'unit' => 'nullable|string|max:255',
+            'category' => 'nullable|string|max:255',
             'account' => 'required|string|in:EFECTIVO,TRANSFERENCIA',
             'date' => 'required|date',
         ]);

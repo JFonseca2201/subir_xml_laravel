@@ -31,6 +31,8 @@ class ParallelTransaction extends Model
         'date' => 'date:Y-m-d',
     ];
 
+
+
     /**
      * Get the user that registered the transaction.
      */
