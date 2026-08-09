@@ -83,8 +83,8 @@ class ParallelTransactionController extends Controller
             $data['unit'] = null;
         } else {
             $data['amount'] = floatval($data['cost']);
-            $data['quantity'] = null;
-            $data['unit_cost'] = null;
+            $data['quantity'] = $data['quantity'] ?? null;
+            $data['unit_cost'] = $data['unit_cost'] ?? null;
         }
 
         $transaction = ParallelTransaction::create($data);
@@ -144,8 +144,8 @@ class ParallelTransactionController extends Controller
             $data['unit'] = null;
         } else {
             $data['amount'] = floatval($data['cost']);
-            $data['quantity'] = null;
-            $data['unit_cost'] = null;
+            $data['quantity'] = $data['quantity'] ?? null;
+            $data['unit_cost'] = $data['unit_cost'] ?? null;
         }
 
         $transaction->update($data);
