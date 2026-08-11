@@ -67,9 +67,9 @@ class SequenceService
         }
         $val = $sequence ? (int)$sequence->current_number : $startValue;
 
-        // Auto-heal sequence if it falls behind DB table max
+        // Auto-heal sequence if it mismatches with DB table max
         $dbMax = self::getDatabaseMaxNumber($type);
-        if ($dbMax !== null && $dbMax > $val) {
+        if ($dbMax !== null && $dbMax !== $val) {
             self::updateSequenceByType($type, $dbMax, $sequence != null, $prefix);
             $val = $dbMax;
         }
@@ -93,9 +93,9 @@ class SequenceService
             $current = 0;
         }
 
-        // Auto-heal sequence if it falls behind DB table max
+        // Auto-heal sequence if it mismatches with DB table max
         $dbMax = self::getDatabaseMaxNumber($type);
-        if ($dbMax !== null && $dbMax > $current) {
+        if ($dbMax !== null && $dbMax !== $current) {
             self::updateSequenceByType($type, $dbMax, $sequence != null, $prefix);
             $current = $dbMax;
         }
@@ -134,7 +134,7 @@ class SequenceService
         try {
             if ($type === 'work_order') {
                 if (\Illuminate\Support\Facades\Schema::hasTable('work_orders')) {
-                    $numbers = DB::table('work_orders')->pluck('number');
+                    $numbers = DB::table('work_orders')->whereNull('deleted_at')->pluck('number');
                     $maxVal = 0;
                     foreach ($numbers as $number) {
                         if ($number) {
