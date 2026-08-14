@@ -26,6 +26,8 @@ class Account extends Model
         });
     }
 
+    protected $appends = ['current_balance', 'saldo_actual'];
+
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
@@ -62,7 +64,28 @@ class Account extends Model
             })
             ->sum('amount');
 
-        return $this->initial_balance + $income - $expense;
+        return (float) (($this->initial_balance ?? 0) + $income - $expense);
+    }
+
+    public function getSaldoActualAttribute()
+    {
+        return $this->getCurrentBalanceAttribute();
+    }
+
+    public function syncSaldoActual()
+    {
+        $realBalance = $this->getCurrentBalanceAttribute();
+        \Illuminate\Support\Facades\DB::table('accounts')
+            ->where('id', $this->id)
+            ->update(['saldo_actual' => $realBalance]);
+        return $realBalance;
+    }
+
+    public static function recalculateAllSaldos()
+    {
+        foreach (static::all() as $account) {
+            $account->syncSaldoActual();
+        }
     }
 
     /**
@@ -70,17 +93,6 @@ class Account extends Model
      */
     public function updateBalance($amount, $type): void
     {
-        $amount = (float) $amount;
-        $type = (int) $type;
-
-        if ($type === 0) {
-            // Income: add to balance
-            $this->saldo_actual += $amount;
-        } else {
-            // Expense: subtract from balance
-            $this->saldo_actual -= $amount;
-        }
-
-        $this->save();
+        $this->syncSaldoActual();
     }
 }

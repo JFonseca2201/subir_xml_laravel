@@ -34,6 +34,28 @@ class PaymentDistribution extends Model
         static::updating(function ($model) {
             $model->updated_at = now()->setTimezone('America/Guayaquil');
         });
+
+        static::created(function ($model) {
+            $model->syncAccount();
+        });
+
+        static::updated(function ($model) {
+            $model->syncAccount();
+        });
+
+        static::deleted(function ($model) {
+            $model->syncAccount();
+        });
+    }
+
+    public function syncAccount()
+    {
+        if ($this->account_id) {
+            $account = Account::find($this->account_id);
+            if ($account) {
+                $account->syncSaldoActual();
+            }
+        }
     }
 
     public function financeRecord()

@@ -28,9 +28,13 @@ class DailyCashCountController extends Controller
             ->first();
 
         // Traer los balances teóricos actuales de las cuentas correspondientes
-        $saldoCajaChica = DB::table('accounts')->where('id', 1)->value('saldo_actual');
-        $saldoPichincha = DB::table('accounts')->where('id', 2)->value('saldo_actual');
-        $saldoGuayaquil = DB::table('accounts')->where('id', 3)->value('saldo_actual');
+        $acc1 = Account::find(1);
+        $acc2 = Account::find(2);
+        $acc3 = Account::find(3);
+
+        $saldoCajaChica = $acc1 ? $acc1->current_balance : 0.00;
+        $saldoPichincha = $acc2 ? $acc2->current_balance : 0.00;
+        $saldoGuayaquil = $acc3 ? $acc3->current_balance : 0.00;
 
         return response()->json([
             'success' => true,
@@ -55,9 +59,9 @@ class DailyCashCountController extends Controller
             ],
             // 🛠️ CORRECCIÓN DEFINITIVA: Limpiamos las flechas para usar el valor numérico directo
             'system_balances' => [
-                'cash' => $saldoCajaChica ? (float)$saldoCajaChica : 0.00,
-                'pichincha' => $saldoPichincha ? (float)$saldoPichincha : 0.00,
-                'guayaquil' => $saldoGuayaquil ? (float)$saldoGuayaquil : 0.00,
+                'cash' => (float)$saldoCajaChica,
+                'pichincha' => (float)$saldoPichincha,
+                'guayaquil' => (float)$saldoGuayaquil,
             ]
         ]);
     }
