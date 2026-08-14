@@ -32,13 +32,13 @@ class DailyCashCountController extends Controller
         $acc2 = Account::find(2);
         $acc3 = Account::find(3);
 
-        $saldoCajaChica = $acc1 ? $acc1->current_balance : 0.00;
-        $saldoPichincha = $acc2 ? $acc2->current_balance : 0.00;
-        $saldoGuayaquil = $acc3 ? $acc3->current_balance : 0.00;
+        $saldoCajaChica = $acc1 ? ($acc1->saldo_actual ?? $acc1->current_balance) : 0.00;
+        $saldoPichincha = $acc2 ? ($acc2->saldo_actual ?? $acc2->current_balance) : 0.00;
+        $saldoGuayaquil = $acc3 ? ($acc3->saldo_actual ?? $acc3->current_balance) : 0.00;
 
         return response()->json([
             'success' => true,
-            'date_formatted' => $carbonDate->isoFormat('dddd DD [de] MMMM YYYY'),
+            'date_formatted' => ucfirst($carbonDate->locale('es')->isoFormat('dddd DD [de] MMMM YYYY')),
             'already_counted' => !is_null($currentCount),
             'is_sealed' => $currentCount ? (bool)$currentCount->is_sealed : false,
             'current_data' => $currentCount,

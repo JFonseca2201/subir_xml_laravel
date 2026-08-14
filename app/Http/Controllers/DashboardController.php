@@ -405,5 +405,157 @@ class DashboardController extends Controller
             'results' => $results
         ]);
     }
+
+    /**
+     * Get detailed breakdown of monthly sales separated by Products and Services,
+     * ordered from highest to lowest (mayor a menor).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function monthlySalesBreakdown(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $selectedMonthStr = $request->get('month') ?: Carbon::now('America/Guayaquil')->format('Y-m');
+
+        try {
+            $carbonMonth = Carbon::createFromFormat('Y-m', $selectedMonthStr, 'America/Guayaquil')->startOfMonth();
+        } catch (\Exception $e) {
+            $carbonMonth = Carbon::now('America/Guayaquil')->startOfMonth();
+            $selectedMonthStr = $carbonMonth->format('Y-m');
+        }
+
+        $startOfMonth = $carbonMonth->copy()->startOfMonth();
+        $endOfMonth = $carbonMonth->copy()->endOfMonth();
+        $sortBy = $request->get('sort_by', 'revenue'); // 'revenue' | 'quantity'
+
+        // Spanish month name
+        $monthName = $carbonMonth->locale('es')->isoFormat('MMMM YYYY');
+        $monthName = ucfirst($monthName);
+
+        // Fetch sales details aggregated by item
+        $details = SaleDetail::select(
+                'sale_details.product_id',
+                DB::raw('COALESCE(products.description, sale_details.description) as item_name'),
+                'products.sku',
+                DB::raw('COALESCE(products.item_type, 2) as item_type'),
+                DB::raw('SUM(sale_details.quantity) as total_quantity'),
+                DB::raw('SUM(sale_details.total) as total_revenue'),
+                DB::raw('AVG(sale_details.price) as avg_price'),
+                DB::raw('COUNT(DISTINCT sale_details.sale_id) as sales_count')
+            )
+            ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
+            ->leftJoin('products', 'products.id', '=', 'sale_details.product_id')
+            ->where('sales.status', '!=', 'draft')
+            ->where('sales.status', '!=', 'canceled')
+            ->where('sales.document_type', '!=', 'quote')
+            ->whereBetween('sales.created_at', [$startOfMonth, $endOfMonth])
+            ->groupBy('sale_details.product_id', 'item_name', 'products.sku', 'products.item_type')
+            ->get();
+
+        $productsList = [];
+        $servicesList = [];
+
+        foreach ($details as $row) {
+            $item = [
+                'product_id' => $row->product_id,
+                'name' => $row->item_name ?: 'Sin descripción',
+                'sku' => $row->sku ?: 'S/N',
+                'item_type' => (int) $row->item_type,
+                'quantity' => (float) $row->total_quantity,
+                'revenue' => (float) $row->total_revenue,
+                'avg_price' => (float) $row->avg_price,
+                'sales_count' => (int) $row->sales_count,
+            ];
+
+            if ((int) $row->item_type === 1) {
+                $productsList[] = $item;
+            } else {
+                $servicesList[] = $item;
+            }
+        }
+
+        // Sort mayor a menor
+        if ($sortBy === 'quantity') {
+            usort($productsList, fn($a, $b) => $b['quantity'] <=> $a['quantity']);
+            usort($servicesList, fn($a, $b) => $b['quantity'] <=> $a['quantity']);
+        } else {
+            usort($productsList, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+            usort($servicesList, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+        }
+
+        // Assign rankings
+        foreach ($productsList as $i => &$p) {
+            $p['rank'] = $i + 1;
+        }
+        unset($p);
+
+        foreach ($servicesList as $i => &$s) {
+            $s['rank'] = $i + 1;
+        }
+        unset($s);
+
+        // Summaries
+        $totalProductsRevenue = array_sum(array_column($productsList, 'revenue'));
+        $totalProductsQty = array_sum(array_column($productsList, 'quantity'));
+        $totalServicesRevenue = array_sum(array_column($servicesList, 'revenue'));
+        $totalServicesQty = array_sum(array_column($servicesList, 'quantity'));
+
+        $grandTotalRevenue = $totalProductsRevenue + $totalServicesRevenue;
+        $grandTotalQty = $totalProductsQty + $totalServicesQty;
+
+        // Available active months list
+        $availableMonthsRaw = Sale::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month_key, COUNT(*) as count')
+            ->where('status', '!=', 'draft')
+            ->where('status', '!=', 'canceled')
+            ->where('document_type', '!=', 'quote')
+            ->groupBy('month_key')
+            ->orderByDesc('month_key')
+            ->take(12)
+            ->get();
+
+        $availableMonths = [];
+        foreach ($availableMonthsRaw as $m) {
+            $cDate = Carbon::createFromFormat('Y-m', $m->month_key, 'America/Guayaquil');
+            $label = ucfirst($cDate->locale('es')->isoFormat('MMMM YYYY'));
+            $availableMonths[] = [
+                'key' => $m->month_key,
+                'label' => $label,
+            ];
+        }
+
+        $hasCurrent = false;
+        foreach ($availableMonths as $am) {
+            if ($am['key'] === $selectedMonthStr) {
+                $hasCurrent = true;
+                break;
+            }
+        }
+        if (!$hasCurrent) {
+            array_unshift($availableMonths, [
+                'key' => $selectedMonthStr,
+                'label' => $monthName,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'month_key' => $selectedMonthStr,
+            'month_name' => $monthName,
+            'sort_by' => $sortBy,
+            'summary' => [
+                'grand_total_revenue' => $grandTotalRevenue,
+                'grand_total_quantity' => $grandTotalQty,
+                'products_revenue' => $totalProductsRevenue,
+                'products_quantity' => $totalProductsQty,
+                'products_unique_count' => count($productsList),
+                'services_revenue' => $totalServicesRevenue,
+                'services_quantity' => $totalServicesQty,
+                'services_unique_count' => count($servicesList),
+            ],
+            'products' => $productsList,
+            'services' => $servicesList,
+            'available_months' => $availableMonths,
+        ]);
+    }
 }
 
