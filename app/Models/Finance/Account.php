@@ -6,11 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class Account extends Model
 {
-    protected $fillable = ['code', 'name', 'type', 'bank_name', 'initial_balance', 'is_active', 'is_system'];
+    protected $fillable = ['code', 'name', 'type', 'bank_name', 'initial_balance', 'saldo_actual', 'is_active', 'is_system'];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
+        'initial_balance' => 'decimal:2',
+        'saldo_actual' => 'decimal:2',
+        'is_active' => 'boolean',
+        'is_system' => 'boolean',
     ];
 
     protected static function boot()
@@ -26,7 +30,7 @@ class Account extends Model
         });
     }
 
-    protected $appends = ['current_balance', 'saldo_actual'];
+    protected $appends = ['current_balance'];
 
     public function transactions()
     {
@@ -48,44 +52,9 @@ class Account extends Model
         return $this->hasMany(Transfer::class, 'to_account_id');
     }
 
-    // 🔥 Saldo dinámico con PaymentDistribution
     public function getCurrentBalanceAttribute()
     {
-        // Usar PaymentDistribution para el cálculo de saldo
-        $income = PaymentDistribution::where('account_id', $this->id)
-            ->whereHas('financeRecord', function ($query) {
-                $query->where('type', 0); // 0 = Income
-            })
-            ->sum('amount');
-
-        $expense = PaymentDistribution::where('account_id', $this->id)
-            ->whereHas('financeRecord', function ($query) {
-                $query->where('type', 1); // 1 = Expense
-            })
-            ->sum('amount');
-
-        return (float) (($this->initial_balance ?? 0) + $income - $expense);
-    }
-
-    public function getSaldoActualAttribute()
-    {
-        return $this->getCurrentBalanceAttribute();
-    }
-
-    public function syncSaldoActual()
-    {
-        $realBalance = $this->getCurrentBalanceAttribute();
-        \Illuminate\Support\Facades\DB::table('accounts')
-            ->where('id', $this->id)
-            ->update(['saldo_actual' => $realBalance]);
-        return $realBalance;
-    }
-
-    public static function recalculateAllSaldos()
-    {
-        foreach (static::all() as $account) {
-            $account->syncSaldoActual();
-        }
+        return (float) ($this->attributes['saldo_actual'] ?? $this->saldo_actual ?? 0);
     }
 
     /**
@@ -93,6 +62,11 @@ class Account extends Model
      */
     public function updateBalance($amount, $type): void
     {
-        $this->syncSaldoActual();
+        $amount = (float) $amount;
+        if ($type === 0 || $type === '0' || $type === 'income' || $type === FinanceRecord::TYPE_INCOME) {
+            $this->increment('saldo_actual', $amount);
+        } else {
+            $this->decrement('saldo_actual', $amount);
+        }
     }
 }

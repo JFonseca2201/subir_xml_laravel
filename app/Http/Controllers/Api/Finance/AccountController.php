@@ -12,14 +12,7 @@ class AccountController extends Controller
 {
     public function index()
     {
-        Account::recalculateAllSaldos();
-        $accounts = Account::with('financeRecords')->get();
-
-        // Agregar balance actual a cada cuenta
-        $accounts->each(function ($account) {
-            $account->current_balance = $account->current_balance;
-            $account->saldo_actual = $account->current_balance;
-        });
+        $accounts = Account::all();
 
         return response()->json($accounts);
     }

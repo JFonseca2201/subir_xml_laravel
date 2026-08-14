@@ -115,6 +115,15 @@ class QuoteController extends Controller
                 // Consumir número secuencial
                 $documentNumber = SequenceService::consumeQuoteNumber($request->document_number);
 
+                // Los precios de los items ya incluyen IVA, por lo que el total es la suma de los items
+                $total = 0;
+                foreach ($request->items as $item) {
+                    $total += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
+                }
+                $total = round($total, 2);
+                $subtotal = round($total / 1.15, 2);
+                $taxAmount = round($total - $subtotal, 2);
+
                 $quote = Quote::create([
                     'document_number' => $documentNumber,
                     'client_id' => $request->client_id,
@@ -122,9 +131,9 @@ class QuoteController extends Controller
                     'work_order_id' => $request->work_order_id,
                     'mileage' => $request->mileage,
                     'service_date' => $request->service_date,
-                    'subtotal' => $request->subtotal,
-                    'tax_amount' => $request->tax_amount,
-                    'total' => $request->total,
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'total' => $total,
                     'status' => 'pending',
                     'observations' => $request->observations,
                     'user_id' => auth()->id() ?? $request->user_id ?? 1,
@@ -227,14 +236,14 @@ class QuoteController extends Controller
             }
 
             DB::transaction(function () use ($quote, $request) {
-                // Calcular totales
-                $subtotal = 0;
+                // Los precios de los items ya incluyen IVA, por lo que el total es la suma de los items
+                $total = 0;
                 foreach ($request->items as $item) {
-                    $subtotal += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
+                    $total += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
                 }
-                // Las cotizaciones guardan el subtotal y total igual, o se le aplica el cálculo correspondiente.
-                $taxAmount = $request->tax_amount ?? 0.00;
-                $total = $subtotal + $taxAmount;
+                $total = round($total, 2);
+                $subtotal = round($total / 1.15, 2);
+                $taxAmount = round($total - $subtotal, 2);
 
                 $quote->update([
                     'client_id' => $request->client_id,
