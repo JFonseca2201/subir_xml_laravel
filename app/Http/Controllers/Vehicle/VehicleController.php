@@ -85,9 +85,10 @@ class VehicleController extends Controller
             'description',
             'vehicle_type',
             'status',
-        ])->with(['client:id,name,surname,full_name']);
+        ])->with(['client:id,name,surname,full_name,n_document']);
 
-        if ($clientId) {
+        // Si no se escribe texto de búsqueda pero sí hay client_id, mostrar los vehículos de ese cliente
+        if ($clientId && $search === '') {
             $query->where('client_id', $clientId);
         }
 
@@ -103,6 +104,10 @@ class VehicleController extends Controller
                             ->orWhere('n_document', 'like', "%{$search}%");
                     });
             });
+        }
+
+        if ($clientId) {
+            $query->orderByRaw("CASE WHEN client_id = ? THEN 0 ELSE 1 END", [$clientId]);
         }
 
         $vehicles = $query->orderBy('id', 'desc')->limit(15)->get();
