@@ -389,6 +389,7 @@ class UserController extends Controller
                 'surname' => 'nullable|string|max:255',
                 'phone' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:500',
+                'identification' => 'nullable|string|max:30',
                 'avatar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:2048',
             ]);
 

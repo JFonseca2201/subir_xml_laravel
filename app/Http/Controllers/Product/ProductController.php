@@ -253,7 +253,7 @@ class ProductController extends Controller
 
             // Validar campos requeridos
             $data = $request->validate([
-                'description' => 'required|string|max:255',
+                'description' => 'required|string|max:500',
                 'sku' => 'nullable|string|max:50|unique:products,sku',
                 'code_aux' => 'nullable|string|max:100',
                 'uses' => 'nullable|string|max:255',
@@ -395,7 +395,7 @@ class ProductController extends Controller
             }
 
             $data = $request->validate([
-                'description' => 'required|string|max:255',
+                'description' => 'required|string|max:500',
                 'sku' => 'nullable|string|max:50|unique:products,sku,' . $id,
                 'code_aux' => 'nullable|string|max:100',
                 'uses' => 'nullable|string|max:255',

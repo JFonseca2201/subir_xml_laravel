@@ -58,11 +58,16 @@ class RoleController extends Controller
                 'name' => trim($validated['name']),
                 'guard_name' => 'api',
             ]);
-            $permissions = $request->permissions;
+            $permissions = $request->permissions ?? [];
 
-            foreach ($permissions as $key => $permission) {
-                $role->givePermissionTo($permission);
+            $validPermissions = [];
+            foreach ($permissions as $permission) {
+                if (is_string($permission) && !empty($permission)) {
+                    \Spatie\Permission\Models\Permission::findOrCreate($permission, 'api');
+                    $validPermissions[] = $permission;
+                }
             }
+            $role->syncPermissions($validPermissions);
 
             return response()->json(
                 [
@@ -93,10 +98,11 @@ class RoleController extends Controller
                 422,
             );
         } catch (Throwable $e) {
+            \Log::error('Error creando rol: ' . $e->getMessage());
             return response()->json(
                 [
                     'status' => 'error',
-                    'message' => 'No se pudo crear el rol.',
+                    'message' => $e->getMessage() ?: 'No se pudo crear el rol.',
                 ],
                 500,
             );
@@ -133,8 +139,15 @@ class RoleController extends Controller
                 'name' => trim($validated['name']),
             ]);
 
-            $permissions = $request->permissions;
-            $role->syncPermissions($permissions);
+            $permissions = $request->permissions ?? [];
+            $validPermissions = [];
+            foreach ($permissions as $permission) {
+                if (is_string($permission) && !empty($permission)) {
+                    \Spatie\Permission\Models\Permission::findOrCreate($permission, 'api');
+                    $validPermissions[] = $permission;
+                }
+            }
+            $role->syncPermissions($validPermissions);
 
             return response()->json(
                 [
@@ -165,10 +178,11 @@ class RoleController extends Controller
                 422,
             );
         } catch (Throwable $e) {
+            \Log::error('Error actualizando rol: ' . $e->getMessage());
             return response()->json(
                 [
                     'status' => 'error',
-                    'message' => 'No se pudo actualizar el rol.',
+                    'message' => $e->getMessage() ?: 'No se pudo actualizar el rol.',
                 ],
                 500,
             );
