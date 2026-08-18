@@ -244,7 +244,7 @@ class UserController extends Controller
             $data = $validator->validated();
 
             // Set default values for optional fields
-            if (! isset($data['sucursale_id'])) {
+            if (!isset($data['sucursale_id'])) {
                 $data['sucursale_id'] = '1';
             }
 
@@ -265,16 +265,17 @@ class UserController extends Controller
                 $data['password'] = bcrypt($request->password);
             }
 
-            if (isset($data['role_id'])) {
-                unset($data['role_id']);
+            if (!empty($request->role_id)) {
+                $data['role_id'] = $request->role_id;
             }
-
 
             $user->update($data);
 
-            if ($request->role_id) {
+            if (!empty($request->role_id)) {
                 $role = Role::findById($request->role_id, 'api');
-                $user->syncRoles([$role]);
+                if ($role) {
+                    $user->syncRoles([$role]);
+                }
             }
 
             // Reload user with relationships to get updated data
@@ -367,6 +368,135 @@ class UserController extends Controller
                 ],
                 500,
             );
+        }
+    }
+
+    /**
+     * Update user profile (phone, address, avatar, name, surname)
+     */
+    public function updateProfile(Request $request, $id)
+    {
+        try {
+            $user = User::findOrFail($id);
+            $authUser = auth()->user();
+
+            if ($authUser && (int) $authUser->id !== (int) $user->id && (int) $authUser->role_id !== 1 && $authUser->role?->name !== 'Super-Admin') {
+                return response()->json(['message' => 'No autorizado para modificar este perfil'], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'sometimes|required|string|max:255',
+                'surname' => 'nullable|string|max:255',
+                'phone' => 'nullable|string|max:20',
+                'address' => 'nullable|string|max:500',
+                'avatar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:2048',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 422,
+                    'message' => $validator->errors()->first(),
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $data = $validator->validated();
+
+            if ($request->hasFile('avatar')) {
+                if ($user->avatar) {
+                    Storage::disk('public')->delete($user->avatar);
+                }
+                $path = Storage::disk('public')->put('users', $request->file('avatar'));
+                $data['avatar'] = $path;
+            }
+
+            $user->update($data);
+            $user->load(['role', 'sucursale']);
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Perfil actualizado correctamente',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'surname' => $user->surname,
+                    'full_name' => trim($user->name . ' ' . ($user->surname ?? '')),
+                    'email' => $user->email,
+                    'identification' => $user->identification,
+                    'role_id' => $user->role_id,
+                    'role' => $user->role ? [
+                        'id' => $user->role->id,
+                        'name' => $user->role->name,
+                        'permissions_pluck' => $user->role->permissions ? $user->role->permissions->pluck('name') : [],
+                    ] : null,
+                    'sucursale_id' => $user->sucursale_id,
+                    'phone' => $user->phone,
+                    'address' => $user->address,
+                    'avatar' => $user->avatar ? env('APP_URL') . 'storage/' . $user->avatar : null,
+                    'permissions' => $user->getAllPermissions()->pluck('name'),
+                ],
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update user password with current password verification
+     */
+    public function updatePassword(Request $request, $id)
+    {
+        try {
+            $user = User::findOrFail($id);
+            $authUser = auth()->user();
+
+            if ($authUser && (int) $authUser->id !== (int) $user->id && (int) $authUser->role_id !== 1 && $authUser->role?->name !== 'Super-Admin') {
+                return response()->json(['message' => 'No autorizado para cambiar la contraseña de este usuario'], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'current_password' => 'required|string',
+                'new_password' => 'required|string|min:6',
+                'new_password_confirmation' => 'required|string|same:new_password',
+            ], [
+                'current_password.required' => 'La contraseña actual es obligatoria.',
+                'new_password.required' => 'La nueva contraseña es obligatoria.',
+                'new_password.min' => 'La nueva contraseña debe tener al menos 6 caracteres.',
+                'new_password_confirmation.required' => 'Debe confirmar la nueva contraseña.',
+                'new_password_confirmation.same' => 'La nueva contraseña y su confirmación no coinciden.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 422,
+                    'message' => $validator->errors()->first(),
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            if (!\Illuminate\Support\Facades\Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'status' => 422,
+                    'message' => 'La contraseña actual es incorrecta.',
+                    'errors' => ['current_password' => ['La contraseña actual es incorrecta.']],
+                ], 422);
+            }
+
+            $user->password = bcrypt($request->new_password);
+            $user->save();
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Contraseña actualizada exitosamente.',
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => $th->getMessage(),
+            ], 500);
         }
     }
 }

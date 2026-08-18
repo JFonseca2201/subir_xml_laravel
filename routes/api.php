@@ -65,7 +65,9 @@ Route::group(
         // ============= RUTAS DE ROLES ================
         Route::resource('role', RoleController::class);
 
-        // ============= RUTAS DE USUARIOS ==============
+        // ============= RUTAS DE USUARIOS Y PERFIL ==============
+        Route::put('users/{id}/profile', [UserController::class, 'updateProfile']);
+        Route::put('users/{id}/password', [UserController::class, 'updatePassword']);
         Route::resource('users', UserController::class);
 
         // ============= RUTAS DE SUCURSALES ==============

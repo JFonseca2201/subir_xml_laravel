@@ -124,6 +124,25 @@ class PermissionsDemoSeeder extends Seeder
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'view_reports']);
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'manage_settings']);
         Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'approve_transactions']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_arqueo']);
+
+        // Work Order permissions
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_work_order']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_work_order']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_work_order']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_work_order']);
+
+        // Quote permissions
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_quote']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_quote']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_quote']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_quote']);
+
+        // Pedidos Distribuidor permissions
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'register_pedido']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'list_pedido']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'edit_pedido']);
+        Permission::updateOrCreate(['guard_name' => 'api', 'name' => 'delete_pedido']);
 
         // ============= CREAR SUCURSAL POR DEFECTO ==============
         $sucursal = \App\Models\Config\Sucursale::updateOrCreate(
@@ -151,7 +170,7 @@ class PermissionsDemoSeeder extends Seeder
 
         // Create Admin role with most permissions except user/role management
         $roleAdmin = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Admin']);
-        $roleAdmin->givePermissionTo([
+        $roleAdmin->syncPermissions([
             'dashboard',
             'settings',
             'register_product',
@@ -203,11 +222,24 @@ class PermissionsDemoSeeder extends Seeder
             'export_data',
             'view_reports',
             'approve_transactions',
+            'list_arqueo',
+            'register_work_order',
+            'list_work_order',
+            'edit_work_order',
+            'delete_work_order',
+            'register_quote',
+            'list_quote',
+            'edit_quote',
+            'delete_quote',
+            'register_pedido',
+            'list_pedido',
+            'edit_pedido',
+            'delete_pedido',
         ]);
 
         // Create Manager role with operational permissions
         $roleManager = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Manager']);
-        $roleManager->givePermissionTo([
+        $roleManager->syncPermissions([
             'dashboard',
             'list_product',
             'edit_product',
@@ -244,11 +276,21 @@ class PermissionsDemoSeeder extends Seeder
             'import_xml',
             'export_data',
             'view_reports',
+            'list_arqueo',
+            'register_work_order',
+            'list_work_order',
+            'edit_work_order',
+            'register_quote',
+            'list_quote',
+            'edit_quote',
+            'register_pedido',
+            'list_pedido',
+            'edit_pedido',
         ]);
 
         // Create Employee role with basic permissions
         $roleEmployee = Role::updateOrCreate(['guard_name' => 'api', 'name' => 'Employee']);
-        $roleEmployee->givePermissionTo([
+        $roleEmployee->syncPermissions([
             'dashboard',
             'list_product',
             'list_client',
@@ -260,10 +302,14 @@ class PermissionsDemoSeeder extends Seeder
             'conversions',
             'kardex',
             'list_invoice',
-            'list_transaction',
-            'list_transfer',
             'list_supplier',
             'view_reports',
+            'register_work_order',
+            'list_work_order',
+            'register_quote',
+            'list_quote',
+            'register_pedido',
+            'list_pedido',
         ]);
 
         $user = \App\Models\User::updateOrCreate(

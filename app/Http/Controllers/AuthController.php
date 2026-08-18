@@ -58,7 +58,28 @@ class AuthController extends Controller
      */
     public function me()
     {
-        return response()->json(auth()->user());
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $roleObj = $user->roles->first() ?? $user->role;
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'surname' => $user->surname,
+            'full_name' => trim($user->name . ' ' . ($user->surname ?? '')),
+            'email' => $user->email,
+            'avatar' => $user->avatar ? env('APP_URL') . 'storage/' . $user->avatar : null,
+            'role_id' => $user->role_id,
+            'role' => $roleObj ? [
+                'id' => $roleObj->id,
+                'name' => $roleObj->name,
+                'permissions_pluck' => $roleObj->permissions ? $roleObj->permissions->pluck('name') : [],
+            ] : null,
+            'permissions' => $user->getAllPermissions()->pluck('name'),
+        ]);
     }
 
     /**
@@ -91,16 +112,25 @@ class AuthController extends Controller
      */
     protected function respondWithToken($token)
     {
+        $user = auth()->user();
+        $roleObj = $user->roles->first() ?? $user->role;
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => auth()->factory()->getTTL() * 60,
             'user' => [
-                'id' => auth()->user()->id,
-                'full_name' => auth()->user()->name . ' ' . auth()->user()->surname,
-                'email' => auth()->user()->email,
-                'avatar' => auth()->user()->avatar ? env('APP_URL') . 'storage/' . auth()->user()->avatar : null,
-                'role' => auth()->user()->role,
+                'id' => $user->id,
+                'name' => $user->name,
+                'surname' => $user->surname,
+                'full_name' => trim($user->name . ' ' . ($user->surname ?? '')),
+                'email' => $user->email,
+                'avatar' => $user->avatar ? env('APP_URL') . 'storage/' . $user->avatar : null,
+                'role' => $roleObj ? [
+                    'id' => $roleObj->id,
+                    'name' => $roleObj->name,
+                    'permissions_pluck' => $roleObj->permissions ? $roleObj->permissions->pluck('name') : [],
+                ] : null,
+                'permissions' => $user->getAllPermissions()->pluck('name'),
             ],
         ]);
     }
