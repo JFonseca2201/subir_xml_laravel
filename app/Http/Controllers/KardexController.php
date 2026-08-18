@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Finance\FinancialMovement;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class KardexController extends Controller
 {
@@ -774,5 +775,682 @@ class KardexController extends Controller
         }
 
         return $concepto;
+    }
+
+    /**
+     * Kardex integral por Cliente y Vehículo (Búsqueda por Placa, RUC, Nombre)
+     */
+    public function indexByClientAndVehicle(Request $request)
+    {
+        try {
+            $clientId = $request->get('client_id');
+            $vehicleId = $request->get('vehicle_id');
+            $plate = $request->get('plate');
+            $search = $request->get('search');
+            $startDate = $request->get('start_date');
+            $endDate = $request->get('end_date');
+            $documentType = $request->get('document_type', 'all');
+            $paymentStatus = $request->get('payment_status', 'all');
+            $perPage = (int) $request->get('per_page', 20);
+
+            // Base query de ventas / transacciones
+            $query = \App\Models\Sales\Sale::with([
+                'client',
+                'vehicle',
+                'details.product',
+                'financeRecord.paymentDistributions',
+            ]);
+
+            // Filtro por Cliente específico
+            if ($clientId) {
+                $query->where('client_id', $clientId);
+            }
+
+            // Filtro por Vehículo específico
+            if ($vehicleId) {
+                $query->where('vehicle_id', $vehicleId);
+            }
+
+            // Filtro por Placa específica
+            if ($plate) {
+                $query->whereHas('vehicle', function ($vq) use ($plate) {
+                    $vq->where('license_plate', 'LIKE', "%{$plate}%");
+                });
+            }
+
+            // Filtro por Rango de Fechas
+            if ($startDate && $endDate) {
+                $query->where(function ($dq) use ($startDate, $endDate) {
+                    $dq->whereBetween('service_date', [$startDate, $endDate])
+                        ->orWhere(function ($sub) use ($startDate, $endDate) {
+                            $sub->whereNull('service_date')
+                                ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+                        });
+                });
+            }
+
+            // Filtro por Tipo de Comprobante
+            if ($documentType && $documentType !== 'all') {
+                $query->where('document_type', $documentType);
+            }
+
+            // Filtro por Estado de Pago
+            if ($paymentStatus && $paymentStatus !== 'all') {
+                $query->where('payment_status', $paymentStatus);
+            }
+
+            // Búsqueda textual amplia
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('document_number', 'LIKE', "%{$search}%")
+                        ->orWhere('work_order_number', 'LIKE', "%{$search}%")
+                        ->orWhere('observations', 'LIKE', "%{$search}%")
+                        ->orWhereHas('client', function ($cq) use ($search) {
+                            $cq->where('name', 'LIKE', "%{$search}%")
+                                ->orWhere('surname', 'LIKE', "%{$search}%")
+                                ->orWhere('full_name', 'LIKE', "%{$search}%")
+                                ->orWhere('n_document', 'LIKE', "%{$search}%")
+                                ->orWhere('phone', 'LIKE', "%{$search}%");
+                        })
+                        ->orWhereHas('vehicle', function ($vq) use ($search) {
+                            $vq->where('license_plate', 'LIKE', "%{$search}%")
+                                ->orWhere('brand', 'LIKE', "%{$search}%")
+                                ->orWhere('model', 'LIKE', "%{$search}%");
+                        })
+                        ->orWhereHas('details', function ($dq) use ($search) {
+                            $dq->where('description', 'LIKE', "%{$search}%");
+                        });
+                });
+            }
+
+            $calculateSalePayment = function ($sale) {
+                $saleTotal = (float) $sale->total;
+
+                if ($sale->payment_status === 'paid') {
+                    return [
+                        'paid' => $saleTotal,
+                        'due' => 0.0,
+                    ];
+                }
+
+                $paid = 0.0;
+                if ($sale->financeRecord) {
+                    if ($sale->financeRecord->paymentDistributions && $sale->financeRecord->paymentDistributions->isNotEmpty()) {
+                        $paid = (float) $sale->financeRecord->paymentDistributions->sum('amount');
+                    } elseif ($sale->financeRecord->amount !== null && (float)$sale->financeRecord->amount > 0) {
+                        $paid = (float) $sale->financeRecord->amount;
+                    }
+                }
+
+                $due = max(0.0, $saleTotal - $paid);
+                return [
+                    'paid' => $paid,
+                    'due' => $due,
+                ];
+            };
+
+            // Calcular Métricas y KPIs sobre el query filtrado
+            $statsQuery = clone $query;
+            $allFilteredSales = $statsQuery->get();
+
+            $totalFacturado = 0.0;
+            $totalPagado = 0.0;
+            $saldoPendiente = 0.0;
+            $totalTransacciones = $allFilteredSales->count();
+
+            // Calcular desglose de Repuestos vs Servicios y último kilometraje
+            $totalRepuestos = 0.0;
+            $totalServicios = 0.0;
+            $repuestosCount = 0;
+            $serviciosCount = 0;
+            $maxMileage = null;
+
+            foreach ($allFilteredSales as $sale) {
+                $pInfo = $calculateSalePayment($sale);
+                $totalFacturado += (float) $sale->total;
+                $totalPagado += $pInfo['paid'];
+                $saldoPendiente += $pInfo['due'];
+
+                if ($sale->mileage !== null && ($maxMileage === null || (int)$sale->mileage > (int)$maxMileage)) {
+                    $maxMileage = (int) $sale->mileage;
+                }
+                foreach ($sale->details as $detail) {
+                    $isService = ($detail->product && $detail->product->item_type == 2) || (!$detail->product && (stripos($detail->description, 'servicio') !== false || stripos($detail->description, 'mano de obra') !== false || stripos($detail->description, 'alineacion') !== false || stripos($detail->description, 'balanceo') !== false));
+                    if ($isService) {
+                        $totalServicios += (float) $detail->total;
+                        $serviciosCount++;
+                    } else {
+                        $totalRepuestos += (float) $detail->total;
+                        $repuestosCount++;
+                    }
+                }
+            }
+
+            $vehicleBrands = config('vehicle_brands', []);
+            $resolveBrand = function ($brandVal) use ($vehicleBrands) {
+                if ($brandVal !== null && isset($vehicleBrands[$brandVal])) {
+                    return $vehicleBrands[$brandVal];
+                }
+                return $brandVal ?: '';
+            };
+
+            // Obtener datos del Cliente seleccionado si existe
+            $selectedClient = null;
+            if ($clientId) {
+                $clientModel = \App\Models\Client\Client::with(['directVehicles'])->find($clientId);
+                if ($clientModel) {
+                    $selectedClient = [
+                        'id' => $clientModel->id,
+                        'name' => $clientModel->name,
+                        'surname' => $clientModel->surname,
+                        'full_name' => $clientModel->full_name ?: trim($clientModel->name . ' ' . $clientModel->surname),
+                        'n_document' => $clientModel->n_document,
+                        'type_document' => $clientModel->type_document,
+                        'phone' => $clientModel->phone,
+                        'email' => $clientModel->email,
+                        'address' => $clientModel->address,
+                        'vehicles' => $clientModel->directVehicles->map(function ($v) use ($resolveBrand) {
+                            return [
+                                'id' => $v->id,
+                                'license_plate' => $v->license_plate,
+                                'brand' => $resolveBrand($v->brand),
+                                'model' => $v->model,
+                                'year' => $v->year,
+                                'color' => $v->color,
+                            ];
+                        }),
+                    ];
+                }
+            }
+
+            // Obtener datos del Vehículo seleccionado si existe
+            $selectedVehicle = null;
+            if ($vehicleId || $plate) {
+                $vQuery = \App\Models\Vehicles\Vehicle::with(['client']);
+                if ($vehicleId) {
+                    $vQuery->where('id', $vehicleId);
+                } elseif ($plate) {
+                    $vQuery->where('license_plate', $plate);
+                }
+                $vehicleModel = $vQuery->first();
+                if ($vehicleModel) {
+                    $selectedVehicle = [
+                        'id' => $vehicleModel->id,
+                        'license_plate' => $vehicleModel->license_plate,
+                        'brand' => $resolveBrand($vehicleModel->brand),
+                        'model' => $vehicleModel->model,
+                        'year' => $vehicleModel->year,
+                        'color' => $vehicleModel->color,
+                        'vehicle_type' => $vehicleModel->vehicle_type,
+                        'description' => $vehicleModel->description,
+                        'last_mileage' => $maxMileage,
+                        'client' => $vehicleModel->client ? [
+                            'id' => $vehicleModel->client->id,
+                            'full_name' => $vehicleModel->client->full_name ?: trim($vehicleModel->client->name . ' ' . $vehicleModel->client->surname),
+                            'n_document' => $vehicleModel->client->n_document,
+                            'phone' => $vehicleModel->client->phone,
+                        ] : null,
+                    ];
+
+                    // Si no había cliente seleccionado, usar el dueño del vehículo
+                    if (!$selectedClient && $vehicleModel->client) {
+                        $selectedClient = [
+                            'id' => $vehicleModel->client->id,
+                            'name' => $vehicleModel->client->name,
+                            'surname' => $vehicleModel->client->surname,
+                            'full_name' => $vehicleModel->client->full_name ?: trim($vehicleModel->client->name . ' ' . $vehicleModel->client->surname),
+                            'n_document' => $vehicleModel->client->n_document,
+                            'type_document' => $vehicleModel->client->type_document,
+                            'phone' => $vehicleModel->client->phone,
+                            'email' => $vehicleModel->client->email,
+                            'address' => $vehicleModel->client->address,
+                        ];
+                    }
+                }
+            }
+
+            // Paginar los resultados ordenados por fecha descendente
+            $paginated = $query->orderByRaw('COALESCE(service_date, created_at) DESC')
+                ->orderByDesc('id')
+                ->paginate($perPage);
+
+            // Formatear transacciones
+            $transactions = $paginated->getCollection()->map(function ($sale) use ($resolveBrand, $calculateSalePayment) {
+                $dateStr = $sale->service_date ? $sale->service_date->format('Y-m-d') : $sale->created_at->format('Y-m-d');
+                $dateFormatted = $sale->service_date ? $sale->service_date->format('d/m/Y') : $sale->created_at->format('d/m/Y');
+
+                $pInfo = $calculateSalePayment($sale);
+
+                return [
+                    'id' => $sale->id,
+                    'document_type' => $sale->document_type,
+                    'document_number' => $sale->document_number ?: ('#' . $sale->id),
+                    'work_order_id' => $sale->work_order_id,
+                    'work_order_number' => $sale->work_order_number,
+                    'date' => $dateStr,
+                    'date_formatted' => $dateFormatted,
+                    'mileage' => $sale->mileage,
+                    'subtotal' => (float) $sale->subtotal,
+                    'tax_amount' => (float) $sale->tax_amount,
+                    'total' => (float) $sale->total,
+                    'paid_amount' => $pInfo['paid'],
+                    'due_amount' => $pInfo['due'],
+                    'payment_status' => $sale->payment_status,
+                    'payment_method' => $sale->payment_method ?: 'Efectivo',
+                    'observations' => $sale->observations,
+                    'pdf_path' => $sale->pdf_path,
+                    'client' => $sale->client ? [
+                        'id' => $sale->client->id,
+                        'full_name' => $sale->client->full_name ?: trim($sale->client->name . ' ' . $sale->client->surname),
+                        'n_document' => $sale->client->n_document,
+                        'phone' => $sale->client->phone,
+                    ] : null,
+                    'vehicle' => $sale->vehicle ? [
+                        'id' => $sale->vehicle->id,
+                        'license_plate' => $sale->vehicle->license_plate,
+                        'brand' => $resolveBrand($sale->vehicle->brand),
+                        'model' => $sale->vehicle->model,
+                        'year' => $sale->vehicle->year,
+                        'color' => $sale->vehicle->color,
+                    ] : null,
+                    'details' => $sale->details->map(function ($detail) {
+                        $isService = ($detail->product && $detail->product->item_type == 2) || (!$detail->product && (stripos($detail->description, 'servicio') !== false || stripos($detail->description, 'mano de obra') !== false || stripos($detail->description, 'alineacion') !== false || stripos($detail->description, 'balanceo') !== false));
+                        $quantity = (float) $detail->quantity;
+                        $unitPrice = (float) ($detail->price ?? $detail->unit_price ?? ($quantity > 0 ? $detail->total / $quantity : 0));
+                        $discount = (float) ($detail->discount ?? 0);
+                        $subtotal = (float) ($detail->subtotal ?? (($unitPrice * $quantity) - $discount));
+                        $taxAmount = (float) ($detail->tax_value ?? $detail->tax_amount ?? 0);
+                        $total = (float) ($detail->total ?? ($subtotal + $taxAmount));
+
+                        return [
+                            'id' => $detail->id,
+                            'product_id' => $detail->product_id,
+                            'sku' => $detail->product ? $detail->product->sku : null,
+                            'description' => $detail->description,
+                            'tipo' => $isService ? 'servicio' : 'repuesto',
+                            'quantity' => $quantity,
+                            'unit_price' => $unitPrice,
+                            'discount' => $discount,
+                            'subtotal' => $subtotal,
+                            'tax_amount' => $taxAmount,
+                            'total' => $total,
+                        ];
+                    }),
+                ];
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'transactions' => $transactions,
+                    'pagination' => [
+                        'total' => $paginated->total(),
+                        'per_page' => $paginated->perPage(),
+                        'current_page' => $paginated->currentPage(),
+                        'last_page' => $paginated->lastPage(),
+                    ],
+                    'metrics' => [
+                        'total_facturado' => $totalFacturado,
+                        'total_pagado' => $totalPagado,
+                        'saldo_pendiente' => $saldoPendiente,
+                        'total_transacciones' => $totalTransacciones,
+                        'total_repuestos' => $totalRepuestos,
+                        'total_servicios' => $totalServicios,
+                        'repuestos_count' => $repuestosCount,
+                        'servicios_count' => $serviciosCount,
+                        'ultimo_kilometraje' => $maxMileage,
+                        'promedio_visita' => $totalTransacciones > 0 ? round($totalFacturado / $totalTransacciones, 2) : 0.0,
+                    ],
+                    'client' => $selectedClient,
+                    'vehicle' => $selectedVehicle,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            \Log::error('Error en indexByClientAndVehicle: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener el kardex por cliente/vehículo: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Generar Reporte Completo de Kardex Cliente & Vehículo en PDF
+     */
+    public function generateClientVehicleReportPDF(Request $request)
+    {
+        try {
+            $clientId = $request->get('client_id');
+            $vehicleId = $request->get('vehicle_id');
+            $plate = $request->get('plate');
+            $search = $request->get('search');
+            $startDate = $request->get('start_date');
+            $endDate = $request->get('end_date');
+            $documentType = $request->get('document_type', 'all');
+            $paymentStatus = $request->get('payment_status', 'all');
+
+            $query = \App\Models\Sales\Sale::with([
+                'client',
+                'vehicle',
+                'details.product',
+                'financeRecord.paymentDistributions',
+            ]);
+
+            if ($clientId) {
+                $query->where('client_id', $clientId);
+            }
+
+            if ($vehicleId) {
+                $query->where('vehicle_id', $vehicleId);
+            }
+
+            if ($plate) {
+                $query->whereHas('vehicle', function ($vq) use ($plate) {
+                    $vq->where('license_plate', 'LIKE', "%{$plate}%");
+                });
+            }
+
+            if ($startDate && $endDate) {
+                $query->where(function ($dq) use ($startDate, $endDate) {
+                    $dq->whereBetween('service_date', [$startDate, $endDate])
+                        ->orWhere(function ($sub) use ($startDate, $endDate) {
+                            $sub->whereNull('service_date')
+                                ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+                        });
+                });
+                $dateRangeText = date('d/m/Y', strtotime($startDate)) . ' al ' . date('d/m/Y', strtotime($endDate));
+            } else {
+                $dateRangeText = 'Todo el historial';
+            }
+
+            if ($documentType && $documentType !== 'all') {
+                $query->where('document_type', $documentType);
+            }
+
+            if ($paymentStatus && $paymentStatus !== 'all') {
+                $query->where('payment_status', $paymentStatus);
+            }
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('document_number', 'LIKE', "%{$search}%")
+                        ->orWhere('work_order_number', 'LIKE', "%{$search}%")
+                        ->orWhere('observations', 'LIKE', "%{$search}%")
+                        ->orWhereHas('client', function ($cq) use ($search) {
+                            $cq->where('name', 'LIKE', "%{$search}%")
+                                ->orWhere('surname', 'LIKE', "%{$search}%")
+                                ->orWhere('full_name', 'LIKE', "%{$search}%")
+                                ->orWhere('n_document', 'LIKE', "%{$search}%")
+                                ->orWhere('phone', 'LIKE', "%{$search}%");
+                        })
+                        ->orWhereHas('vehicle', function ($vq) use ($search) {
+                            $vq->where('license_plate', 'LIKE', "%{$search}%")
+                                ->orWhere('brand', 'LIKE', "%{$search}%")
+                                ->orWhere('model', 'LIKE', "%{$search}%");
+                        })
+                        ->orWhereHas('details', function ($dq) use ($search) {
+                            $dq->where('description', 'LIKE', "%{$search}%");
+                        });
+                });
+            }
+
+            $allSales = $query->orderByRaw('COALESCE(service_date, created_at) DESC')
+                ->orderByDesc('id')
+                ->get();
+
+            $calculateSalePayment = function ($sale) {
+                $saleTotal = (float) $sale->total;
+
+                if ($sale->payment_status === 'paid') {
+                    return [
+                        'paid' => $saleTotal,
+                        'due' => 0.0,
+                    ];
+                }
+
+                $paid = 0.0;
+                if ($sale->financeRecord) {
+                    if ($sale->financeRecord->paymentDistributions && $sale->financeRecord->paymentDistributions->isNotEmpty()) {
+                        $paid = (float) $sale->financeRecord->paymentDistributions->sum('amount');
+                    } elseif ($sale->financeRecord->amount !== null && (float)$sale->financeRecord->amount > 0) {
+                        $paid = (float) $sale->financeRecord->amount;
+                    }
+                }
+
+                $due = max(0.0, $saleTotal - $paid);
+                return [
+                    'paid' => $paid,
+                    'due' => $due,
+                ];
+            };
+
+            $totalFacturado = 0.0;
+            $totalPagado = 0.0;
+            $saldoPendiente = 0.0;
+            $totalTransacciones = $allSales->count();
+
+            $totalRepuestos = 0.0;
+            $totalServicios = 0.0;
+            $maxMileage = null;
+
+            $vehicleBrands = config('vehicle_brands', []);
+            $resolveBrand = function ($brandVal) use ($vehicleBrands) {
+                if ($brandVal !== null && isset($vehicleBrands[$brandVal])) {
+                    return $vehicleBrands[$brandVal];
+                }
+                return $brandVal ?: '';
+            };
+
+            foreach ($allSales as $sale) {
+                $pInfo = $calculateSalePayment($sale);
+                $totalFacturado += (float) $sale->total;
+                $totalPagado += $pInfo['paid'];
+                $saldoPendiente += $pInfo['due'];
+
+                if ($sale->mileage !== null && ($maxMileage === null || (int)$sale->mileage > (int)$maxMileage)) {
+                    $maxMileage = (int) $sale->mileage;
+                }
+                foreach ($sale->details as $detail) {
+                    $isService = ($detail->product && $detail->product->item_type == 2) || (!$detail->product && (stripos($detail->description, 'servicio') !== false || stripos($detail->description, 'mano de obra') !== false || stripos($detail->description, 'alineacion') !== false || stripos($detail->description, 'balanceo') !== false));
+                    if ($isService) {
+                        $totalServicios += (float) $detail->total;
+                    } else {
+                        $totalRepuestos += (float) $detail->total;
+                    }
+                }
+            }
+
+            $selectedClient = null;
+            if ($clientId) {
+                $clientModel = \App\Models\Client\Client::find($clientId);
+                if ($clientModel) {
+                    $selectedClient = [
+                        'full_name' => $clientModel->full_name ?: trim($clientModel->name . ' ' . $clientModel->surname),
+                        'n_document' => $clientModel->n_document,
+                        'phone' => $clientModel->phone,
+                    ];
+                }
+            }
+
+            $selectedVehicle = null;
+            if ($vehicleId || $plate) {
+                $vQuery = \App\Models\Vehicles\Vehicle::query();
+                if ($vehicleId) $vQuery->where('id', $vehicleId);
+                elseif ($plate) $vQuery->where('license_plate', $plate);
+                $vehicleModel = $vQuery->first();
+                if ($vehicleModel) {
+                    $selectedVehicle = [
+                        'license_plate' => $vehicleModel->license_plate,
+                        'brand' => $resolveBrand($vehicleModel->brand),
+                        'model' => $vehicleModel->model,
+                        'year' => $vehicleModel->year,
+                        'color' => $vehicleModel->color,
+                        'last_mileage' => $maxMileage,
+                    ];
+                }
+            }
+
+            $transactions = $allSales->map(function ($sale) use ($resolveBrand, $calculateSalePayment) {
+                $dateFormatted = $sale->service_date ? $sale->service_date->format('d/m/Y') : $sale->created_at->format('d/m/Y');
+                $pInfo = $calculateSalePayment($sale);
+                return [
+                    'id' => $sale->id,
+                    'document_type' => $sale->document_type,
+                    'document_number' => $sale->document_number ?: ('#' . $sale->id),
+                    'work_order_number' => $sale->work_order_number,
+                    'date_formatted' => $dateFormatted,
+                    'mileage' => $sale->mileage,
+                    'total' => (float) $sale->total,
+                    'paid_amount' => $pInfo['paid'],
+                    'due_amount' => $pInfo['due'],
+                    'payment_status' => $sale->payment_status,
+                    'client' => $sale->client ? [
+                        'full_name' => $sale->client->full_name ?: trim($sale->client->name . ' ' . $sale->client->surname),
+                        'n_document' => $sale->client->n_document,
+                    ] : null,
+                    'vehicle' => $sale->vehicle ? [
+                        'license_plate' => $sale->vehicle->license_plate,
+                        'brand' => $resolveBrand($sale->vehicle->brand),
+                        'model' => $sale->vehicle->model,
+                    ] : null,
+                    'details' => $sale->details->map(function ($detail) {
+                        $isService = ($detail->product && $detail->product->item_type == 2) || (!$detail->product && (stripos($detail->description, 'servicio') !== false || stripos($detail->description, 'mano de obra') !== false || stripos($detail->description, 'alineacion') !== false || stripos($detail->description, 'balanceo') !== false));
+                        $quantity = (float) $detail->quantity;
+                        $unitPrice = (float) ($detail->price ?? $detail->unit_price ?? ($quantity > 0 ? $detail->total / $quantity : 0));
+                        $subtotal = (float) ($detail->subtotal ?? ($unitPrice * $quantity));
+                        return [
+                            'description' => $detail->description,
+                            'tipo' => $isService ? 'servicio' : 'repuesto',
+                            'quantity' => $quantity,
+                            'unit_price' => $unitPrice,
+                            'total' => (float) $detail->total,
+                        ];
+                    }),
+                ];
+            });
+
+            $metrics = [
+                'total_facturado' => $totalFacturado,
+                'total_pagado' => $totalPagado,
+                'saldo_pendiente' => $saldoPendiente,
+                'total_transacciones' => $totalTransacciones,
+                'total_repuestos' => $totalRepuestos,
+                'total_servicios' => $totalServicios,
+            ];
+
+            $pdf = Pdf::loadView('kardex.pdf_kardex_client_vehicle', compact(
+                'transactions',
+                'metrics',
+                'selectedClient',
+                'selectedVehicle',
+                'dateRangeText'
+            ))->setPaper('a4', 'landscape');
+
+            return $pdf->stream('Kardex_Cliente_Vehiculo_' . date('Ymd_His') . '.pdf');
+        } catch (\Throwable $e) {
+            \Log::error('Error al generar PDF de Kardex: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['status' => 'error', 'message' => 'Error al generar el PDF de Kardex: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Selector de Clientes con autocompletado y conteo de vehículos/compras
+     */
+    public function clientsSelector(Request $request)
+    {
+        try {
+            $search = $request->get('search', '');
+
+            $clients = \App\Models\Client\Client::withCount(['directVehicles', 'sales'])
+                ->when($search, function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('surname', 'LIKE', "%{$search}%")
+                            ->orWhere('full_name', 'LIKE', "%{$search}%")
+                            ->orWhere('n_document', 'LIKE', "%{$search}%")
+                            ->orWhere('phone', 'LIKE', "%{$search}%")
+                            ->orWhere('email', 'LIKE', "%{$search}%");
+                    });
+                })
+                ->orderBy('name')
+                ->limit(40)
+                ->get()
+                ->map(function ($client) {
+                    return [
+                        'id' => $client->id,
+                        'full_name' => $client->full_name ?: trim($client->name . ' ' . $client->surname),
+                        'name' => $client->name,
+                        'surname' => $client->surname,
+                        'n_document' => $client->n_document,
+                        'phone' => $client->phone,
+                        'email' => $client->email,
+                        'vehicles_count' => $client->direct_vehicles_count ?? 0,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'clients' => $clients,
+            ], 200);
+        } catch (\Throwable $e) {
+            \Log::error('Error en clientsSelector: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Selector de Vehículos / Placas con autocompletado y dueño
+     */
+    public function vehiclesSelector(Request $request)
+    {
+        try {
+            $search = $request->get('search', '');
+            $vehicleBrands = config('vehicle_brands', []);
+
+            $vehicles = \App\Models\Vehicles\Vehicle::with(['client'])
+                ->when($search, function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('license_plate', 'LIKE', "%{$search}%")
+                            ->orWhere('brand', 'LIKE', "%{$search}%")
+                            ->orWhere('model', 'LIKE', "%{$search}%")
+                            ->orWhere('color', 'LIKE', "%{$search}%")
+                            ->orWhereHas('client', function ($cq) use ($search) {
+                                $cq->where('name', 'LIKE', "%{$search}%")
+                                    ->orWhere('surname', 'LIKE', "%{$search}%")
+                                    ->orWhere('full_name', 'LIKE', "%{$search}%")
+                                    ->orWhere('n_document', 'LIKE', "%{$search}%");
+                            });
+                    });
+                })
+                ->orderBy('license_plate')
+                ->limit(40)
+                ->get()
+                ->map(function ($v) use ($vehicleBrands) {
+                    $brandName = (isset($vehicleBrands[$v->brand])) ? $vehicleBrands[$v->brand] : $v->brand;
+                    return [
+                        'id' => $v->id,
+                        'license_plate' => $v->license_plate,
+                        'brand' => $brandName,
+                        'model' => $v->model,
+                        'year' => $v->year,
+                        'color' => $v->color,
+                        'client' => $v->client ? [
+                            'id' => $v->client->id,
+                            'full_name' => $v->client->full_name ?: trim($v->client->name . ' ' . $v->client->surname),
+                            'n_document' => $v->client->n_document,
+                            'phone' => $v->client->phone,
+                        ] : null,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'vehicles' => $vehicles,
+            ], 200);
+        } catch (\Throwable $e) {
+            \Log::error('Error en vehiclesSelector: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
     }
 }

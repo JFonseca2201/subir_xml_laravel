@@ -57,5 +57,10 @@ class Client extends Model
     {
         return $this->belongsToMany(\App\Models\Vehicles\Vehicle::class, 'work_orders', 'client_id', 'vehicle_id')->distinct();
     }
+
+    public function sales()
+    {
+        return $this->hasMany(\App\Models\Sales\Sale::class, 'client_id');
+    }
 }
 

@@ -245,6 +245,10 @@ Route::group(
 
         // ============= RUTAS DE KARDEX INTEGRAL ==========
         Route::get('kardex/productos', [KardexController::class, 'indexByProduct']);
+        Route::get('kardex/clientes-vehiculos/pdf', [KardexController::class, 'generateClientVehicleReportPDF']);
+        Route::get('kardex/clientes-vehiculos', [KardexController::class, 'indexByClientAndVehicle']);
+        Route::get('kardex/clientes/selector', [KardexController::class, 'clientsSelector']);
+        Route::get('kardex/vehiculos/selector', [KardexController::class, 'vehiclesSelector']);
         Route::get('kardex', [KardexController::class, 'index']);
 
         // ============= RUTAS DE DASHBOARD GENERAL ==========
