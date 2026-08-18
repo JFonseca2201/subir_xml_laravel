@@ -301,7 +301,7 @@ class SaleController extends Controller
                     'subtotal' => $request->subtotal,
                     'tax_amount' => $request->tax_amount,
                     'total' => $request->total,
-                    'status' => $isDraft ? 'draft' : ($request->document_type === 'quote' ? 'pending' : 'completed'),
+                    'status' => $isDraft ? 'draft' : ($request->document_type === 'quote' || $request->payment_status === 'pending' || $request->payment_status === 'partial' ? 'pending' : 'completed'),
                     'payment_status' => $request->payment_status,
                     'is_credited' => $request->is_credited,
                     'payment_method' => $paymentMethod,
@@ -979,9 +979,17 @@ class SaleController extends Controller
 
             $status = $sale->status;
             if ($isFinishingDraft) {
-                $status = $request->document_type === 'quote' ? 'pending' : 'completed';
+                $status = ($request->document_type === 'quote' || $request->payment_status === 'pending' || $request->payment_status === 'partial') ? 'pending' : 'completed';
             } else if ($isDraft) {
                 $status = 'draft';
+            } else if ($sale->status !== 'canceled') {
+                if ($request->has('payment_status')) {
+                    if ($request->payment_status === 'paid') {
+                        $status = 'completed';
+                    } elseif ($request->payment_status === 'pending' || $request->payment_status === 'partial') {
+                        $status = 'pending';
+                    }
+                }
             }
 
             // Ejecutar la actualización completa dentro de una transacción para garantizar consistencia atómica
@@ -1359,7 +1367,7 @@ class SaleController extends Controller
                     'subtotal' => $request->subtotal,
                     'tax_amount' => $request->tax_amount,
                     'total' => $request->total,
-                    'status' => 'completed',
+                    'status' => 'pending',
                     'payment_status' => 'pending',
                     'is_credited' => true,
                     'payment_method' => 'credit',
