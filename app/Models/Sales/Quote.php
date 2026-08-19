@@ -25,6 +25,7 @@ class Quote extends Model
         'observations',
         'user_id',
         'converted_sale_id',
+        'converted_work_order_id',
     ];
 
     protected $casts = [
@@ -35,11 +36,11 @@ class Quote extends Model
     ];
 
     /**
-     * Accessor para determinar si la cotización ya fue convertida.
+     * Accessor para determinar si la cotización ya fue convertida (a venta o a orden de trabajo).
      */
     public function getIsConvertedAttribute(): bool
     {
-        return !is_null($this->converted_sale_id);
+        return !is_null($this->converted_sale_id) || !is_null($this->converted_work_order_id);
     }
 
     /**
@@ -96,5 +97,13 @@ class Quote extends Model
     public function convertedSale()
     {
         return $this->belongsTo(Sale::class, 'converted_sale_id');
+    }
+
+    /**
+     * Relación: la orden de trabajo en la que se convirtió (opcional).
+     */
+    public function convertedWorkOrder()
+    {
+        return $this->belongsTo(\App\Models\WorkOrder\WorkOrder::class, 'converted_work_order_id');
     }
 }

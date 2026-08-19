@@ -9,6 +9,8 @@ use App\Models\Finance\FinanceRecord;
 use App\Models\Finance\PaymentDistribution;
 use App\Models\Finance\Account;
 use App\Models\Product\Product as ModelsProduct;
+use App\Models\WorkOrder\WorkOrder;
+use App\Helpers\PdfHelper;
 use App\Services\SequenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +39,7 @@ class QuoteController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Quote::with(['client', 'vehicle', 'user', 'convertedSale']);
+            $query = Quote::with(['client', 'vehicle', 'user', 'convertedSale', 'convertedWorkOrder']);
 
             // 1. Filtro por búsqueda (nombre, cédula del cliente, placa de vehículo o número de documento)
             if ($request->has('search') && $request->search != '') {
@@ -180,7 +182,7 @@ class QuoteController extends Controller
     public function show($id)
     {
         try {
-            $quote = Quote::with(['client', 'vehicle', 'user', 'details.product', 'technicians', 'convertedSale'])
+            $quote = Quote::with(['client', 'vehicle', 'user', 'details.product', 'technicians', 'convertedSale', 'convertedWorkOrder'])
                 ->findOrFail($id);
 
             return response()->json([
@@ -525,6 +527,115 @@ class QuoteController extends Controller
     }
 
     /**
+     * Convert quote into a Work Order (Orden de Trabajo)
+     */
+    public function convertToWorkOrder(Request $request, int $id)
+    {
+        $request->validate([
+            'mileage' => 'nullable|integer',
+            'fuel_level' => 'nullable|string|max:50',
+            'date' => 'nullable|date',
+            'observations' => 'nullable|string',
+            'technicians' => 'nullable|array',
+            'technicians.*' => 'exists:employees,id',
+        ]);
+
+        try {
+            $quote = Quote::with(['details.product', 'technicians', 'client', 'vehicle'])->findOrFail($id);
+
+            // Validaciones
+            if ($quote->is_converted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta cotización ya fue convertida anteriormente.'
+                ], 400);
+            }
+
+            if ($quote->status === 'canceled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede convertir una cotización anulada.'
+                ], 400);
+            }
+
+            $workOrder = null;
+
+            DB::transaction(function () use ($quote, $request, &$workOrder) {
+                $workOrderNumber = SequenceService::consumeGlobalNumber();
+
+                // Crear la orden de trabajo
+                $workOrder = WorkOrder::create([
+                    'number' => $workOrderNumber,
+                    'client_id' => $quote->client_id,
+                    'vehicle_id' => $quote->vehicle_id,
+                    'user_id' => auth()->id() ?? $quote->user_id ?? 1,
+                    'mileage' => $request->filled('mileage') ? $request->mileage : $quote->mileage,
+                    'fuel_level' => $request->input('fuel_level', '1/2'),
+                    'observations' => $request->input('observations', $quote->observations),
+                    'date' => $request->input('date', now()->toDateString()),
+                    'status' => 'received',
+                ]);
+
+                // Asignar técnicos: si vienen en la petición se usan, si no se usan los de la cotización
+                $technicianIds = $request->input('technicians', $quote->technicians->pluck('id')->toArray());
+                if (!empty($technicianIds)) {
+                    $workOrder->technicians()->attach($technicianIds);
+                }
+
+                // Copiar cada item de la cotización a la orden de trabajo
+                foreach ($quote->details as $detail) {
+                    $itemType = 'product';
+                    if ($detail->product && $detail->product->item_type == 2) {
+                        $itemType = 'service';
+                    } elseif (!$detail->product && (
+                        stripos($detail->description, 'servicio') !== false ||
+                        stripos($detail->description, 'mano de obra') !== false ||
+                        stripos($detail->description, 'alineacion') !== false ||
+                        stripos($detail->description, 'balanceo') !== false ||
+                        stripos($detail->description, 'mantenimiento') !== false ||
+                        stripos($detail->description, 'escaneo') !== false ||
+                        stripos($detail->description, 'cambio') !== false
+                    )) {
+                        $itemType = 'service';
+                    }
+
+                    $subtotal = ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
+
+                    $workOrder->items()->create([
+                        'product_id' => $detail->product_id,
+                        'description' => $detail->description,
+                        'quantity' => $detail->quantity,
+                        'unit_price' => $detail->price,
+                        'discount' => $detail->discount ?? 0,
+                        'subtotal' => $subtotal,
+                        'type' => $itemType,
+                    ]);
+                }
+
+                // Marcar la cotización como convertida a esta orden de trabajo
+                $quote->update([
+                    'converted_work_order_id' => $workOrder->id,
+                    'status' => 'completed',
+                ]);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cotización convertida en Orden de Trabajo #' . $workOrder->number . ' exitosamente.',
+                'data' => $workOrder->load(['client', 'vehicle', 'technicians', 'items'])
+            ], 201);
+
+        } catch (Exception $e) {
+            Log::error('Error al convertir cotización a orden de trabajo: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al convertir la cotización a orden de trabajo.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Generate PDF representation
      */
     public function generateSinglePDF(int $id)
@@ -537,7 +648,8 @@ class QuoteController extends Controller
             }
 
             $pdf = Pdf::loadView('sales.pdf_quote', ['quote' => $quote]);
-            return $pdf->stream('cotizacion_' . $quote->document_number . '.pdf');
+            $fileName = PdfHelper::formatFileName('quote', $quote->document_number, $quote->client, $quote->vehicle);
+            return $pdf->stream($fileName);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -573,7 +685,7 @@ class QuoteController extends Controller
 
             $pdf = Pdf::loadView('sales.pdf_quote', ['quote' => $quote]);
             $pdfRawData = $pdf->output();
-            $pdfFileName = 'cotizacion_' . $quote->document_number . '.pdf';
+            $pdfFileName = PdfHelper::formatFileName('quote', $quote->document_number, $quote->client, $quote->vehicle);
 
             Mail::to($quote->client->email)->send(
                 new \App\Mail\System\TestNotificationMail($data, $pdfRawData, $pdfFileName)

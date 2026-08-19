@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\WorkOrder\WorkOrder;
 use App\Models\Product\Product;
 use App\Services\WorkOrder\WorkOrderSaleSync;
+use App\Helpers\PdfHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -121,6 +122,13 @@ class WorkOrderController extends Controller
                         'type' => $item['type'],
                     ]);
                 }
+            }
+
+            if ($request->has('quote_id') && $request->quote_id) {
+                \App\Models\Sales\Quote::where('id', $request->quote_id)->update([
+                    'converted_work_order_id' => $workOrder->id,
+                    'status' => 'completed',
+                ]);
             }
 
             return $workOrder;
@@ -372,7 +380,8 @@ class WorkOrderController extends Controller
         }
 
         $pdf = Pdf::loadView('work-orders.work_order_pdf', $data);
-        return $pdf->stream('orden-trabajo-' . $workOrder->number . '.pdf');
+        $fileName = PdfHelper::formatFileName('work_order', $workOrder->number, $workOrder->client, $workOrder->vehicle);
+        return $pdf->stream($fileName);
     }
 
     /**

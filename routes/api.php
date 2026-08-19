@@ -108,6 +108,7 @@ Route::group(
         // ============= RUTAS DE PRODUCTOS ==============
         Route::get('products/search', [ProductController::class, 'search']);
         Route::get('products/config', [ProductController::class, 'config']);
+        Route::get('products/brands', [ProductController::class, 'brands']);
         Route::post('products/process', [InvoiceXmlImportController::class, 'processInvoice']);
         Route::resource('products', ProductController::class);
 
@@ -194,6 +195,7 @@ Route::group(
         Route::get('quotes/next-number', [QuoteController::class, 'getNextNumber']);
         Route::resource('quotes', QuoteController::class);
         Route::post('quotes/{id}/convert', [QuoteController::class, 'convert']);
+        Route::post('quotes/{id}/convert-work-order', [QuoteController::class, 'convertToWorkOrder']);
         Route::post('quotes/{id}/enviar-cotizacion', [QuoteController::class, 'enviarCotizacionPorCorreo']);
         Route::get('quotes/{id}/pdf', [QuoteController::class, 'generateSinglePDF']);
 

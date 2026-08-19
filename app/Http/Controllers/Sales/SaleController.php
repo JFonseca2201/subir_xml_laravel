@@ -21,6 +21,7 @@ use Exception;
 use Illuminate\Support\Facades\Mail;
 use App\Jobs\ProcessElectronicInvoice;
 use App\Services\SRI\ElectronicInvoiceService;
+use App\Helpers\PdfHelper;
 
 class SaleController extends Controller
 {
@@ -359,6 +360,13 @@ class SaleController extends Controller
                     $sale->update(['sri_status' => 'CREADA']);
                 }
 
+                if ($request->has('quote_id') && $request->quote_id) {
+                    \App\Models\Sales\Quote::where('id', $request->quote_id)->update([
+                        'converted_sale_id' => $sale->id,
+                        'status' => 'completed',
+                    ]);
+                }
+
                 return $sale;
             });
 
@@ -695,7 +703,8 @@ class SaleController extends Controller
                 return view('sales.pdf_sale', compact('sale'));
             }
             $pdf = Pdf::loadView('sales.pdf_sale', compact('sale'));
-            return $pdf->stream($sale->document_type . '_' . $sale->document_number . '.pdf');
+            $fileName = PdfHelper::formatFileName($sale->document_type, $sale->document_number, $sale->client, $sale->vehicle);
+            return $pdf->stream($fileName);
         } catch (Exception $e) {
             return response()->json([
 
@@ -1678,7 +1687,7 @@ class SaleController extends Controller
             // Generamos el PDF
             $pdf = Pdf::loadView('sales.pdf_sale', ['sale' => $sale, 'isEmail' => true]);
             $pdfRawData = $pdf->output();
-            $pdfFileName = ($isQuote ? 'cotizacion_' : 'comprobante_venta_') . $sale->document_number . '.pdf';
+            $pdfFileName = PdfHelper::formatFileName($sale->document_type, $sale->document_number, $sale->client, $sale->vehicle);
 
             Mail::to($sale->client->email)->send(
                 new \App\Mail\System\TestNotificationMail($data, $pdfRawData, $pdfFileName)

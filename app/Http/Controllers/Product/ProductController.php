@@ -130,6 +130,12 @@ class ProductController extends Controller
                 ->groupBy('name')
                 ->get();
 
+            $brands = Product::whereNotNull('brand')
+                ->where('brand', '!=', '')
+                ->distinct()
+                ->orderBy('brand', 'asc')
+                ->pluck('brand');
+
             return response()->json([
                 'status' => 200,
                 'message' => 'Configuración obtenida exitosamente',
@@ -138,12 +144,41 @@ class ProductController extends Controller
                     'suppliers' => $suppliers,
                     'warehouses' => $warehouses,
                     'units' => $units,
+                    'brands' => $brands,
                 ]
             ]);
         } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
                 'message' => 'Error al obtener la configuración',
+                'error' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtener listado dinámico de marcas existentes desde la base de datos
+     */
+    public function brands(Request $request)
+    {
+        try {
+            $categorieId = $request->get('categorie_id');
+            $query = Product::whereNotNull('brand')->where('brand', '!=', '');
+
+            if ($categorieId) {
+                $query->where('product_categorie_id', $categorieId);
+            }
+
+            $brands = $query->distinct()->orderBy('brand', 'asc')->pluck('brand');
+
+            return response()->json([
+                'status' => 200,
+                'data' => $brands,
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error al obtener marcas de productos',
                 'error' => $th->getMessage(),
             ], 500);
         }
