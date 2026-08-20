@@ -131,6 +131,13 @@ class WorkOrderController extends Controller
                 ]);
             }
 
+            // Generar recordatorios automáticos de mantenimiento preventivo si tiene vehículo y kilometraje
+            try {
+                app(\App\Services\MaintenanceSchedulerService::class)->scheduleMaintenanceFromWorkOrder($workOrder);
+            } catch (\Exception $schedulerError) {
+                \Illuminate\Support\Facades\Log::warning('Error al programar mantenimiento preventivo:', ['error' => $schedulerError->getMessage()]);
+            }
+
             return $workOrder;
         });
 
@@ -240,6 +247,13 @@ class WorkOrderController extends Controller
                     'type' => $item['type'],
                 ]);
             }
+        }
+
+        // Generar recordatorios automáticos de mantenimiento preventivo si tiene vehículo y kilometraje
+        try {
+            app(\App\Services\MaintenanceSchedulerService::class)->scheduleMaintenanceFromWorkOrder($workOrder);
+        } catch (\Exception $schedulerError) {
+            \Illuminate\Support\Facades\Log::warning('Error al programar mantenimiento preventivo en actualización:', ['error' => $schedulerError->getMessage()]);
         }
 
         return response()->json([

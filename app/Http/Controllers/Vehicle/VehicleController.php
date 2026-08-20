@@ -84,6 +84,7 @@ class VehicleController extends Controller
             'brand',
             'description',
             'vehicle_type',
+            'usage_type',
             'status',
         ])->with(['client:id,name,surname,full_name,n_document']);
 
@@ -163,6 +164,7 @@ class VehicleController extends Controller
             'year' => 'required|integer|min:1900|max:' . (date('Y') + 5),
             'color' => 'required',
             'vehicle_type' => 'required',
+            'usage_type' => 'nullable|string|in:particular,taxi,comercial,pesado',
             'description' => 'nullable|string|max:1000',
             'status' => 'required|integer|in:1,2',
         ], [
@@ -179,6 +181,10 @@ class VehicleController extends Controller
         }
 
         $requestData = $validator->validated();
+
+        if (empty($requestData['usage_type'])) {
+            $requestData['usage_type'] = 'particular';
+        }
 
         // 3. Asegurar que el status sea válido (1 = activo, 2 = inactivo)
         if (!isset($requestData['status']) || !in_array($requestData['status'], [1, 2])) {
@@ -226,7 +232,7 @@ class VehicleController extends Controller
         $requestData = $request->all();
 
         // Extraer valores si el frontend los envía como objetos (comportamiento de Vuetify v-select)
-        foreach (['vehicle_type', 'brand', 'color'] as $field) {
+        foreach (['vehicle_type', 'brand', 'color', 'usage_type'] as $field) {
             if (isset($requestData[$field]) && is_array($requestData[$field])) {
                 $requestData[$field] = $requestData[$field]['value'] ?? $requestData[$field]['title'] ?? $requestData[$field];
             }
@@ -246,6 +252,7 @@ class VehicleController extends Controller
             'year' => 'required|integer|min:1900|max:' . (date('Y') + 5),
             'color' => 'required',
             'vehicle_type' => 'required',
+            'usage_type' => 'nullable|string|in:particular,taxi,comercial,pesado',
             'description' => 'nullable|string|max:1000',
             'status' => 'required|integer|in:1,2',
         ]);

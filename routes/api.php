@@ -272,6 +272,11 @@ Route::group(
 
         Route::get('parallel-income-products', [\App\Http\Controllers\IncomeProductController::class, 'index']);
         Route::post('parallel-income-products', [\App\Http\Controllers\IncomeProductController::class, 'store']);
+
+        // ============= RUTAS DE MANTENIMIENTO PREVENTIVO Y RECORDATORIOS ==========
+        Route::get('maintenance-reminders/calendar', [\App\Http\Controllers\Api\MaintenanceReminderController::class, 'getCalendarEvents']);
+        Route::post('maintenance-reminders/{id}/notify', [\App\Http\Controllers\Api\MaintenanceReminderController::class, 'notify']);
+        Route::patch('maintenance-reminders/{id}/status', [\App\Http\Controllers\Api\MaintenanceReminderController::class, 'updateStatus']);
     },
 
 );

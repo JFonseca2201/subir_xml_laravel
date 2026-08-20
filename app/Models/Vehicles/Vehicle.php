@@ -18,8 +18,9 @@ class Vehicle extends Model
         'year',
         'color',
         'vehicle_type',
+        'usage_type',
         'description',
-        'status', // <--- Añadido
+        'status',
     ];
 
     protected $casts = [
