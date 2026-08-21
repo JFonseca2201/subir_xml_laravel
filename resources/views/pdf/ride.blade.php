@@ -475,33 +475,76 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td style="padding:3px 8px;">
-                                        @switch(strtolower($sale->payment_method ?? 'efectivo'))
-                                            @case('cash')
-                                                Efectivo
-                                            @break
-
-                                            @case('transfer')
-                                                Transferencia
-                                            @break
-
-                                            @case('card')
-                                                Tarjeta
-                                            @break
-
-                                            @case('credit')
-                                                Crédito
-                                            @break
-
-                                            @default
-                                                {{ ucfirst($sale->payment_method) }}
-                                        @endswitch
-                                    </td>
-                                    <td style="padding:3px 8px; text-align:right; font-weight:bold;">
-                                        ${{ number_format((float) $sale->total, 2) }}
-                                    </td>
-                                </tr>
+                                @php
+                                    $ridePayments = collect();
+                                    if (isset($sale->financeRecord) && $sale->financeRecord->paymentDistributions->count() > 0) {
+                                        $ridePayments = $sale->financeRecord->paymentDistributions;
+                                    }
+                                @endphp
+                                @if ($ridePayments->isNotEmpty())
+                                    @foreach ($ridePayments as $pDist)
+                                        @php
+                                            $pMethod = ucfirst(strtolower($pDist->payment_method ?? 'Efectivo'));
+                                            $bName = '';
+                                            if (isset($pDist->account) && !empty($pDist->account->bank_name)) {
+                                                $bName = $pDist->account->bank_name;
+                                            } elseif (isset($pDist->account) && !empty($pDist->account->name) && $pDist->account->type === 'bank') {
+                                                $bName = $pDist->account->name;
+                                            } elseif (isset($pDist->account_id)) {
+                                                $acc = \App\Models\Finance\Account::find($pDist->account_id);
+                                                if ($acc) {
+                                                    $bName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
+                                                }
+                                            }
+                                        @endphp
+                                        <tr>
+                                            <td style="padding:3px 8px;">
+                                                {{ $pMethod }}
+                                                @if (!empty($bName))
+                                                    <br><span style="font-size: 6.5px; color: #777; font-weight: normal; text-transform: uppercase;">{{ $bName }}</span>
+                                                @endif
+                                            </td>
+                                            <td style="padding:3px 8px; text-align:right; font-weight:bold;">
+                                                ${{ number_format((float) $pDist->amount, 2) }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @else
+                                    <tr>
+                                        <td style="padding:3px 8px;">
+                                            @php
+                                                $rawMethod = strtolower($sale->payment_method ?? 'efectivo');
+                                                $pMethod = match($rawMethod) {
+                                                    'cash' => 'Efectivo',
+                                                    'transfer' => 'Transferencia',
+                                                    'card' => 'Tarjeta',
+                                                    'credit' => 'Crédito',
+                                                    default => ucfirst($sale->payment_method ?? 'Efectivo'),
+                                                };
+                                                $bName = '';
+                                                if ($rawMethod === 'transferencia' || $rawMethod === 'transfer') {
+                                                    $mov = \Illuminate\Support\Facades\DB::table('financial_movements')
+                                                        ->where('movable_type', 'App\\Models\\Sales\\Sale')
+                                                        ->where('movable_id', $sale->id)
+                                                        ->first();
+                                                    if ($mov && $mov->account_id) {
+                                                        $acc = \App\Models\Finance\Account::find($mov->account_id);
+                                                        if ($acc) {
+                                                            $bName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
+                                                        }
+                                                    }
+                                                }
+                                            @endphp
+                                            {{ $pMethod }}
+                                            @if (!empty($bName))
+                                                <br><span style="font-size: 6.5px; color: #777; font-weight: normal; text-transform: uppercase;">{{ $bName }}</span>
+                                            @endif
+                                        </td>
+                                        <td style="padding:3px 8px; text-align:right; font-weight:bold;">
+                                            ${{ number_format((float) $sale->total, 2) }}
+                                        </td>
+                                    </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>

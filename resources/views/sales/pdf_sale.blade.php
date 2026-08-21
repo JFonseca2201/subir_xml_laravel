@@ -1125,21 +1125,52 @@
                             @php
                             $metodo = 'Efectivo';
                             if (isset($payment->paymentMethod->name)) {
-                            $metodo = $payment->paymentMethod->name;
+                                $metodo = $payment->paymentMethod->name;
                             } elseif (isset($payment->method_payment)) {
-                            $metodo = $payment->method_payment;
+                                $metodo = $payment->method_payment;
                             } elseif (isset($payment->payment_method)) {
-                            $metodo = $payment->payment_method;
+                                $metodo = $payment->payment_method;
                             } elseif (isset($payment->payment_method_id)) {
-                            $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
-                            ->where('id', $payment->payment_method_id)
-                            ->first();
-                            if ($pm) {
-                            $metodo = $pm->name;
+                                $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
+                                    ->where('id', $payment->payment_method_id)
+                                    ->first();
+                                if ($pm) {
+                                    $metodo = $pm->name;
+                                }
                             }
+
+                            // Obtener el nombre del banco o cuenta bancaria
+                            $bankName = '';
+                            if (isset($payment->account) && !empty($payment->account->bank_name)) {
+                                $bankName = $payment->account->bank_name;
+                            } elseif (isset($payment->account) && !empty($payment->account->name) && $payment->account->type === 'bank') {
+                                $bankName = $payment->account->name;
+                            } elseif (!empty($payment->bank_name)) {
+                                $bankName = $payment->bank_name;
+                            } elseif (isset($payment->account_id)) {
+                                $acc = \App\Models\Finance\Account::find($payment->account_id);
+                                if ($acc) {
+                                    $bankName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
+                                }
+                            }
+
+                            if (empty($bankName) && (strtolower($metodo) === 'transferencia' || strtolower($metodo) === 'transfer')) {
+                                $mov = \Illuminate\Support\Facades\DB::table('financial_movements')
+                                    ->where('movable_type', 'App\\Models\\Sales\\Sale')
+                                    ->where('movable_id', $sale->id)
+                                    ->first();
+                                if ($mov && $mov->account_id) {
+                                    $acc = \App\Models\Finance\Account::find($mov->account_id);
+                                    if ($acc) {
+                                        $bankName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
+                                    }
+                                }
                             }
                             @endphp
                             {{ $metodo }}
+                            @if (!empty($bankName))
+                                <br><span style="font-size: 6.5px; color: #777; font-weight: normal; text-transform: uppercase; letter-spacing: 0.2px;">{{ $bankName }}</span>
+                            @endif
                         </td>
 
                         {{-- MONTO --}}
