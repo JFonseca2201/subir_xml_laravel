@@ -52,6 +52,37 @@ class AporteController extends Controller
             $totalDia = $aportesDia->sum('monto');
 
             $aportesFormateados = $aportesDia->map(function ($aporte) {
+                $attachmentsList = $aporte->attachments;
+                if ($attachmentsList->isEmpty()) {
+                    $movement = \App\Models\Finance\FinancialMovement::where('movable_type', get_class($aporte))
+                        ->where('movable_id', $aporte->id)
+                        ->first();
+                    $finRecordId = $movement ? ($movement->metadata['finance_record_id'] ?? null) : null;
+
+                    $attachmentsList = \App\Models\Attachment::where(function($q) use ($aporte, $movement, $finRecordId) {
+                        $q->where(function($q2) use ($aporte) {
+                            $q2->where('attachable_type', get_class($aporte))
+                               ->where('attachable_id', $aporte->id);
+                        })->orWhere(function($q2) use ($aporte) {
+                            $q2->where('attachable_type', \App\Models\Finance\FinanceRecord::class)
+                               ->where('attachable_id', $aporte->id);
+                        });
+
+                        if ($movement) {
+                            $q->orWhere(function($q2) use ($movement) {
+                                $q2->where('attachable_type', \App\Models\Finance\FinancialMovement::class)
+                                   ->where('attachable_id', $movement->id);
+                            });
+                        }
+                        if ($finRecordId) {
+                            $q->orWhere(function($q2) use ($finRecordId) {
+                                $q2->where('attachable_type', \App\Models\Finance\FinanceRecord::class)
+                                   ->where('attachable_id', $finRecordId);
+                            });
+                        }
+                    })->get();
+                }
+
                 return [
                     'id' => $aporte->id,
                     'partner_nombre' => $aporte->partner->name ?? 'N/A',
@@ -65,7 +96,7 @@ class AporteController extends Controller
                     'hora_aporte' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
                     'hora' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
                     'user_nombre' => $aporte->user->name ?? 'N/A',
-                    'attachments' => $aporte->attachments ? $aporte->attachments->map(function ($att) {
+                    'attachments' => $attachmentsList->map(function ($att) {
                         return [
                             'id' => $att->id,
                             'file_name' => $att->file_name,
@@ -77,7 +108,7 @@ class AporteController extends Controller
                             'mime_type' => $att->mime_type,
                             'file_size' => $att->file_size,
                         ];
-                    })->values() : [],
+                    })->values(),
                 ];
             });
 
@@ -334,11 +365,31 @@ class AporteController extends Controller
             ['metodo' => $request->metodo_pago, 'edit_log' => 'editado_manualmente']
         );
 
+            // Adjuntar comprobantes si fueron enviados en el request
+            if ($request->hasFile('receipts')) {
+                try {
+                    $partnerName = $aporte->partner ? ($aporte->partner->name ?? $aporte->partner->nombre_completo) : 'SOCIO';
+                    $storageService = app(\App\Services\InvoiceStorageService::class);
+                    $identifier = "APORTE-" . str_pad($aporte->id, 5, '0', STR_PAD_LEFT);
+                    $storageService->attachReceiptsToModel(
+                        $aporte,
+                        $identifier,
+                        $partnerName,
+                        $request->file('receipts'),
+                        \Carbon\Carbon::parse($request->fecha_aporte),
+                        'receipt',
+                        'ingresos'
+                    );
+                } catch (\Exception $e) {
+                    \Log::warning('Error al adjuntar comprobantes a Aporte en edición:', ['error' => $e->getMessage()]);
+                }
+            }
+
             DB::commit();
 
             return response()->json([
                 'message' => 'Aporte actualizado exitosamente',
-                'aporte' => $aporte->load(['partner', 'user', 'cuenta']),
+                'aporte' => $aporte->load(['partner', 'user', 'cuenta', 'attachments']),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
