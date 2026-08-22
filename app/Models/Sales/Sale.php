@@ -8,11 +8,11 @@ use App\Models\Sales\SaleDetail;
 use App\Traits\RecordsFinancialMovements;
 
 use App\Traits\SerializeDateLocal;
+use App\Traits\HasAttachments;
 
 class Sale extends Model
-
 {
-    use HasFactory, RecordsFinancialMovements, SerializeDateLocal;
+    use HasFactory, RecordsFinancialMovements, SerializeDateLocal, HasAttachments;
 
     protected $fillable = [
         'document_type',

@@ -138,12 +138,29 @@ class WorkOrderController extends Controller
                 \Illuminate\Support\Facades\Log::warning('Error al programar mantenimiento preventivo:', ['error' => $schedulerError->getMessage()]);
             }
 
+            // Guardar comprobantes adjuntos si fueron enviados en el request
+            if ($request->hasFile('receipts')) {
+                try {
+                    $storageService = app(\App\Services\InvoiceStorageService::class);
+                    $clientName = $workOrder->client ? ($workOrder->client->full_name ?: trim(($workOrder->client->name ?? '') . ' ' . ($workOrder->client->surname ?? ''))) : 'Cliente';
+                    $storageService->attachReceiptsToModel(
+                        $workOrder,
+                        $workOrder->number,
+                        $clientName,
+                        $request->file('receipts'),
+                        $workOrder->date ? \Carbon\Carbon::parse($workOrder->date) : now()
+                    );
+                } catch (\Exception $attError) {
+                    \Illuminate\Support\Facades\Log::warning('Error al adjuntar comprobantes a WorkOrder:', ['error' => $attError->getMessage()]);
+                }
+            }
+
             return $workOrder;
         });
 
         return response()->json([
             'message' => 'Orden de trabajo creada exitosamente',
-            'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items.product'])
+            'data' => $workOrder->load(['client', 'vehicle', 'user', 'technicians', 'items.product', 'attachments'])
         ], 201);
     }
 

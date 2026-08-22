@@ -5,15 +5,14 @@ namespace App\Models\Finance;
 use App\Models\User;
 
 use App\Traits\RecordsFinancialMovements;
+use App\Traits\HasAttachments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InternalTransfer extends Model
-
 {
-    use HasFactory;
-    use RecordsFinancialMovements;
+    use HasFactory, RecordsFinancialMovements, HasAttachments;
 
     /**
      * The attributes that are mass assignable.

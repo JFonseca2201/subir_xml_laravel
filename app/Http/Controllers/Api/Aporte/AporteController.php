@@ -18,7 +18,7 @@ class AporteController extends Controller
      */
     public function index(Request $request)
     {
-        $aportes = AporteCapital::with(['partner', 'user', 'cuenta'])
+        $aportes = AporteCapital::with(['partner', 'user', 'cuenta', 'attachments'])
             ->whereNull('deleted_at')
             ->orderBy('fecha_aporte', 'desc')
             ->orderBy('hora_aporte', 'desc')
@@ -65,6 +65,19 @@ class AporteController extends Controller
                     'hora_aporte' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
                     'hora' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
                     'user_nombre' => $aporte->user->name ?? 'N/A',
+                    'attachments' => $aporte->attachments ? $aporte->attachments->map(function ($att) {
+                        return [
+                            'id' => $att->id,
+                            'file_name' => $att->file_name,
+                            'file_path' => $att->file_path,
+                            'url' => $att->url,
+                            'download_url' => url("api/attachments/{$att->id}/download"),
+                            'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
+                            'is_pdf' => ($att->mime_type === 'application/pdf'),
+                            'mime_type' => $att->mime_type,
+                            'file_size' => $att->file_size,
+                        ];
+                    })->values() : [],
                 ];
             });
 
@@ -112,7 +125,7 @@ class AporteController extends Controller
             'cuenta_id' => 'required|exists:accounts,id',
             'metodo_pago' => 'required|in:EFECTIVO,TRANSFERENCIA',
             'fecha_aporte' => 'required|date|before_or_equal:today',
-            'hora_aporte' => 'required|date_format:H:i',
+            'hora_aporte' => 'required',
         ]);
 
         try {
@@ -141,24 +154,50 @@ class AporteController extends Controller
                 'fecha' => $request->fecha_aporte,
             ]);
 
+            $partnerName = $aporte->partner ? ($aporte->partner->name ?? $aporte->partner->nombre_completo) : 'SOCIO';
+
             $aporte->registerMovement(
-            $request->cuenta_id,
-            'income',
-            $request->monto,
-            "Aporte de socio: {$aporte->partner->nombre_completo}", // O el nombre del socio
-            $request->fecha_aporte,
-            ['metodo' => $request->metodo_pago] // Metadata opcional
+                $request->cuenta_id,
+                'income',
+                $request->monto,
+                "Aporte de socio: {$partnerName} - {$request->descripcion}",
+                $request->fecha_aporte,
+                [
+                    'metodo' => $request->metodo_pago,
+                    'aporte_id' => $aporte->id,
+                    'partner_id' => $aporte->partner_id,
+                    'partner_name' => $partnerName,
+                ]
             );
 
             // Actualizar saldo de la cuenta
             $cuenta = Account::findOrFail($request->cuenta_id);
             $cuenta->increment('saldo_actual', $request->monto);
 
+            // Adjuntar comprobantes si fueron enviados en el request
+            if ($request->hasFile('receipts')) {
+                try {
+                    $storageService = app(\App\Services\InvoiceStorageService::class);
+                    $identifier = "APORTE-" . str_pad($aporte->id, 5, '0', STR_PAD_LEFT);
+                    $storageService->attachReceiptsToModel(
+                        $aporte,
+                        $identifier,
+                        $partnerName,
+                        $request->file('receipts'),
+                        Carbon::parse($request->fecha_aporte),
+                        'receipt',
+                        'ingresos'
+                    );
+                } catch (\Exception $e) {
+                    \Log::warning('Error al adjuntar comprobantes a Aporte:', ['error' => $e->getMessage()]);
+                }
+            }
+
             DB::commit();
 
             return response()->json([
                 'message' => 'Aporte creado exitosamente',
-                'aporte' => $aporte->load(['partner', 'user', 'cuenta']),
+                'aporte' => $aporte->load(['partner', 'user', 'cuenta', 'attachments']),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();

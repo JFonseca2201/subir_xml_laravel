@@ -8,13 +8,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Traits\RecordsFinancialMovements;
+use App\Traits\HasAttachments;
 use Carbon\Carbon;
 
 class FinanceRecord extends Model
-
 {
-    use HasFactory;
-    use RecordsFinancialMovements;
+    use HasFactory, RecordsFinancialMovements, HasAttachments;
 
     protected $table = 'finance_records';
     // Constants

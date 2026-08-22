@@ -125,7 +125,24 @@ class FinanceRecordController extends Controller
             }
         }
 
-        $financeRecord->load('paymentDistributions.account');
+        // Adjuntar comprobantes si fueron enviados en el request
+        if ($request->hasFile('receipts')) {
+            try {
+                $storageService = app(\App\Services\InvoiceStorageService::class);
+                $identifier = $financeRecord->invoice_number ?: ($financeRecord->work_order_number ?: $financeRecord->id);
+                $storageService->attachReceiptsToModel(
+                    $financeRecord,
+                    $identifier,
+                    $financeRecord->description,
+                    $request->file('receipts'),
+                    Carbon::parse($entryDate)
+                );
+            } catch (\Exception $e) {
+                \Log::warning('Error al adjuntar comprobantes a FinanceRecord:', ['error' => $e->getMessage()]);
+            }
+        }
+
+        $financeRecord->load(['paymentDistributions.account', 'attachments']);
 
         return response()->json([
             'message' => 'Finance record created successfully',
@@ -230,7 +247,24 @@ class FinanceRecordController extends Controller
             'amount' => $totalAmount
         ]);
 
-        $financeRecord->load(['user', 'paymentDistributions.account']);
+        // Adjuntar nuevos comprobantes si fueron enviados en el update
+        if ($request->hasFile('receipts')) {
+            try {
+                $storageService = app(\App\Services\InvoiceStorageService::class);
+                $identifier = $financeRecord->invoice_number ?: ($financeRecord->work_order_number ?: $financeRecord->id);
+                $storageService->attachReceiptsToModel(
+                    $financeRecord,
+                    $identifier,
+                    $financeRecord->description,
+                    $request->file('receipts'),
+                    Carbon::parse($data['entry_date'] ?? now())
+                );
+            } catch (\Exception $e) {
+                \Log::warning('Error al adjuntar comprobantes en update de FinanceRecord:', ['error' => $e->getMessage()]);
+            }
+        }
+
+        $financeRecord->load(['user', 'paymentDistributions.account', 'attachments']);
 
         return response()->json([
             'message' => 'Finance record updated successfully',

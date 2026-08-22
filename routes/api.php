@@ -31,9 +31,17 @@ use App\Http\Controllers\Sales\QuoteController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Vehicle\VehicleController;
 use App\Http\Controllers\Api\Geographic\GeographicController;
+use App\Http\Controllers\Api\MaintenanceReminderController;
 use App\Http\Controllers\ExcelImportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Api\Sale\RepuestosReposicionController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\IncomeProductController;
+use App\Http\Controllers\Invoice\InvoiceFileController;
+use App\Http\Controllers\ParallelTransactionController;
+use App\Http\Controllers\SparePartRequestController;
+use App\Http\Controllers\Supplier\PedidoDistribuidorController;
+use App\Http\Controllers\UnitTypeController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(
@@ -234,16 +242,16 @@ Route::group(
         Route::post('sales/{id}/print', [SaleController::class, 'printDirect']);
 
         // ============= RUTAS DE PEDIDOS A DISTRIBUIDOR ========== 
-        Route::get('pedidos-distribuidor/next-number', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getNextNumber']);
-        Route::get('pedidos-distribuidor/productos/{distribuidor_id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'getProductsBySupplier']);
-        Route::post('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'store']);
-        Route::get('pedidos-distribuidor', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'index']);
-        Route::get('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'show']);
-        Route::get('pedidos-distribuidor/{id}/pdf', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'generatePDF']);
-        Route::post('pedidos-distribuidor/{id}/print', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'printDirect']);
-        Route::put('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'update']);
-        Route::delete('pedidos-distribuidor/{id}', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'destroy']);
-        Route::put('pedidos-distribuidor/{id}/status', [\App\Http\Controllers\Supplier\PedidoDistribuidorController::class, 'updateStatus']);
+        Route::get('pedidos-distribuidor/next-number', [PedidoDistribuidorController::class, 'getNextNumber']);
+        Route::get('pedidos-distribuidor/productos/{distribuidor_id}', [PedidoDistribuidorController::class, 'getProductsBySupplier']);
+        Route::post('pedidos-distribuidor', [PedidoDistribuidorController::class, 'store']);
+        Route::get('pedidos-distribuidor', [PedidoDistribuidorController::class, 'index']);
+        Route::get('pedidos-distribuidor/{id}', [PedidoDistribuidorController::class, 'show']);
+        Route::get('pedidos-distribuidor/{id}/pdf', [PedidoDistribuidorController::class, 'generatePDF']);
+        Route::post('pedidos-distribuidor/{id}/print', [PedidoDistribuidorController::class, 'printDirect']);
+        Route::put('pedidos-distribuidor/{id}', [PedidoDistribuidorController::class, 'update']);
+        Route::delete('pedidos-distribuidor/{id}', [PedidoDistribuidorController::class, 'destroy']);
+        Route::put('pedidos-distribuidor/{id}/status', [PedidoDistribuidorController::class, 'updateStatus']);
 
         // ============= RUTAS DE KARDEX INTEGRAL ==========
         Route::get('kardex/productos', [KardexController::class, 'indexByProduct']);
@@ -259,26 +267,36 @@ Route::group(
         Route::get('dashboard', [DashboardController::class, 'index']);
 
         // ============= RUTAS DE GESTIÓN Y BÚSQUEDA DE REPUESTOS POR VEHÍCULO =============
-        Route::apiResource('spare-part-requests', \App\Http\Controllers\SparePartRequestController::class);
+        Route::apiResource('spare-part-requests', SparePartRequestController::class);
 
-        Route::get('parallel-transactions/pdf', [\App\Http\Controllers\ParallelTransactionController::class, 'generatePDF']);
-        Route::apiResource('parallel-transactions', \App\Http\Controllers\ParallelTransactionController::class);
+        Route::get('parallel-transactions/pdf', [ParallelTransactionController::class, 'generatePDF']);
+        Route::apiResource('parallel-transactions', ParallelTransactionController::class);
 
-        Route::get('parallel-categories', [\App\Http\Controllers\CategoryController::class, 'index']);
-        Route::post('parallel-categories', [\App\Http\Controllers\CategoryController::class, 'store']);
-        
-        Route::get('parallel-unit-types', [\App\Http\Controllers\UnitTypeController::class, 'index']);
-        Route::post('parallel-unit-types', [\App\Http\Controllers\UnitTypeController::class, 'store']);
+        Route::get('parallel-categories', [CategoryController::class, 'index']);
+        Route::post('parallel-categories', [CategoryController::class, 'store']);
 
-        Route::get('parallel-income-products', [\App\Http\Controllers\IncomeProductController::class, 'index']);
-        Route::post('parallel-income-products', [\App\Http\Controllers\IncomeProductController::class, 'store']);
+        Route::get('parallel-unit-types', [UnitTypeController::class, 'index']);
+        Route::post('parallel-unit-types', [UnitTypeController::class, 'store']);
+
+        Route::get('parallel-income-products', [IncomeProductController::class, 'index']);
+        Route::post('parallel-income-products', [IncomeProductController::class, 'store']);
 
         // ============= RUTAS DE MANTENIMIENTO PREVENTIVO Y RECORDATORIOS ==========
-        Route::get('maintenance-reminders/calendar', [\App\Http\Controllers\Api\MaintenanceReminderController::class, 'getCalendarEvents']);
-        Route::post('maintenance-reminders/{id}/notify', [\App\Http\Controllers\Api\MaintenanceReminderController::class, 'notify']);
-        Route::patch('maintenance-reminders/{id}/status', [\App\Http\Controllers\Api\MaintenanceReminderController::class, 'updateStatus']);
-    },
+        Route::get('maintenance-reminders/calendar', [MaintenanceReminderController::class, 'getCalendarEvents']);
+        Route::post('maintenance-reminders/{id}/notify', [MaintenanceReminderController::class, 'notify']);
+        Route::patch('maintenance-reminders/{id}/status', [MaintenanceReminderController::class, 'updateStatus']);
 
+        // ============= RUTAS DE RESPALDO DOCUMENTAL Y ADJUNTOS (COMPROBANTES) ==========
+        Route::get('attachments', [\App\Http\Controllers\AttachmentController::class, 'index']);
+        Route::post('attachments/upload', [\App\Http\Controllers\AttachmentController::class, 'upload']);
+        Route::get('attachments/{id}/view', [\App\Http\Controllers\AttachmentController::class, 'view']);
+        Route::get('attachments/{id}/download', [\App\Http\Controllers\AttachmentController::class, 'download']);
+        Route::delete('attachments/{id}', [\App\Http\Controllers\AttachmentController::class, 'destroy']);
+
+        // ============= RUTAS DE GENERACIÓN DE PDFS Y RECIBOS ==========    
+        Route::post('orders/{order}/generate-invoice', [InvoiceFileController::class, 'storeAndGenerate']);
+    }
 );
+
 Route::get('products-excel', [ProductController::class, 'download_excel']);
 Route::post('products/import-excel', [ProductController::class, 'import_excel']);

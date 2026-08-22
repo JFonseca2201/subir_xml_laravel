@@ -20,10 +20,28 @@ class InternalTransferController extends Controller
     public function index(Request $request): JsonResponse
     {
         // Obtener transferencias con sus relaciones
-        $transfers = InternalTransfer::with(['sourceAccount', 'destinationAccount', 'user'])
+        $transfers = InternalTransfer::with(['sourceAccount', 'destinationAccount', 'user', 'attachments'])
             ->orderBy('transfer_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
+
+        foreach ($transfers as $transfer) {
+            $transfer->resolved_attachments = $transfer->attachments ? $transfer->attachments->map(function ($att) {
+                return [
+                    'id' => $att->id,
+                    'file_name' => $att->file_name,
+                    'original_name' => $att->original_name,
+                    'file_path' => $att->file_path,
+                    'url' => $att->url,
+                    'download_url' => url("api/attachments/{$att->id}/download"),
+                    'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
+                    'is_pdf' => ($att->mime_type === 'application/pdf'),
+                    'mime_type' => $att->mime_type,
+                    'file_size' => $att->file_size,
+                    'type' => $att->type,
+                ];
+            })->values() : [];
+        }
 
         // Calcular resúmenes (Total hoy, Total mes, Total histórico)
         $today = Carbon::now('America/Guayaquil')->toDateString();
@@ -96,8 +114,14 @@ class InternalTransferController extends Controller
                 'description'     => 'nullable|string|max:1000',
                 'reference_number' => 'nullable|string|max:255',
                 'transfer_date'   => 'nullable|date',
+                'receipts'        => 'required|array|min:1',
+                'receipts.*'      => 'required|file|mimes:jpeg,png,jpg,webp,pdf|max:15360',
             ], [
                 'to_account_id.different' => 'La cuenta de destino debe ser diferente a la cuenta de origen.',
+                'receipts.required' => 'Es obligatorio adjuntar la foto o comprobante de la transferencia.',
+                'receipts.min' => 'Debe adjuntar al menos una foto del comprobante de la transferencia.',
+                'receipts.*.file' => 'El archivo del comprobante no es válido.',
+                'receipts.*.mimes' => 'El comprobante debe ser una imagen (JPG, PNG, WEBP) o un PDF.',
             ]);
 
             // 2. Ejecutar dentro de una transacción
@@ -170,9 +194,27 @@ class InternalTransferController extends Controller
                     'payment_method' => $toAccount->id === 1 ? 'cash' : 'transfer',
                 ]);
 
+                // Guardar comprobantes adjuntos si fueron enviados
+                if ($request->hasFile('receipts')) {
+                    try {
+                        $storageService = app(\App\Services\InvoiceStorageService::class);
+                        $identifier = $transfer->reference_number ?: ('TRANS-' . $transfer->id);
+                        $partyName = "DE {$fromAccount->name} A {$toAccount->name}";
+                        $storageService->attachReceiptsToModel(
+                            $transfer,
+                            $identifier,
+                            $partyName,
+                            $request->file('receipts'),
+                            $transfer->transfer_date ? Carbon::parse($transfer->transfer_date) : now()
+                        );
+                    } catch (\Exception $attErr) {
+                        \Log::warning('Error al adjuntar comprobantes a transferencia:', ['error' => $attErr->getMessage()]);
+                    }
+                }
+
             return response()->json([
                 'message' => 'Transferencia realizada con éxito y movimientos registrados.',
-                'data' => $transfer->load(['sourceAccount', 'destinationAccount'])
+                'data' => $transfer->load(['sourceAccount', 'destinationAccount', 'attachments'])
             ], 201);
         });
     }

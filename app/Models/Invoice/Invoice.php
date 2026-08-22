@@ -8,10 +8,11 @@ use App\Models\Supplier\Supplier;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Config\Sucursale;
+use App\Traits\HasAttachments;
 
 class Invoice extends Model
-
 {
+    use HasAttachments;
     protected $table = 'invoices';
 
     protected $fillable = [

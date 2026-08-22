@@ -426,11 +426,28 @@ class SaleController extends Controller
 
             $this->syncReplacementReminders($sale);
 
+            // Guardar comprobantes adjuntos si fueron enviados en el request
+            if ($request->hasFile('receipts')) {
+                try {
+                    $storageService = app(\App\Services\InvoiceStorageService::class);
+                    $clientName = $sale->client->full_name ?? ($sale->client ? trim(($sale->client->name ?? '') . ' ' . ($sale->client->surname ?? '')) : 'Cliente');
+                    $storageService->attachReceiptsToModel(
+                        $sale,
+                        $sale->document_number ?: $sale->id,
+                        $clientName,
+                        $request->file('receipts'),
+                        $sale->service_date ?? now()
+                    );
+                } catch (\Exception $e) {
+                    \Log::warning('Error al adjuntar comprobantes a Sale:', ['error' => $e->getMessage()]);
+                }
+            }
+
             // 3. Respuesta exitosa al frontend con el registro completo cargando sus detalles
             return response()->json([
                 'success' => true,
                 'message' => 'El registro se procesó correctamente.',
-                'data' => $sale->load(['details', 'technicians'])
+                'data' => $sale->load(['details', 'technicians', 'attachments'])
             ], 201);
         } catch (Exception $e) {
             // Si algo truena dentro del bloque, el DB::transaction hace rollback automático

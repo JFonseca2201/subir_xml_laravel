@@ -3,19 +3,17 @@
 namespace App\Models\Employee;
 
 use App\Models\Finance\Account;
-
 use App\Models\User;
-
 use App\Traits\RecordsFinancialMovements;
+use App\Traits\HasAttachments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeePayment extends Model
-
 {
     use HasFactory, SoftDeletes;
-    use RecordsFinancialMovements;
+    use RecordsFinancialMovements, HasAttachments;
 
     protected $table = 'employee_payments';
 

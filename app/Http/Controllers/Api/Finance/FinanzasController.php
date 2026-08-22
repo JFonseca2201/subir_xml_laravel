@@ -305,12 +305,16 @@ class FinanzasController extends Controller
             }
 
             $movements = $query->get();
-            $movements->load('movable');
+            $movements->load(['movable', 'attachments']);
             $movements->loadMorph('movable', [
-                \App\Models\Finance\PaymentDistribution::class => ['financeRecord']
+                \App\Models\Finance\PaymentDistribution::class => ['financeRecord.attachments'],
+                \App\Models\Finance\FinanceRecord::class => ['attachments'],
+                \App\Models\Finance\InternalTransfer::class => ['attachments'],
+                \App\Models\Sales\Sale::class => ['attachments'],
+                \App\Models\WorkOrder\WorkOrder::class => ['attachments'],
             ]);
 
-            // Cargar nombres de cuentas para transferencias
+            // Cargar nombres de cuentas para transferencias y resolver attachments normalizados
             $allAccounts = Account::all()->keyBy('id');
             foreach ($movements as $movement) {
                 try {
@@ -330,6 +334,36 @@ class FinanzasController extends Controller
 
                         $movement->metadata = $metadata;
                     }
+
+                    // Resolver lista de attachments consolidados
+                    $rawAttachments = collect();
+                    if ($movement->attachments && $movement->attachments->count() > 0) {
+                        $rawAttachments = $rawAttachments->concat($movement->attachments);
+                    }
+                    if ($movement->movable) {
+                        if (isset($movement->movable->attachments) && $movement->movable->attachments->count() > 0) {
+                            $rawAttachments = $rawAttachments->concat($movement->movable->attachments);
+                        }
+                        if (isset($movement->movable->financeRecord->attachments) && $movement->movable->financeRecord->attachments->count() > 0) {
+                            $rawAttachments = $rawAttachments->concat($movement->movable->financeRecord->attachments);
+                        }
+                    }
+
+                    $movement->resolved_attachments = $rawAttachments->unique('id')->map(function ($att) {
+                        return [
+                            'id' => $att->id,
+                            'file_name' => $att->file_name,
+                            'original_name' => $att->original_name,
+                            'file_path' => $att->file_path,
+                            'url' => $att->url,
+                            'download_url' => url("api/attachments/{$att->id}/download"),
+                            'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
+                            'is_pdf' => ($att->mime_type === 'application/pdf'),
+                            'mime_type' => $att->mime_type,
+                            'file_size' => $att->file_size,
+                            'type' => $att->type,
+                        ];
+                    })->values();
                 } catch (\Exception $e) {
                     // Ignorar errores al cargar
                 }

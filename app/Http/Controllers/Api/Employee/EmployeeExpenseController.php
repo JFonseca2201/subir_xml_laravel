@@ -18,7 +18,7 @@ class EmployeeExpenseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = EmployeePayment::with(['employee', 'account', 'creator'])
+        $query = EmployeePayment::with(['employee', 'account', 'creator', 'attachments'])
             ->whereNull('deleted_at')
             ->orderBy('payment_date', 'desc')
             ->orderBy('created_at', 'desc');
@@ -59,7 +59,20 @@ class EmployeeExpenseController extends Controller
                     'date' => Carbon::parse($payment->payment_date)->format('d/m/Y'),
                     'created_by' => $payment->creator ? $payment->creator->name : 'N/A',
                     'type' => $payment->type,
-                    'reference' => $payment->reference
+                    'reference' => $payment->reference,
+                    'attachments' => $payment->attachments ? $payment->attachments->map(function ($att) {
+                        return [
+                            'id' => $att->id,
+                            'file_name' => $att->file_name,
+                            'file_path' => $att->file_path,
+                            'url' => $att->url,
+                            'download_url' => url("api/attachments/{$att->id}/download"),
+                            'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
+                            'is_pdf' => ($att->mime_type === 'application/pdf'),
+                            'mime_type' => $att->mime_type,
+                            'file_size' => $att->file_size,
+                        ];
+                    })->values() : [],
                 ];
             });
 
@@ -74,7 +87,7 @@ class EmployeeExpenseController extends Controller
         }
 
         // Obtener adelantos por separado
-        $queryAdvances = EmployeeAdvance::with(['employee', 'account', 'creator'])
+        $queryAdvances = EmployeeAdvance::with(['employee', 'account', 'creator', 'attachments'])
             ->whereNull('deleted_at')
             ->orderBy('advance_date', 'desc')
             ->orderBy('created_at', 'desc');
@@ -112,6 +125,19 @@ class EmployeeExpenseController extends Controller
                     'created_by' => $advance->creator->name ?? 'N/A',
                     'type' => $advance->type,
                     'is_deducted' => (bool) $advance->is_deducted,
+                    'attachments' => $advance->attachments ? $advance->attachments->map(function ($att) {
+                        return [
+                            'id' => $att->id,
+                            'file_name' => $att->file_name,
+                            'file_path' => $att->file_path,
+                            'url' => $att->url,
+                            'download_url' => url("api/attachments/{$att->id}/download"),
+                            'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
+                            'is_pdf' => ($att->mime_type === 'application/pdf'),
+                            'mime_type' => $att->mime_type,
+                            'file_size' => $att->file_size,
+                        ];
+                    })->values() : [],
                 ];
             });
 
@@ -261,8 +287,39 @@ class EmployeeExpenseController extends Controller
                 'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
             ]);
 
+            // Adjuntar comprobantes si fueron enviados en el request
+            if ($request->hasFile('receipts')) {
+                try {
+                    $storageService = app(\App\Services\InvoiceStorageService::class);
+                    $empName = $payment->employee ? ($payment->employee->first_name . ' ' . $payment->employee->last_name) : 'EMPLEADO';
+                    $identifier = "PAGO-EMP-" . str_pad($payment->id, 5, '0', STR_PAD_LEFT);
+                    $storageService->attachReceiptsToModel(
+                        $payment,
+                        $identifier,
+                        $empName,
+                        $request->file('receipts'),
+                        Carbon::parse($request->payment_date),
+                        'receipt',
+                        'egresos'
+                    );
+                    if (isset($financeRecord)) {
+                        $storageService->attachReceiptsToModel(
+                            $financeRecord,
+                            $identifier,
+                            $empName,
+                            $request->file('receipts'),
+                            Carbon::parse($request->payment_date),
+                            'receipt',
+                            'egresos'
+                        );
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Error al adjuntar comprobantes a pago de empleado:', ['error' => $e->getMessage()]);
+                }
+            }
+
             return response()->json([
-                'payment' => $payment,
+                'payment' => $payment->load(['employee', 'account', 'creator', 'attachments']),
                 'original_amount' => (float) $request->amount,
                 'final_amount' => (float) $finalPaymentAmount,
                 'total_advances_deducted' => (float) $totalPendingAdvances,
@@ -335,6 +392,26 @@ class EmployeeExpenseController extends Controller
             // Actualizar saldo de la cuenta (RESTAR porque es un adelanto)
             $account = Account::findOrFail($request->account_id);
             $account->decrement('saldo_actual', $request->amount);
+
+            // Adjuntar comprobantes si fueron enviados en el request
+            if ($request->hasFile('receipts')) {
+                try {
+                    $storageService = app(\App\Services\InvoiceStorageService::class);
+                    $empName = $advance->employee ? ($advance->employee->first_name . ' ' . $advance->employee->last_name) : 'EMPLEADO';
+                    $identifier = "ADEL-EMP-" . str_pad($advance->id, 5, '0', STR_PAD_LEFT);
+                    $storageService->attachReceiptsToModel(
+                        $advance,
+                        $identifier,
+                        $empName,
+                        $request->file('receipts'),
+                        Carbon::parse($request->advance_date),
+                        'receipt',
+                        'egresos'
+                    );
+                } catch (\Exception $e) {
+                    \Log::warning('Error al adjuntar comprobantes a adelanto de empleado:', ['error' => $e->getMessage()]);
+                }
+            }
 
             // Crear FinanceRecord para que afecte el current_balance del frontend
             $financeRecord = FinanceRecord::create([

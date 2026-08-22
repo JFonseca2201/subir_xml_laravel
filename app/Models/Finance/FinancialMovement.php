@@ -5,10 +5,11 @@ namespace App\Models\Finance;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Traits\HasAttachments;
 
 class FinancialMovement extends Model
-
 {
+    use HasAttachments;
     protected $fillable = [
         'movable_id',
         'movable_type',
