@@ -98,7 +98,7 @@ class WorkOrderController extends Controller
             }
         }
 
-        $workOrder = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
+        $workOrder = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
             $validated['number'] = \App\Services\SequenceService::consumeGlobalNumber($validated['number'] ?? null);
 
             $workOrder = WorkOrder::create($validated);

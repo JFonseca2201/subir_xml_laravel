@@ -222,13 +222,39 @@
 </head>
 
 <body>
+    @php
+        $showClientCol = !$selectedClient;
+        $showVehicleCol = !$selectedVehicle;
+        
+        // Calcular número total de columnas para colspan
+        $totalCols = 7 + ($showClientCol ? 1 : 0) + ($showVehicleCol ? 1 : 0);
+        $leftCols = 4 + ($showClientCol ? 1 : 0) + ($showVehicleCol ? 1 : 0);
+    @endphp
 
     <!-- Encabezado Principal -->
     <table class="header-table">
         <tr>
             <td style="width: 65%;">
-                <div class="header-title">Reporte Integral de Kardex</div>
-                <div class="header-subtitle">Historial comercial, técnico y financiero por Cliente & Vehículo</div>
+                <div class="header-title">
+                    @if ($selectedClient && $selectedVehicle)
+                        Reporte Kardex: {{ $selectedClient['full_name'] }}
+                    @elseif ($selectedClient)
+                        Reporte Kardex de Cliente: {{ $selectedClient['full_name'] }}
+                    @elseif ($selectedVehicle)
+                        Reporte Kardex de Vehículo: {{ $selectedVehicle['license_plate'] }}
+                    @else
+                        Reporte Integral de Kardex (Global)
+                    @endif
+                </div>
+                <div class="header-subtitle">
+                    @if ($selectedVehicle)
+                        Historial técnico, servicios y repuestos para {{ $selectedVehicle['brand'] }} {{ $selectedVehicle['model'] }} (Placa {{ $selectedVehicle['license_plate'] }})
+                    @elseif ($selectedClient)
+                        Historial comercial, técnico y financiero del cliente
+                    @else
+                        Historial comercial, técnico y financiero consolidado
+                    @endif
+                </div>
             </td>
             <td style="width: 35%; text-align: right;">
                 <div style="font-size: 8px; color: #64748b;">
@@ -310,11 +336,15 @@
         <thead>
             <tr>
                 <th style="width: 3%; text-align: center;">#</th>
-                <th style="width: 7%; text-align: center;">Fecha</th>
-                <th style="width: 12%;">Comprobante</th>
-                <th style="width: 18%;">Cliente</th>
-                <th style="width: 12%;">Vehículo / Placa</th>
-                <th style="width: 24%;">Detalle de Repuestos / Servicios</th>
+                <th style="width: {{ $showClientCol && $showVehicleCol ? '7%' : ($showClientCol || $showVehicleCol ? '8%' : '9%') }}; text-align: center;">Fecha</th>
+                <th style="width: {{ $showClientCol && $showVehicleCol ? '11%' : ($showClientCol || $showVehicleCol ? '13%' : '15%') }};">Comprobante</th>
+                @if ($showClientCol)
+                    <th style="width: {{ $showVehicleCol ? '16%' : '20%' }};">Cliente</th>
+                @endif
+                @if ($showVehicleCol)
+                    <th style="width: {{ $showClientCol ? '13%' : '18%' }};">Vehículo / Placa</th>
+                @endif
+                <th style="width: {{ $showClientCol && $showVehicleCol ? '26%' : ($showClientCol || $showVehicleCol ? '37%' : '49%') }};">Detalle de Repuestos / Servicios</th>
                 <th style="width: 8%; text-align: right;">Total</th>
                 <th style="width: 8%; text-align: right;">Pagado</th>
                 <th style="width: 8%; text-align: right;">Saldo / Debe</th>
@@ -336,25 +366,29 @@
                             <div style="font-size: 7px; color: #0284c7; font-weight: bold;">OT #{{ $tx['work_order_number'] }}</div>
                         @endif
                     </td>
-                    <td>
-                        <strong>{{ $tx['client']['full_name'] ?? 'Consumidor Final' }}</strong>
-                        @if (isset($tx['client']['n_document']))
-                            <div style="font-size: 7px; color: #64748b;">CI/RUC: {{ $tx['client']['n_document'] }}</div>
-                        @endif
-                    </td>
-                    <td>
-                        @if ($tx['vehicle'])
-                            <span class="plate-badge">{{ $tx['vehicle']['license_plate'] }}</span>
-                            <div style="font-size: 7px; color: #475569; margin-top: 1px;">
-                                {{ $tx['vehicle']['brand'] }} {{ $tx['vehicle']['model'] }}
-                            </div>
-                            @if ($tx['mileage'])
-                                <div style="font-size: 6.5px; color: #64748b;">{{ number_format($tx['mileage']) }} km</div>
+                    @if ($showClientCol)
+                        <td>
+                            <strong>{{ $tx['client']['full_name'] ?? 'Consumidor Final' }}</strong>
+                            @if (isset($tx['client']['n_document']))
+                                <div style="font-size: 7px; color: #64748b;">CI/RUC: {{ $tx['client']['n_document'] }}</div>
                             @endif
-                        @else
-                            <span style="color: #94a3b8; font-style: italic;">Sin vehículo</span>
-                        @endif
-                    </td>
+                        </td>
+                    @endif
+                    @if ($showVehicleCol)
+                        <td>
+                            @if ($tx['vehicle'])
+                                <span class="plate-badge">{{ $tx['vehicle']['license_plate'] }}</span>
+                                <div style="font-size: 7px; color: #475569; margin-top: 1px;">
+                                    {{ $tx['vehicle']['brand'] }} {{ $tx['vehicle']['model'] }}
+                                </div>
+                                @if ($tx['mileage'])
+                                    <div style="font-size: 6.5px; color: #64748b;">{{ number_format($tx['mileage']) }} km</div>
+                                @endif
+                            @else
+                                <span style="color: #94a3b8; font-style: italic;">Sin vehículo</span>
+                            @endif
+                        </td>
+                    @endif
                     <td>
                         @if (!empty($tx['details']))
                             <table class="nested-item-table">
@@ -401,7 +435,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="text-center" style="padding: 15px; color: #64748b;">
+                    <td colspan="{{ $totalCols }}" class="text-center" style="padding: 15px; color: #64748b;">
                         No se encontraron transacciones para los filtros seleccionados.
                     </td>
                 </tr>
@@ -410,7 +444,7 @@
         @if (!empty($transactions) && count($transactions) > 0)
             <tfoot>
                 <tr>
-                    <td colspan="6" class="text-right" style="font-weight: bold; text-transform: uppercase;">
+                    <td colspan="{{ $leftCols }}" class="text-right" style="font-weight: bold; text-transform: uppercase;">
                         TOTALES CONSOLIDADOS:
                     </td>
                     <td class="text-right" style="color: #0284c7;">
