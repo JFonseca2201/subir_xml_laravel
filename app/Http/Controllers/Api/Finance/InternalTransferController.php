@@ -114,18 +114,16 @@ class InternalTransferController extends Controller
                 'description'     => 'nullable|string|max:1000',
                 'reference_number' => 'nullable|string|max:255',
                 'transfer_date'   => 'nullable|date',
-                'receipts'        => 'required|array|min:1',
-                'receipts.*'      => 'required|file|mimes:jpeg,png,jpg,webp,pdf|max:15360',
+                'receipts'        => 'nullable|array',
+                'receipts.*'      => 'nullable|file|mimes:jpeg,png,jpg,webp,pdf|max:15360',
             ], [
                 'to_account_id.different' => 'La cuenta de destino debe ser diferente a la cuenta de origen.',
-                'receipts.required' => 'Es obligatorio adjuntar la foto o comprobante de la transferencia.',
-                'receipts.min' => 'Debe adjuntar al menos una foto del comprobante de la transferencia.',
                 'receipts.*.file' => 'El archivo del comprobante no es válido.',
                 'receipts.*.mimes' => 'El comprobante debe ser una imagen (JPG, PNG, WEBP) o un PDF.',
             ]);
 
             // 2. Ejecutar dentro de una transacción
-            return DB::transaction(function () use ($validated) {
+            return DB::transaction(function () use ($validated, $request) {
 
                 // Obtener las cuentas involucradas
                 $fromAccount = Account::findOrFail($validated['from_account_id']);
