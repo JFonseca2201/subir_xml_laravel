@@ -233,7 +233,7 @@ class InternalTransferController extends Controller
             'to_account_id.different' => 'La cuenta de destino debe ser diferente a la cuenta de origen.',
         ]);
 
-        return DB::transaction(function () use ($validated, $id) {
+        return DB::transaction(function () use ($validated, $id, $request) {
             $transfer = InternalTransfer::findOrFail($id);
 
             // 1. Revertir saldos anteriores (Lógica contable pura)
@@ -310,9 +310,27 @@ class InternalTransferController extends Controller
                 ]);
             }
 
+            // Guardar nuevos comprobantes adjuntos si fueron enviados
+            if ($request->hasFile('receipts')) {
+                try {
+                    $storageService = app(\App\Services\InvoiceStorageService::class);
+                    $identifier = $transfer->reference_number ?: ('TRANS-' . $transfer->id);
+                    $partyName = "DE {$newFromAccount->name} A {$newToAccount->name}";
+                    $storageService->attachReceiptsToModel(
+                        $transfer,
+                        $identifier,
+                        $partyName,
+                        $request->file('receipts'),
+                        $transfer->transfer_date ? Carbon::parse($transfer->transfer_date) : now()
+                    );
+                } catch (\Exception $attErr) {
+                    \Log::warning('Error al adjuntar comprobantes a transferencia:', ['error' => $attErr->getMessage()]);
+                }
+            }
+
             return response()->json([
                 'message' => 'Transferencia actualizada con éxito',
-                'data' => $transfer->load(['sourceAccount', 'destinationAccount'])
+                'data' => $transfer->load(['sourceAccount', 'destinationAccount', 'attachments'])
             ]);
         });
     }

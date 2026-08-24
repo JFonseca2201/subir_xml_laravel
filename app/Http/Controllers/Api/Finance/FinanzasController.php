@@ -312,6 +312,9 @@ class FinanzasController extends Controller
                 \App\Models\Finance\InternalTransfer::class => ['attachments'],
                 \App\Models\Sales\Sale::class => ['attachments'],
                 \App\Models\WorkOrder\WorkOrder::class => ['attachments'],
+                \App\Models\Employee\EmployeePayment::class => ['attachments'],
+                \App\Models\Employee\EmployeeAdvance::class => ['attachments'],
+                \App\Models\Partner\AporteCapital::class => ['attachments'],
             ]);
 
             // Cargar nombres de cuentas para transferencias y resolver attachments normalizados

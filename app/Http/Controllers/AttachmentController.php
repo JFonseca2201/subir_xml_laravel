@@ -137,13 +137,14 @@ class AttachmentController extends Controller
             }
         }
 
-        // 4. Búsqueda por identifier si aún no hay resultados o para asegurar completitud
-        if (!empty($identifier)) {
+        // 4. Búsqueda por identifier sólo dentro del mismo modelo
+        if (!empty($identifier) && strlen(trim($identifier)) >= 3) {
             $cleanId = trim($identifier);
-            $byIdentifier = Attachment::where(function ($q) use ($cleanId) {
-                $q->where('file_name', 'like', "{$cleanId}%")
-                  ->orWhere('metadata->identifier', $cleanId);
-            })->get();
+            $byIdentifier = Attachment::where('attachable_type', $modelClass)
+                ->where(function ($q) use ($cleanId) {
+                    $q->where('metadata->identifier', $cleanId)
+                      ->orWhere('file_name', 'like', "{$cleanId}_%");
+                })->get();
             $allAttachments = $allAttachments->concat($byIdentifier);
         }
 
