@@ -72,13 +72,8 @@ class ProductController extends Controller
     public function search(Request $request)
     {
         $search = trim($request->get('q', $request->get('search', '')));
-
-        if (strlen($search) < 2) {
-            return response()->json([
-                'status' => 200,
-                'data' => [],
-            ]);
-        }
+        $sku = trim($request->get('sku', ''));
+        $description = trim($request->get('description', ''));
 
         $query = Product::select([
             'id',
@@ -89,17 +84,109 @@ class ProductController extends Controller
             'price_sale',
             'stock',
             'purchase_price',
-            'unit_id'
-        ])->where('state', 1)->with('unit');
+            'unit_id',
+            'product_categorie_id',
+            'warehouse_id',
+            'brand',
+            'uses',
+            'imagen',
+            'state'
+        ])->with(['unit', 'categorie', 'warehouse']);
 
-        $query->where(function ($q) use ($search) {
-            $q->where('sku', 'like', "%{$search}%")
-                ->orWhere('code_aux', 'like', "%{$search}%")
-                ->orWhere('description', 'like', "%{$search}%")
-                ->orWhere('uses', 'like', "%{$search}%");
-        });
+        if (!empty($sku)) {
+            $cleanSku = str_replace(['-', ' ', '_', '.'], '', $sku);
+            $segments = array_filter(preg_split('/[^a-zA-Z0-9]+/', $sku), fn($p) => strlen($p) > 0);
 
-        $products = $query->orderBy('id', 'desc')->limit(15)->get();
+            $query->where(function ($q) use ($sku, $cleanSku, $segments) {
+                $q->where('sku', 'like', "%{$sku}%")
+                    ->orWhere('code_aux', 'like', "%{$sku}%");
+
+                if (strlen($cleanSku) >= 2) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(sku, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSku}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(code_aux, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSku}%"]);
+                }
+
+                if (count($segments) > 1) {
+                    $q->orWhere(function ($sq) use ($segments) {
+                        foreach ($segments as $seg) {
+                            $cleanSeg = ltrim($seg, '0');
+                            $sq->where(function ($inner) use ($seg, $cleanSeg) {
+                                $inner->where('sku', 'like', "%{$seg}%")
+                                      ->orWhere('code_aux', 'like', "%{$seg}%");
+                                if (strlen($cleanSeg) >= 1) {
+                                    $inner->orWhere('sku', 'like', "%{$cleanSeg}%")
+                                          ->orWhere('code_aux', 'like', "%{$cleanSeg}%");
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        } elseif (!empty($description)) {
+            $words = array_filter(explode(' ', preg_replace('/\s+/', ' ', $description)));
+            if (count($words) > 1) {
+                $query->where(function ($q) use ($words) {
+                    foreach ($words as $w) {
+                        $q->where('description', 'like', "%{$w}%");
+                    }
+                });
+            } else {
+                $query->where('description', 'like', "%{$description}%");
+            }
+        } elseif (strlen($search) >= 1) {
+            $words = array_filter(explode(' ', preg_replace('/\s+/', ' ', $search)));
+            $cleanSearch = str_replace(['-', ' ', '_', '.'], '', $search);
+            $segments = array_filter(preg_split('/[^a-zA-Z0-9]+/', $search), fn($p) => strlen($p) > 0);
+
+            $query->where(function ($q) use ($search, $words, $cleanSearch, $segments) {
+                $q->where('sku', 'like', "%{$search}%")
+                    ->orWhere('code_aux', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('brand', 'like', "%{$search}%")
+                    ->orWhere('uses', 'like', "%{$search}%");
+
+                if (strlen($cleanSearch) >= 2) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(sku, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSearch}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(code_aux, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSearch}%"]);
+                }
+
+                if (count($words) > 1) {
+                    $q->orWhere(function ($wq) use ($words) {
+                        foreach ($words as $w) {
+                            $wq->where(function ($inner) use ($w) {
+                                $inner->where('description', 'like', "%{$w}%")
+                                      ->orWhere('sku', 'like', "%{$w}%")
+                                      ->orWhere('brand', 'like', "%{$w}%");
+                            });
+                        }
+                    });
+                }
+
+                if (count($segments) > 1) {
+                    $q->orWhere(function ($sq) use ($segments) {
+                        foreach ($segments as $seg) {
+                            $cleanSeg = ltrim($seg, '0');
+                            $sq->where(function ($inner) use ($seg, $cleanSeg) {
+                                $inner->where('sku', 'like', "%{$seg}%")
+                                      ->orWhere('code_aux', 'like', "%{$seg}%")
+                                      ->orWhere('description', 'like', "%{$seg}%");
+                                if (strlen($cleanSeg) >= 1) {
+                                    $inner->orWhere('sku', 'like', "%{$cleanSeg}%")
+                                          ->orWhere('code_aux', 'like', "%{$cleanSeg}%");
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        } else {
+            return response()->json([
+                'status' => 200,
+                'data' => [],
+            ]);
+        }
+
+        $products = $query->orderBy('id', 'desc')->limit(30)->get();
 
         return response()->json([
             'status' => 200,
