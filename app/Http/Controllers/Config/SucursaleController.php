@@ -49,17 +49,18 @@ class SucursaleController extends Controller
                 'serie_factura' => 'required|string|max:7',
                 'establecimiento' => 'required|string|max:3',
                 'punto_emision' => 'required|string|max:3',
-                'ambiente' => 'required|integer|in:1,2',
-                'tipo_emision' => 'required|integer|in:1',
+                'ambiente' => 'required|in:1,2',
+                'tipo_emision' => 'required|in:1',
                 'firma_electronica' => 'nullable|string|max:255',
+                'firma_file' => 'nullable|file|mimes:p12,pfx,bin,octet-stream|max:5120',
                 'password_firma' => 'nullable|string|max:255',
                 'logo' => 'nullable|string|max:255',
-                'obligado_contabilidad' => 'required|in:SI,NO',
+                'obligado_contabilidad' => 'required|in:SI,NO,si,no',
                 'contribuyente_especial' => 'nullable|string|max:50',
-                'status' => 'required|in:active,inactive',
+                'status' => 'nullable|string',
             ]);
 
-            $sucursal->update($request->only([
+            $data = $request->only([
                 'name',
                 'address',
                 'ruc',
@@ -72,13 +73,23 @@ class SucursaleController extends Controller
                 'punto_emision',
                 'ambiente',
                 'tipo_emision',
-                'firma_electronica',
                 'password_firma',
-                'logo',
                 'obligado_contabilidad',
                 'contribuyente_especial',
                 'status',
-            ]));
+            ]);
+
+            // Procesar archivo de firma electrónica si fue enviado
+            if ($request->hasFile('firma_file')) {
+                $file = $request->file('firma_file');
+                $filename = 'firma_sucursal_' . $sucursal->id . '_' . time() . '.p12';
+                $path = $file->storeAs('firmas', $filename);
+                $data['firma_electronica'] = $path;
+            } elseif ($request->filled('firma_electronica')) {
+                $data['firma_electronica'] = $request->firma_electronica;
+            }
+
+            $sucursal->update($data);
 
             return response()->json([
                 'status' => 200,

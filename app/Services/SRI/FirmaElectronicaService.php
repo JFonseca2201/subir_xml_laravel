@@ -64,12 +64,12 @@ class FirmaElectronicaService
         $dom->formatOutput       = false;
         $dom->loadXML($xmlString);
 
-        // ── 1. Calcular el digest del contenido del comprobante ──────────
+        // ── 1. Calcular el digest del contenido del comprobante (SHA256) ──────────
         $comprobante = $dom->documentElement;
         $comprobante->setAttribute('Id', 'comprobante');
 
         $xmlC14n = $comprobante->C14N(false, false);
-        $digestComprobante = base64_encode(hash('sha1', $xmlC14n, true));
+        $digestComprobante = base64_encode(hash('sha256', $xmlC14n, true));
 
         // ── 2. Construir el nodo <ds:SignedInfo> ────────────────────────
         $signedInfo = $this->buildSignedInfo($dom, $digestComprobante);
@@ -77,13 +77,13 @@ class FirmaElectronicaService
         // ── 3. Firmar el <ds:SignedInfo> con la clave privada ────────────
         $signedInfoC14n = $signedInfo->C14N(false, false);
         $signature = '';
-        if (!openssl_sign($signedInfoC14n, $signature, $privateKey, OPENSSL_ALGO_SHA1)) {
+        if (!openssl_sign($signedInfoC14n, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
             throw new Exception('Error al firmar: ' . openssl_error_string());
         }
         $signatureB64 = base64_encode($signature);
 
         // ── 4. Ensamblar el nodo <ds:Signature> completo ─────────────────
-        $sigNs  = 'http://www.w3.org/2000/09/xmldsig#';
+        $sigNs   = 'http://www.w3.org/2000/09/xmldsig#';
         $xadesNs = 'http://uri.etsi.org/01903/v1.3.2#';
 
         $sigEl = $dom->createElementNS($sigNs, 'ds:Signature');
@@ -126,9 +126,9 @@ class FirmaElectronicaService
 
         $cdEl  = $dom->createElementNS($xadesNs, 'xades:CertDigest');
         $amEl  = $dom->createElementNS($xadesNs, 'ds:DigestMethod');
-        $amEl->setAttribute('Algorithm', 'http://www.w3.org/2000/09/xmldsig#sha1');
+        $amEl->setAttribute('Algorithm', 'http://www.w3.org/2001/04/xmlenc#sha256');
         $dvEl  = $dom->createElementNS($xadesNs, 'ds:DigestValue',
-            base64_encode(openssl_x509_fingerprint($x509Cert, 'sha1', true))
+            base64_encode(openssl_x509_fingerprint($x509Cert, 'sha256', true))
         );
         $cdEl->appendChild($amEl);
         $cdEl->appendChild($dvEl);
@@ -192,7 +192,7 @@ class FirmaElectronicaService
         $si->appendChild($cm);
 
         $sm = $doc->createElementNS($sigNs, 'ds:SignatureMethod');
-        $sm->setAttribute('Algorithm', 'http://www.w3.org/2000/09/xmldsig#rsa-sha1');
+        $sm->setAttribute('Algorithm', 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256');
         $si->appendChild($sm);
 
         // Reference al comprobante
@@ -204,7 +204,7 @@ class FirmaElectronicaService
         $transforms->appendChild($transform);
         $ref->appendChild($transforms);
         $dm = $doc->createElementNS($sigNs, 'ds:DigestMethod');
-        $dm->setAttribute('Algorithm', 'http://www.w3.org/2000/09/xmldsig#sha1');
+        $dm->setAttribute('Algorithm', 'http://www.w3.org/2001/04/xmlenc#sha256');
         $dv = $doc->createElementNS($sigNs, 'ds:DigestValue', $digestComprobante);
         $ref->appendChild($dm);
         $ref->appendChild($dv);

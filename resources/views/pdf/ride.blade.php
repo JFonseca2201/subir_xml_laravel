@@ -326,7 +326,12 @@
                         </div>
                         <div class="doc-clave">
                             <strong>CLAVE DE ACCESO</strong><br>
-                            {{ $sale->sri_access_key }}
+                            @if(!empty($sale->sri_access_key))
+                                <div style="margin-top: 3px; margin-bottom: 3px;">
+                                    {!! \App\Helpers\PdfHelper::generateBarcodeHTML($sale->sri_access_key, 28) !!}
+                                </div>
+                            @endif
+                            <span style="font-size: 7px; font-family: monospace;">{{ $sale->sri_access_key }}</span>
                         </div>
                     </td>
                 </tr>

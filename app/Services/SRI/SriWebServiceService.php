@@ -32,16 +32,25 @@ class SriWebServiceService
     public function enviarComprobante(string $xmlFirmado): array
     {
         $wsdl = $this->ambiente === 2
-            ? env('SRI_URL_RECEPCION_PRODUCCION')
-            : env('SRI_URL_RECEPCION_PRUEBAS');
+            ? (env('SRI_URL_RECEPCION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl')
+            : (env('SRI_URL_RECEPCION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl');
 
         $xmlBase64 = base64_encode($xmlFirmado);
 
         try {
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'allow_self_signed' => true,
+                ],
+            ]);
+
             $client = new SoapClient($wsdl, [
                 'connection_timeout' => 30,
                 'exceptions'         => true,
                 'trace'              => true,
+                'stream_context'     => $context,
             ]);
 
             $response = $client->validarComprobante([
@@ -51,7 +60,7 @@ class SriWebServiceService
             return $this->parsearRespuestaRecepcion($response);
 
         } catch (SoapFault $e) {
-            throw new Exception('Error SOAP en recepción: ' . $e->getMessage(), 0, $e);
+            throw new Exception('Error SOAP en recepción SRI: ' . $e->getMessage(), 0, $e);
         }
     }
 
@@ -66,14 +75,23 @@ class SriWebServiceService
     public function autorizarComprobante(string $claveAcceso): array
     {
         $wsdl = $this->ambiente === 2
-            ? env('SRI_URL_AUTORIZACION_PRODUCCION')
-            : env('SRI_URL_AUTORIZACION_PRUEBAS');
+            ? (env('SRI_URL_AUTORIZACION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl')
+            : (env('SRI_URL_AUTORIZACION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl');
 
         try {
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'allow_self_signed' => true,
+                ],
+            ]);
+
             $client = new SoapClient($wsdl, [
                 'connection_timeout' => 30,
                 'exceptions'         => true,
                 'trace'              => true,
+                'stream_context'     => $context,
             ]);
 
             $response = $client->autorizacionComprobante([
@@ -83,7 +101,7 @@ class SriWebServiceService
             return $this->parsearRespuestaAutorizacion($response);
 
         } catch (SoapFault $e) {
-            throw new Exception('Error SOAP en autorización: ' . $e->getMessage(), 0, $e);
+            throw new Exception('Error SOAP en autorización SRI: ' . $e->getMessage(), 0, $e);
         }
     }
 
