@@ -74,60 +74,49 @@ class AttachmentController extends Controller
 
         $allAttachments = collect();
 
+        $typeCandidates = [
+            $modelClass,
+            class_basename($modelClass),
+            'App\\Models\\' . class_basename($modelClass),
+        ];
+        if (class_exists($modelClass)) {
+            $typeCandidates[] = (new $modelClass)->getMorphClass();
+        }
+        $typeCandidates = array_values(array_unique(array_filter($typeCandidates)));
+
         // 1. Búsqueda directa por modelo y id
-        $direct = Attachment::where('attachable_type', $modelClass)
+        $direct = Attachment::whereIn('attachable_type', $typeCandidates)
             ->where('attachable_id', $attachableId)
             ->get();
         $allAttachments = $allAttachments->concat($direct);
 
-        // 2. Si es FinanceRecord o expense
-        if ($modelClass === \App\Models\Finance\FinanceRecord::class) {
-            // Si no encontró directamente, verificar si el id enviado era de un FinancialMovement
-            if ($direct->isEmpty()) {
-                $movement = \App\Models\Finance\FinancialMovement::find($attachableId);
-                if ($movement) {
-                    $finRecordId = $movement->metadata['finance_record_id'] ?? null;
-                    if (!$finRecordId && $movement->movable_type === \App\Models\Finance\PaymentDistribution::class) {
-                        $dist = \App\Models\Finance\PaymentDistribution::find($movement->movable_id);
-                        $finRecordId = $dist?->finance_record_id;
-                    }
-                    if ($finRecordId) {
-                        $linkedAtts = Attachment::where('attachable_type', \App\Models\Finance\FinanceRecord::class)
-                            ->where('attachable_id', $finRecordId)
-                            ->get();
-                        $allAttachments = $allAttachments->concat($linkedAtts);
-                    }
-                }
-            }
-
-            // También buscar si hay attachments guardados en el movimiento directo
+        // 2. Si es FinanceRecord o FinancialMovement
+        if ($modelClass === \App\Models\Finance\FinanceRecord::class || $modelClass === \App\Models\Finance\FinancialMovement::class) {
+            // Si el ID es de un FinanceRecord, buscar adjuntos en movimientos vinculados
             $linkedMovements = \App\Models\Finance\FinancialMovement::where('metadata->finance_record_id', $attachableId)->pluck('id');
             if ($linkedMovements->isNotEmpty()) {
-                $movementAtts = Attachment::where('attachable_type', \App\Models\Finance\FinancialMovement::class)
+                $movementAtts = Attachment::whereIn('attachable_type', [\App\Models\Finance\FinancialMovement::class, 'App\Models\FinancialMovement'])
                     ->whereIn('attachable_id', $linkedMovements)
                     ->get();
                 $allAttachments = $allAttachments->concat($movementAtts);
             }
-        }
 
-        // 3. Si es FinancialMovement
-        if ($modelClass === \App\Models\Finance\FinancialMovement::class) {
+            // Si el ID es de un FinancialMovement, buscar en el FinanceRecord vinculado
             $movement = \App\Models\Finance\FinancialMovement::find($attachableId);
             if ($movement) {
-                // Si está vinculado a un FinanceRecord
                 $finRecordId = $movement->metadata['finance_record_id'] ?? null;
                 if (!$finRecordId && $movement->movable_type === \App\Models\Finance\PaymentDistribution::class) {
                     $dist = \App\Models\Finance\PaymentDistribution::find($movement->movable_id);
                     $finRecordId = $dist?->finance_record_id;
                 }
                 if ($finRecordId) {
-                    $frAtts = Attachment::where('attachable_type', \App\Models\Finance\FinanceRecord::class)
+                    $frAtts = Attachment::whereIn('attachable_type', [\App\Models\Finance\FinanceRecord::class, 'App\Models\FinanceRecord'])
                         ->where('attachable_id', $finRecordId)
                         ->get();
                     $allAttachments = $allAttachments->concat($frAtts);
                 }
 
-                // Si está vinculado a Sale, WorkOrder, InternalTransfer
+                // Si está vinculado a Sale, WorkOrder, InternalTransfer, etc.
                 if ($movement->movable_type && $movement->movable_id) {
                     $movableAtts = Attachment::where('attachable_type', $movement->movable_type)
                         ->where('attachable_id', $movement->movable_id)

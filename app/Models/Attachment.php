@@ -51,7 +51,17 @@ class Attachment extends Model
             return '';
         }
 
-        return Storage::disk('public')->url($this->file_path);
+        $cleanPath = ltrim(str_replace('storage/', '', $this->file_path), '/');
+        $urlPath = implode('/', array_map('rawurlencode', explode('/', $cleanPath)));
+
+        $appUrl = rtrim(config('app.url') ?? 'http://127.0.0.1:8000', '/');
+        if (request() && request()->getHttpHost()) {
+            $scheme = request()->getScheme();
+            $host = request()->getHttpHost();
+            $appUrl = "{$scheme}://{$host}";
+        }
+
+        return "{$appUrl}/storage/{$urlPath}";
     }
 
     /**

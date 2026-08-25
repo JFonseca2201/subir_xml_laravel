@@ -367,7 +367,7 @@ class WorkOrderController extends Controller
     public function getReadyToInvoice(): JsonResponse
     {
         $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items.product', 'technicians'])
-            ->where('status', 'ready')
+            ->whereIn('status', ['ready', 'delivered'])
             ->whereDoesntHave('sale')
             ->orderBy('created_at', 'desc')
             ->get();

@@ -148,7 +148,7 @@ class SaleController extends Controller
             'total' => 'required|numeric',
             'payment_status' => 'required|in:paid,partial,pending',
             'is_credited' => 'required|boolean',
-            'payment_method' => 'required|string',
+            'payment_method' => 'nullable|string',
             'observations' => 'nullable|string',
             'items' => 'required|array|min:1', // El carrito no puede estar vacío
             'items.*.description' => 'required|string',
@@ -175,43 +175,51 @@ class SaleController extends Controller
 
             // Validar pagos distribuidos solo si no es cotización y no es borrador
             if ($request->document_type !== 'quote' && !$isDraft) {
-                $hasDistributions = $request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0;
-
-                if (!$hasDistributions && !$request->boolean('is_credited')) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Debe registrar al menos un pago para la venta.',
-                        'error' => 'validation_error'
-                    ], 400);
-                }
-
-                $totalDist = $hasDistributions ? array_sum(array_column($request->payment_distributions, 'amount')) : 0;
-
-                if ($totalDist <= 0 && !$request->boolean('is_credited')) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Debe registrar al menos un pago para la venta.',
-                        'error' => 'validation_error'
-                    ], 400);
-                }
-
-                if ($totalDist > $request->total + 0.01) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'La suma de los pagos no puede ser mayor al total.',
-                        'error' => 'validation_error'
-                    ], 400);
-                }
-
-                if (abs($totalDist - $request->total) <= 0.01) {
-                    $paymentStatus = 'paid';
-                } elseif ($totalDist > 0) {
-                    $paymentStatus = 'partial';
+                if ($request->payment_status === 'pending' || $request->boolean('is_credited')) {
+                    $request->merge([
+                        'payment_status' => 'pending',
+                        'is_credited' => true,
+                        'payment_method' => $request->payment_method ?: 'Crédito / Pendiente',
+                    ]);
                 } else {
-                    $paymentStatus = 'pending';
-                }
+                    $hasDistributions = $request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0;
 
-                $request->merge(['payment_status' => $paymentStatus]);
+                    if (!$hasDistributions) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Debe registrar al menos un pago para la venta.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    $totalDist = array_sum(array_column($request->payment_distributions, 'amount'));
+
+                    if ($totalDist <= 0) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Debe registrar al menos un pago para la venta.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    if ($totalDist > $request->total + 0.01) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'La suma de los pagos no puede ser mayor al total.',
+                            'error' => 'validation_error'
+                        ], 400);
+                    }
+
+                    if (abs($totalDist - $request->total) <= 0.01) {
+                        $paymentStatus = 'paid';
+                    } elseif ($totalDist > 0) {
+                        $paymentStatus = 'partial';
+                    } else {
+                        $paymentStatus = 'pending';
+                    }
+
+                    $request->merge(['payment_status' => $paymentStatus]);
+                }
             }
 
             // 2. Validar stock antes de procesar la venta (solo si no es cotización y es producto físico)

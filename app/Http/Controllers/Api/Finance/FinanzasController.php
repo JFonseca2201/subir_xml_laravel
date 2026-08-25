@@ -352,13 +352,35 @@ class FinanzasController extends Controller
                         }
                     }
 
+                    // Si está vinculado a FinanceRecord y aún no se cargaron adjuntos
+                    $finRecordId = $movement->metadata['finance_record_id'] ?? null;
+                    if (!$finRecordId && $movement->movable_type === \App\Models\Finance\PaymentDistribution::class) {
+                        $finRecordId = $movement->movable?->finance_record_id;
+                    }
+                    if ($finRecordId && $rawAttachments->isEmpty()) {
+                        $frAtts = \App\Models\Attachment::where('attachable_id', $finRecordId)
+                            ->whereIn('attachable_type', [
+                                \App\Models\Finance\FinanceRecord::class,
+                                'App\Models\FinanceRecord',
+                                'finance_record',
+                                'expense'
+                            ])->get();
+                        $rawAttachments = $rawAttachments->concat($frAtts);
+                    }
+
                     $movement->resolved_attachments = $rawAttachments->unique('id')->map(function ($att) {
+                        $cleanPath = ltrim(str_replace('storage/', '', $att->file_path), '/');
+                        $urlPath = implode('/', array_map('rawurlencode', explode('/', $cleanPath)));
+                        $scheme = request()->getScheme();
+                        $host = request()->getHttpHost();
+                        $fullUrl = "{$scheme}://{$host}/storage/{$urlPath}";
+
                         return [
                             'id' => $att->id,
                             'file_name' => $att->file_name,
                             'original_name' => $att->original_name,
                             'file_path' => $att->file_path,
-                            'url' => $att->url,
+                            'url' => $fullUrl,
                             'download_url' => url("api/attachments/{$att->id}/download"),
                             'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
                             'is_pdf' => ($att->mime_type === 'application/pdf'),

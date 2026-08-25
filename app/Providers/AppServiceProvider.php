@@ -34,27 +34,42 @@ class AppServiceProvider extends ServiceProvider
 
         // Ensure database morph types from before the refactor can still resolve
         Relation::morphMap([
+            // Canonical FQCN first so getMorphClass() returns the canonical namespace
+            'App\Models\Finance\FinanceRecord' => \App\Models\Finance\FinanceRecord::class,
+            'App\Models\Finance\PaymentDistribution' => \App\Models\Finance\PaymentDistribution::class,
+            'App\Models\Finance\InternalTransfer' => \App\Models\Finance\InternalTransfer::class,
+            'App\Models\Finance\FinancialMovement' => \App\Models\Finance\FinancialMovement::class,
+            'App\Models\Partner\AporteCapital' => \App\Models\Partner\AporteCapital::class,
+            'App\Models\Partner\PartnerContribution' => \App\Models\Partner\PartnerContribution::class,
+            'App\Models\Employee\EmployeeAdvance' => \App\Models\Employee\EmployeeAdvance::class,
+            'App\Models\Employee\EmployeePayment' => \App\Models\Employee\EmployeePayment::class,
             'App\Models\Sales\Sale' => \App\Models\Sales\Sale::class,
-            'App\Models\Sale\Sale' => \App\Models\Sales\Sale::class,
+            'App\Models\Invoice\Invoice' => \App\Models\Invoice\Invoice::class,
+            'App\Models\WorkOrder\WorkOrder' => \App\Models\WorkOrder\WorkOrder::class,
+            'App\Models\Supplier\Supplier' => \App\Models\Supplier\Supplier::class,
+            'App\Models\Partner\Partner' => \App\Models\Partner\Partner::class,
+            'App\Models\Finance\Account' => \App\Models\Finance\Account::class,
+            'App\Models\Employee\Employee' => \App\Models\Employee\Employee::class,
+
+            // Legacy aliases second so getMorphedModel can still resolve legacy rows
+            'App\Models\FinanceRecord' => \App\Models\Finance\FinanceRecord::class,
+            'App\Models\PaymentDistribution' => \App\Models\Finance\PaymentDistribution::class,
+            'App\Models\InternalTransfer' => \App\Models\Finance\InternalTransfer::class,
+            'App\Models\FinancialMovement' => \App\Models\Finance\FinancialMovement::class,
             'App\Models\AporteCapital' => \App\Models\Partner\AporteCapital::class,
             'App\Models\PartnerContribution' => \App\Models\Partner\PartnerContribution::class,
             'App\Models\EmployeeAdvance' => \App\Models\Employee\EmployeeAdvance::class,
             'App\Models\EmployeePayment' => \App\Models\Employee\EmployeePayment::class,
-            'App\Models\Finance\InternalTransfer' => \App\Models\Finance\InternalTransfer::class,
-            'App\Models\InternalTransfer' => \App\Models\Finance\InternalTransfer::class,
-            'App\Models\Transfer' => \App\Models\Finance\Transfer::class,
-            'App\Models\Transaction' => \App\Models\Finance\Transaction::class,
-            'App\Models\MovimientoCuenta' => \App\Models\Finance\MovimientoCuenta::class,
-            'App\Models\Finance\PaymentDistribution' => \App\Models\Finance\PaymentDistribution::class,
-            'App\Models\PaymentDistribution' => \App\Models\Finance\PaymentDistribution::class,
-            'App\Models\FinanceRecord' => \App\Models\Finance\FinanceRecord::class,
-            'App\Models\FinancialMovement' => \App\Models\Finance\FinancialMovement::class,
+            'App\Models\Sale\Sale' => \App\Models\Sales\Sale::class,
+            'App\Models\Transfer' => \App\Models\Finance\InternalTransfer::class,
+            'App\Models\Transaction' => \App\Models\Finance\InternalTransfer::class,
+            'App\Models\MovimientoCuenta' => \App\Models\Finance\FinancialMovement::class,
             'App\Models\Invoice' => \App\Models\Invoice\Invoice::class,
             'App\Models\WorkOrder' => \App\Models\WorkOrder\WorkOrder::class,
             'App\Models\Supplier' => \App\Models\Supplier\Supplier::class,
             'App\Models\Partner' => \App\Models\Partner\Partner::class,
             'App\Models\Account' => \App\Models\Finance\Account::class,
             'App\Models\Employee' => \App\Models\Employee\Employee::class,
-        ]);
+        ], false);
     }
 }

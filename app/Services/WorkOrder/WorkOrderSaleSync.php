@@ -21,10 +21,10 @@ class WorkOrderSaleSync
     {
         $workOrder = WorkOrder::with(['sale', 'technicians'])->findOrFail($workOrderId);
 
-        if ($workOrder->status !== 'ready') {
+        if (!in_array($workOrder->status, ['ready', 'delivered'])) {
             throw new HttpResponseException(response()->json([
                 'success' => false,
-                'message' => 'La orden de trabajo debe estar en estado "Listo" para facturar.',
+                'message' => 'La orden de trabajo debe estar en estado "Listo" o "Entregado" para facturar.',
                 'error' => 'work_order_not_ready',
             ], 400));
         }
