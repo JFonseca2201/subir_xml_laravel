@@ -61,17 +61,32 @@ class SaleController extends Controller
             // Esto evita el problema de consultas N+1 y hace que la API vuele
             $query = Sale::with(['client', 'vehicle', 'user', 'workOrder', 'financeRecord.paymentDistributions']);
 
-            // 1. Filtro por búsqueda (nombre, cédula del cliente, placa de vehículo o número de documento)
+            // 1. Filtro por búsqueda (nombre, cédula del cliente, placa de vehículo, número de documento u orden de trabajo)
             if ($request->has('search') && $request->search != '') {
-                $searchTerm = $request->search;
+                $searchTerm = trim($request->search);
                 $query->where(function ($q) use ($searchTerm) {
                     $q->where('document_number', 'like', "%{$searchTerm}%")
+                        ->orWhere('work_order_number', 'like', "%{$searchTerm}%")
+                        ->orWhereHas('workOrder', function ($woQuery) use ($searchTerm) {
+                            $woQuery->where('number', 'like', "%{$searchTerm}%");
+                        })
                         ->orWhereHas('client', function ($clientQuery) use ($searchTerm) {
                             $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
                                 ->orWhere('n_document', 'like', "%{$searchTerm}%");
                         })
                         ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
                             $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
+                        });
+                });
+            }
+
+            // 1.5 Filtro específico por Orden de Trabajo
+            if ($request->has('work_order') && $request->work_order != '') {
+                $woTerm = trim($request->work_order);
+                $query->where(function ($q) use ($woTerm) {
+                    $q->where('work_order_number', 'like', "%{$woTerm}%")
+                        ->orWhereHas('workOrder', function ($woQuery) use ($woTerm) {
+                            $woQuery->where('number', 'like', "%{$woTerm}%");
                         });
                 });
             }
@@ -137,7 +152,7 @@ class SaleController extends Controller
         // 1. Validación estricta de los datos que vienen del Vue 3
         $request->validate([
             'document_type' => 'required|in:quote,sale_note,invoice',
-            'document_number' => 'required|string|unique:sales,document_number',
+            'document_number' => 'nullable|string',
             'client_id' => 'required|exists:clients,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
             'work_order_id' => 'nullable|exists:work_orders,id',
@@ -168,7 +183,6 @@ class SaleController extends Controller
             $linkedWorkOrder = null;
             if ($request->work_order_id) {
                 $linkedWorkOrder = WorkOrderSaleSync::assertReadyForInvoicing((int) $request->work_order_id);
-                $request->merge(['document_number' => $linkedWorkOrder->number]);
             }
 
             $isDraft = $request->boolean('is_draft');
@@ -303,7 +317,7 @@ class SaleController extends Controller
                     'client_id' => $request->client_id,
                     'vehicle_id' => $request->vehicle_id,
                     'work_order_id' => $request->work_order_id,
-                    'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : null,
+                    'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : ($request->work_order_number ?? ($request->work_order_id ? \App\Models\WorkOrder\WorkOrder::find($request->work_order_id)?->number : null)),
                     'user_id' => $request->user_id,
                     'mileage' => $request->mileage,
                     'service_date' => $request->service_date ?? now()->format('Y-m-d'),
@@ -468,10 +482,38 @@ class SaleController extends Controller
     }
 
     /**
+     * Verifica si la venta es una factura emitida en ambiente de pruebas (SRI ambiente 1).
+     */
+    private function isTestEnvironmentInvoice(Sale $sale): bool
+    {
+        if ($sale->document_type !== 'invoice') {
+            return false;
+        }
+
+        $ambienteEnv = (int) env('SRI_AMBIENTE', 1);
+        if ($ambienteEnv === 1) {
+            return true;
+        }
+
+        $sucursal = \App\Models\Config\Sucursale::first();
+        if ($sucursal && (int)$sucursal->ambiente === 1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Process financial record for sale and update accounts
      */
     private function processFinancialRecord($sale, Request $request)
     {
+        // En ambiente de pruebas para facturas (SRI_AMBIENTE = 1), no alterar cuentas financieras ni saldos
+        if ($this->isTestEnvironmentInvoice($sale)) {
+            Log::info("[SRI Pruebas] Factura #{$sale->document_number} procesada en modo pruebas: se omiten movimientos de cuentas y saldos.");
+            return;
+        }
+
         // 1. Buscar si ya existe un registro financiero para esta venta
         $financeRecord = FinanceRecord::where('invoice_number', $sale->document_number)->first();
 
@@ -722,6 +764,22 @@ class SaleController extends Controller
             if ($sale->vehicle && isset($sale->vehicle->brand)) {
                 $brandId = $sale->vehicle->brand;
                 $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
+            }
+
+            if ($sale->document_type === 'invoice') {
+                $sucursal = \App\Models\Config\Sucursale::find($sale->client->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+                $autorizacion = [
+                    'numeroAutorizacion' => $sale->sri_access_key,
+                    'fechaAutorizacion'  => $sale->sri_authorization_date ? $sale->sri_authorization_date->format('d/m/Y H:i:s') : null,
+                    'estado'             => $sale->sri_status,
+                ];
+
+                if ($request->has('print')) {
+                    return view('pdf.ride', compact('sale', 'sucursal', 'autorizacion'));
+                }
+                $pdf = Pdf::loadView('pdf.ride', compact('sale', 'sucursal', 'autorizacion'));
+                $fileName = 'RIDE_' . $sale->document_number . '.pdf';
+                return $pdf->stream($fileName);
             }
 
             if ($request->has('print')) {
@@ -1326,7 +1384,7 @@ class SaleController extends Controller
     public function dispatchSale(Request $request)
     {
         $request->validate([
-            'document_number' => 'required|string|unique:sales,document_number',
+            'document_number' => 'nullable|string',
             'client_id' => 'required|exists:clients,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
             'work_order_id' => 'nullable|exists:work_orders,id',
@@ -1350,7 +1408,6 @@ class SaleController extends Controller
             $linkedWorkOrder = null;
             if ($request->work_order_id) {
                 $linkedWorkOrder = WorkOrderSaleSync::assertReadyForInvoicing((int) $request->work_order_id);
-                $request->merge(['document_number' => $linkedWorkOrder->number]);
             }
 
             // Validar stock antes de procesar el despacho
@@ -1394,7 +1451,7 @@ class SaleController extends Controller
                     'client_id' => $request->client_id,
                     'vehicle_id' => $request->vehicle_id,
                     'work_order_id' => $request->work_order_id,
-                    'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : null,
+                    'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : ($request->work_order_number ?? ($request->work_order_id ? \App\Models\WorkOrder\WorkOrder::find($request->work_order_id)?->number : null)),
                     'user_id' => $request->user_id,
                     'mileage' => $request->mileage,
                     'service_date' => $request->service_date ?? now()->format('Y-m-d'),
@@ -1841,18 +1898,21 @@ class SaleController extends Controller
     public function descargarRide(int $id)
     {
         try {
-            $sale = Sale::findOrFail($id);
+            $sale = Sale::with(['details', 'client', 'vehicle', 'workOrder'])->findOrFail($id);
 
-            if (!$sale->pdf_path || !Storage::exists($sale->pdf_path)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El RIDE (PDF) de esta factura aún no está disponible. Puede que la autorización esté en proceso.',
-                ], 404);
-            }
+            $sucursal = \App\Models\Config\Sucursale::find($sale->client->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+            $autorizacion = [
+                'numeroAutorizacion' => $sale->sri_access_key,
+                'fechaAutorizacion'  => $sale->sri_authorization_date ? $sale->sri_authorization_date->format('d/m/Y H:i:s') : null,
+                'estado'             => $sale->sri_status,
+            ];
+
+            $ridePath = app(\App\Services\SRI\ElectronicInvoiceService::class)->generarRide($sale, $sucursal, $autorizacion);
+            $sale->update(['pdf_path' => $ridePath]);
 
             $filename = 'RIDE_' . $sale->document_number . '.pdf';
 
-            return response(Storage::get($sale->pdf_path), 200, [
+            return response(Storage::get($ridePath), 200, [
                 'Content-Type'        => 'application/pdf',
                 'Content-Disposition' => "attachment; filename=\"{$filename}\"",
             ]);
@@ -1861,6 +1921,57 @@ class SaleController extends Controller
                 'success' => false,
                 'message' => 'Error al descargar el RIDE.',
                 'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Envía o reenvía la factura electrónica por correo al cliente.
+     */
+    public function enviarEmail(Request $request, int $id)
+    {
+        try {
+            $sale = Sale::with(['details', 'client', 'vehicle', 'workOrder'])->findOrFail($id);
+
+            if ($sale->document_type !== 'invoice') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo se pueden enviar por correo facturas electrónicas.',
+                ], 400);
+            }
+
+            $emailDestino = $request->input('email', $sale->client->email ?? null);
+            if (empty($emailDestino)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El cliente no tiene un correo electrónico configurado.',
+                ], 422);
+            }
+
+            // Asegurar que RIDE y XML existan
+            if (!$sale->pdf_path || !Storage::exists($sale->pdf_path)) {
+                app(\App\Services\SRI\ElectronicInvoiceService::class)->procesar($sale);
+                $sale->refresh();
+            }
+
+            $sent = app(\App\Services\SRI\ElectronicInvoiceService::class)->enviarPorCorreo($sale, $emailDestino);
+
+            if ($sent) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Factura enviada exitosamente a {$emailDestino}",
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se pudo enviar el correo. Verifique la configuración SMTP.',
+                ], 500);
+            }
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al enviar el correo: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1970,8 +2081,8 @@ class SaleController extends Controller
                     $newSale->technicians()->sync($quote->technicians->pluck('id'));
                 }
 
-                // Crear registro financiero si no es crédito pendiente
-                if ($request->payment_status !== 'pending') {
+                // Crear registro financiero si no es crédito pendiente ni factura de pruebas
+                if ($request->payment_status !== 'pending' && !$this->isTestEnvironmentInvoice($newSale)) {
                     $financeRecord = FinanceRecord::create([
                         'type' => FinanceRecord::TYPE_INCOME,
                         'amount' => $total,

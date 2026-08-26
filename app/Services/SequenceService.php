@@ -56,6 +56,27 @@ class SequenceService
     }
 
     /**
+     * Check if a candidate formatted number is already used in the database.
+     */
+    public static function isNumberTaken(string $type, string $candidateNumber): bool
+    {
+        if ($type === 'work_order') {
+            if (\Illuminate\Support\Facades\Schema::hasTable('work_orders')) {
+                return DB::table('work_orders')->where('number', $candidateNumber)->exists();
+            }
+        } elseif ($type === 'sale_note' || $type === 'invoice') {
+            if (\Illuminate\Support\Facades\Schema::hasTable('sales')) {
+                return DB::table('sales')->where('document_number', $candidateNumber)->exists();
+            }
+        } elseif ($type === 'quote_sequence') {
+            if (\Illuminate\Support\Facades\Schema::hasTable('quotes')) {
+                return DB::table('quotes')->where('document_number', $candidateNumber)->exists();
+            }
+        }
+        return false;
+    }
+
+    /**
      * PREVIEW the next formatted sequence number by type
      */
     public static function previewNumber(string $type, int $startValue = 0): string
@@ -74,7 +95,14 @@ class SequenceService
             $val = $dbMax;
         }
 
-        return self::formatNumber($val + 1, $prefix);
+        $next = $val + 1;
+        $candidate = self::formatNumber($next, $prefix);
+        while (self::isNumberTaken($type, $candidate)) {
+            $next++;
+            $candidate = self::formatNumber($next, $prefix);
+        }
+
+        return $candidate;
     }
 
     /**
@@ -111,22 +139,35 @@ class SequenceService
             
             // Check if the remaining part is a valid integer representation
             if ((string)$requestedInt === $parsedNum || str_pad((string)$requestedInt, strlen($parsedNum), '0', STR_PAD_LEFT) === $parsedNum) {
-                if ($requestedInt <= $current) {
-                    $next = $current + 1;
+                if ($requestedInt <= $current || self::isNumberTaken($type, $requestedNumber)) {
+                    $next = max($current, $requestedInt) + 1;
+                    $candidate = self::formatNumber($next, $prefix);
+                    while (self::isNumberTaken($type, $candidate)) {
+                        $next++;
+                        $candidate = self::formatNumber($next, $prefix);
+                    }
                     self::updateSequenceByType($type, $next, $sequence != null, $prefix);
-                    return self::formatNumber($next, $prefix);
+                    return $candidate;
                 } else {
                     self::updateSequenceByType($type, $requestedInt, $sequence != null, $prefix);
                     return self::formatNumber($requestedInt, $prefix);
                 }
             }
             
-            return $requestedNumber;
+            if (!self::isNumberTaken($type, $requestedNumber)) {
+                return $requestedNumber;
+            }
         }
 
         $next = $current + 1;
+        $candidate = self::formatNumber($next, $prefix);
+        while (self::isNumberTaken($type, $candidate)) {
+            $next++;
+            $candidate = self::formatNumber($next, $prefix);
+        }
+
         self::updateSequenceByType($type, $next, $sequence != null, $prefix);
-        return self::formatNumber($next, $prefix);
+        return $candidate;
     }
 
     private static function getDatabaseMaxNumber(string $type): ?int
@@ -153,32 +194,14 @@ class SequenceService
                     }
                     return $maxVal > 0 ? $maxVal : null;
                 }
-            } elseif ($type === 'sale_note') {
+            } elseif ($type === 'sale_note' || $type === 'invoice') {
                 if (\Illuminate\Support\Facades\Schema::hasTable('sales')) {
-                    $numbers = DB::table('sales')->where('document_type', 'sale_note')->pluck('document_number');
+                    $numbers = DB::table('sales')->where('document_type', $type)->pluck('document_number');
                     $maxVal = 0;
                     foreach ($numbers as $number) {
                         $parsedNum = $number;
-                        if ($number && str_starts_with(strtoupper($number), 'NV-')) {
-                            $parsedNum = substr($number, 3);
-                        }
-                        if ($parsedNum && preg_match('/^\d+$/', $parsedNum)) {
-                            $val = (int)$parsedNum;
-                            if ($val < 1000000) {
-                                $maxVal = max($maxVal, $val);
-                            }
-                        }
-                    }
-                    return $maxVal > 0 ? $maxVal : null;
-                }
-            } elseif ($type === 'invoice') {
-                if (\Illuminate\Support\Facades\Schema::hasTable('sales')) {
-                    $numbers = DB::table('sales')->where('document_type', 'invoice')->pluck('document_number');
-                    $maxVal = 0;
-                    foreach ($numbers as $number) {
-                        $parsedNum = $number;
-                        if ($number && str_starts_with(strtoupper($number), 'FAC-')) {
-                            $parsedNum = substr($number, 4);
+                        if ($number && preg_match('/^(?:NV|FAC|OT)-?(\d+)$/i', $number, $m)) {
+                            $parsedNum = $m[1];
                         }
                         if ($parsedNum && preg_match('/^\d+$/', $parsedNum)) {
                             $val = (int)$parsedNum;

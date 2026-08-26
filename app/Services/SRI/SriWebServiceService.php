@@ -3,11 +3,12 @@
 namespace App\Services\SRI;
 
 use Exception;
-use SoapClient;
-use SoapFault;
+use SimpleXMLElement;
+use Illuminate\Support\Facades\Log;
 
 /**
- * Comunicación con los Web Services SOAP del SRI Ecuador.
+ * Comunicación con los Web Services SOAP del SRI Ecuador mediante cURL HTTP POST.
+ * Compatible con cualquier instalación PHP (no requiere ext-soap).
  *
  * WS de Recepción:     RecepcionComprobantesOffline
  * WS de Autorización:  AutorizacionComprobantesOffline
@@ -22,6 +23,14 @@ class SriWebServiceService
     }
 
     /**
+     * Obtiene la URL del endpoint sin ?wsdl
+     */
+    private function getEndpointUrl(string $url): string
+    {
+        return preg_replace('/\?wsdl$/i', '', trim($url));
+    }
+
+    /**
      * Envía el comprobante firmado (en base64) al WS de recepción del SRI.
      *
      * @param  string $xmlFirmado XML firmado (string plano, NO base64)
@@ -31,37 +40,27 @@ class SriWebServiceService
      */
     public function enviarComprobante(string $xmlFirmado): array
     {
-        $wsdl = $this->ambiente === 2
+        $rawWsdl = $this->ambiente === 2
             ? (env('SRI_URL_RECEPCION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl')
             : (env('SRI_URL_RECEPCION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl');
 
+        $url = $this->getEndpointUrl($rawWsdl);
         $xmlBase64 = base64_encode($xmlFirmado);
 
-        try {
-            $context = stream_context_create([
-                'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                    'allow_self_signed' => true,
-                ],
-            ]);
+        $soapEnvelope = <<<XML
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.recepcion">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ec:validarComprobante>
+         <xml>{$xmlBase64}</xml>
+      </ec:validarComprobante>
+   </soapenv:Body>
+</soapenv:Envelope>
+XML;
 
-            $client = new SoapClient($wsdl, [
-                'connection_timeout' => 30,
-                'exceptions'         => true,
-                'trace'              => true,
-                'stream_context'     => $context,
-            ]);
+        $responseXml = $this->ejecutarSoapCurl($url, $soapEnvelope, 'validarComprobante');
 
-            $response = $client->validarComprobante([
-                'xml' => $xmlBase64,
-            ]);
-
-            return $this->parsearRespuestaRecepcion($response);
-
-        } catch (SoapFault $e) {
-            throw new Exception('Error SOAP en recepción SRI: ' . $e->getMessage(), 0, $e);
-        }
+        return $this->parsearRespuestaRecepcionXml($responseXml);
     }
 
     /**
@@ -74,78 +73,122 @@ class SriWebServiceService
      */
     public function autorizarComprobante(string $claveAcceso): array
     {
-        $wsdl = $this->ambiente === 2
+        $rawWsdl = $this->ambiente === 2
             ? (env('SRI_URL_AUTORIZACION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl')
             : (env('SRI_URL_AUTORIZACION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl');
 
-        try {
-            $context = stream_context_create([
-                'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                    'allow_self_signed' => true,
-                ],
-            ]);
+        $url = $this->getEndpointUrl($rawWsdl);
 
-            $client = new SoapClient($wsdl, [
-                'connection_timeout' => 30,
-                'exceptions'         => true,
-                'trace'              => true,
-                'stream_context'     => $context,
-            ]);
+        $soapEnvelope = <<<XML
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.autorizacion">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <ec:autorizacionComprobante>
+         <claveAccesoComprobante>{$claveAcceso}</claveAccesoComprobante>
+      </ec:autorizacionComprobante>
+   </soapenv:Body>
+</soapenv:Envelope>
+XML;
 
-            $response = $client->autorizacionComprobante([
-                'claveAccesoComprobante' => $claveAcceso,
-            ]);
+        $responseXml = $this->ejecutarSoapCurl($url, $soapEnvelope, 'autorizacionComprobante');
 
-            return $this->parsearRespuestaAutorizacion($response);
-
-        } catch (SoapFault $e) {
-            throw new Exception('Error SOAP en autorización SRI: ' . $e->getMessage(), 0, $e);
-        }
+        return $this->parsearRespuestaAutorizacionXml($responseXml);
     }
 
     /**
-     * Parsea la respuesta del WS de recepción.
+     * Ejecuta una petición SOAP directa usando cURL
+     *
+     * @throws Exception
      */
-    private function parsearRespuestaRecepcion(mixed $response): array
+    private function ejecutarSoapCurl(string $url, string $soapXml, string $action): string
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $soapXml);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: text/xml; charset=utf-8',
+            'SOAPAction: ""',
+            'Content-Length: ' . strlen($soapXml),
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 35);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error) {
+            Log::error("[SRI cURL Error] Acción {$action} en {$url}: {$error}");
+            throw new Exception("Error de conexión cURL al SRI ({$action}): {$error}");
+        }
+
+        if ($httpCode !== 200 && empty($response)) {
+            Log::error("[SRI HTTP Error] HTTP {$httpCode} en {$url}");
+            throw new Exception("El servidor del SRI respondió con código HTTP {$httpCode}");
+        }
+
+        return $response ?: '';
+    }
+
+    /**
+     * Parsea el XML recibido en la validación/recepción
+     */
+    private function parsearRespuestaRecepcionXml(string $rawXml): array
     {
         $result = ['estado' => 'DEVUELTA', 'errores' => []];
 
-        $respuesta = $response->RespuestaRecepcionComprobante
-            ?? $response->respuestaRecepcionComprobante
-            ?? null;
-
-        if (!$respuesta) {
-            $result['errores'][] = 'Respuesta inválida del SRI';
+        if (empty($rawXml)) {
+            $result['errores'][] = 'Respuesta vacía del servidor SRI';
             return $result;
         }
 
-        $estado = is_object($respuesta)
-            ? ($respuesta->estado ?? 'DEVUELTA')
-            : 'DEVUELTA';
+        try {
+            // Limpiar namespaces para facilitar lectura con SimpleXML
+            $cleanXml = preg_replace('/(<\/?)(\w+):([^>]*>)/', '$1$3', $rawXml);
+            $xml = new SimpleXMLElement($cleanXml);
 
-        $result['estado'] = strtoupper($estado);
-
-        // Capturar comprobantes devueltos con errores
-        if (!empty($respuesta->comprobantes->comprobante->mensajes->mensaje)) {
-            $mensajes = $respuesta->comprobantes->comprobante->mensajes->mensaje;
-            if (!is_array($mensajes)) {
-                $mensajes = [$mensajes];
+            $respuesta = $xml->xpath('//RespuestaRecepcionComprobante');
+            if (empty($respuesta)) {
+                $respuesta = $xml->xpath('//respuestaRecepcionComprobante');
             }
+
+            if (empty($respuesta)) {
+                $result['errores'][] = 'Estructura no reconocida en respuesta del SRI';
+                return $result;
+            }
+
+            $respObj = $respuesta[0];
+            $estado = (string) ($respObj->estado ?? 'DEVUELTA');
+            $result['estado'] = strtoupper(trim($estado));
+
+            // Extraer mensajes de error
+            $mensajes = $respObj->xpath('.//mensaje');
             foreach ($mensajes as $msg) {
-                $result['errores'][] = ($msg->tipo ?? 'ERROR') . ': ' . ($msg->mensaje ?? '') .
-                    (isset($msg->informacionAdicional) ? ' — ' . $msg->informacionAdicional : '');
+                $tipo = (string) ($msg->tipo ?? 'ERROR');
+                $texto = (string) ($msg->mensaje ?? '');
+                $info = (string) ($msg->informacionAdicional ?? '');
+                $full = trim($tipo . ': ' . $texto . ($info ? ' — ' . $info : ''));
+                if ($full) {
+                    $result['errores'][] = $full;
+                }
             }
-        }
 
-        return $result;
+            return $result;
+        } catch (\Throwable $e) {
+            Log::error("[SRI Recepción Parse Error]: " . $e->getMessage() . " | Raw: " . substr($rawXml, 0, 500));
+            $result['errores'][] = 'Error al procesar respuesta del SRI: ' . $e->getMessage();
+            return $result;
+        }
     }
 
     /**
-     * Parsea la respuesta del WS de autorización.
+     * Parsea el XML recibido en la autorización
      */
-    private function parsearRespuestaAutorizacion(mixed $response): array
+    private function parsearRespuestaAutorizacionXml(string $rawXml): array
     {
         $result = [
             'estado'             => 'NO_AUTORIZADA',
@@ -155,51 +198,55 @@ class SriWebServiceService
             'mensajes'           => [],
         ];
 
-        $respuesta = $response->RespuestaAutorizacionComprobante
-            ?? $response->respuestaAutorizacionComprobante
-            ?? null;
-
-        if (!$respuesta) {
-            $result['errores'][] = 'Respuesta inválida del SRI en autorización';
+        if (empty($rawXml)) {
+            $result['errores'][] = 'Respuesta vacía del servidor de autorización SRI';
             return $result;
         }
 
-        // El SRI devuelve un objeto o array de autorizaciones
-        $autorizaciones = $respuesta->autorizaciones->autorizacion ?? null;
-        if (!$autorizaciones) {
-            $result['estado']    = 'EN_PROCESO';
-            return $result;
-        }
+        try {
+            // Limpiar namespaces para facilitar lectura con SimpleXML
+            $cleanXml = preg_replace('/(<\/?)(\w+):([^>]*>)/', '$1$3', $rawXml);
+            $xml = new SimpleXMLElement($cleanXml);
 
-        if (!is_array($autorizaciones)) {
-            $autorizaciones = [$autorizaciones];
-        }
-
-        // Tomamos la primera autorización (una clave = un comprobante)
-        $auth = $autorizaciones[0];
-
-        $result['estado']             = strtoupper($auth->estado ?? 'NO_AUTORIZADA');
-        $result['fechaAutorizacion']  = $auth->fechaAutorizacion ?? null;
-        $result['numeroAutorizacion'] = $auth->numeroAutorizacion ?? null;
-
-        // Mensajes de error/advertencia
-        if (!empty($auth->mensajes->mensaje)) {
-            $mensajes = $auth->mensajes->mensaje;
-            if (!is_array($mensajes)) {
-                $mensajes = [$mensajes];
+            $autorizaciones = $xml->xpath('//autorizacion');
+            if (empty($autorizaciones)) {
+                // Verificar si está en proceso o sin comprobantes
+                $numeroComprobantes = $xml->xpath('//numeroComprobantes');
+                if (!empty($numeroComprobantes) && (int)$numeroComprobantes[0] === 0) {
+                    $result['estado'] = 'EN_PROCESO';
+                    return $result;
+                }
+                $result['estado'] = 'EN_PROCESO';
+                return $result;
             }
+
+            // Tomar la primera autorización
+            $auth = $autorizaciones[0];
+            $estado = (string) ($auth->estado ?? 'NO_AUTORIZADA');
+            $result['estado'] = strtoupper(trim($estado));
+            $result['fechaAutorizacion'] = !empty($auth->fechaAutorizacion) ? (string)$auth->fechaAutorizacion : null;
+            $result['numeroAutorizacion'] = !empty($auth->numeroAutorizacion) ? (string)$auth->numeroAutorizacion : null;
+
+            // Extraer mensajes
+            $mensajes = $auth->xpath('.//mensaje');
             foreach ($mensajes as $msg) {
-                $text = ($msg->tipo ?? 'INFO') . ': ' . ($msg->mensaje ?? '');
-                if (!empty($msg->informacionAdicional)) {
-                    $text .= ' — ' . $msg->informacionAdicional;
-                }
-                $result['mensajes'][] = $text;
-                if (($msg->tipo ?? '') === 'ERROR') {
-                    $result['errores'][] = $text;
+                $tipo = (string) ($msg->tipo ?? 'INFO');
+                $texto = (string) ($msg->mensaje ?? '');
+                $info = (string) ($msg->informacionAdicional ?? '');
+                $full = trim($tipo . ': ' . $texto . ($info ? ' — ' . $info : ''));
+                if ($full) {
+                    $result['mensajes'][] = $full;
+                    if (strtoupper($tipo) === 'ERROR') {
+                        $result['errores'][] = $full;
+                    }
                 }
             }
-        }
 
-        return $result;
+            return $result;
+        } catch (\Throwable $e) {
+            Log::error("[SRI Autorización Parse Error]: " . $e->getMessage() . " | Raw: " . substr($rawXml, 0, 500));
+            $result['errores'][] = 'Error al procesar autorización del SRI: ' . $e->getMessage();
+            return $result;
+        }
     }
 }

@@ -56,13 +56,25 @@ class XmlGeneratorService
             ? $sale->service_date->format('d/m/Y')
             : now()->format('d/m/Y'));
         $xml->writeElement('dirEstablecimiento',        $sucursal->address ?? '');
-        $xml->writeElement('contribuyenteEspecial',     $sucursal->contribuyente_especial ?? '');
+
+        if (!empty($sucursal->contribuyente_especial)) {
+            $xml->writeElement('contribuyenteEspecial', $sucursal->contribuyente_especial);
+        }
+
         $xml->writeElement('obligadoContabilidad',      strtoupper($sucursal->obligado_contabilidad ?? 'NO'));
         $xml->writeElement('tipoIdentificacionComprador', $this->tipoDocumento($cliente->type_document));
-        $xml->writeElement('guiaRemision',              '');
-        $xml->writeElement('razonSocialComprador',      $cliente->full_name ?? $cliente->name);
+
+        if (!empty($sale->guia_remision)) {
+            $xml->writeElement('guiaRemision', $sale->guia_remision);
+        }
+
+        $xml->writeElement('razonSocialComprador',      $this->sanitizar($cliente->full_name ?? $cliente->name));
         $xml->writeElement('identificacionComprador',   $cliente->n_document ?? '9999999999999');
-        $xml->writeElement('direccionComprador',        $cliente->address ?? '');
+
+        if (!empty($cliente->address)) {
+            $xml->writeElement('direccionComprador',    $this->sanitizar($cliente->address));
+        }
+
         $xml->writeElement('totalSinImpuestos',         number_format((float)$sale->subtotal, 2, '.', ''));
 
         // Descuento total
@@ -105,26 +117,43 @@ class XmlGeneratorService
         // ─── detalles ───────────────────────────────────────────────────
         $xml->startElement('detalles');
         foreach ($sale->details as $index => $detalle) {
+            $taxRate  = (float)($detalle->tax_rate ?? 15.00);
+            $qty      = (float)($detalle->quantity ?? 1);
+            $grossPvp = $qty * (float)$detalle->price;
+            $discount = (float)($detalle->discount ?? 0);
+            $itemTotal = max(0, $grossPvp - $discount);
+
+            if ($taxRate > 0) {
+                $precioUnitarioSinImpuesto = round((float)$detalle->price / (1 + ($taxRate / 100)), 4);
+                $subtotalDetalle = round($itemTotal / (1 + ($taxRate / 100)), 2);
+                $valorImpuesto   = round($itemTotal - $subtotalDetalle, 2);
+            } else {
+                $precioUnitarioSinImpuesto = (float)$detalle->price;
+                $subtotalDetalle = $itemTotal;
+                $valorImpuesto   = 0.00;
+            }
+
             $xml->startElement('detalle');
             $xml->writeElement('codigoPrincipal',    $detalle->product_id
                 ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT)
                 : str_pad($index + 1, 6, '0', STR_PAD_LEFT));
-            $xml->writeElement('codigoAuxiliar',     '');
-            $xml->writeElement('descripcion',        $this->sanitizar($detalle->description));
-            $xml->writeElement('cantidad',           number_format((float)$detalle->quantity, 2, '.', ''));
-            $xml->writeElement('precioUnitario',     number_format((float)$detalle->price, 2, '.', ''));
-            $xml->writeElement('descuento',          number_format((float)$detalle->discount, 2, '.', ''));
 
-            $subtotalDetalle = ((float)$detalle->quantity * (float)$detalle->price) - (float)$detalle->discount;
+            if (!empty($detalle->product?->code_aux)) {
+                $xml->writeElement('codigoAuxiliar', $this->sanitizar($detalle->product->code_aux));
+            }
+            $xml->writeElement('descripcion',        $this->sanitizar($detalle->description));
+            $xml->writeElement('cantidad',           number_format($qty, 2, '.', ''));
+            $xml->writeElement('precioUnitario',     number_format($precioUnitarioSinImpuesto, 4, '.', ''));
+            $xml->writeElement('descuento',          number_format($discount, 2, '.', ''));
             $xml->writeElement('precioTotalSinImpuesto', number_format($subtotalDetalle, 2, '.', ''));
 
             $xml->startElement('impuestos');
             $xml->startElement('impuesto');
             $xml->writeElement('codigo',            '2');
-            $xml->writeElement('codigoPorcentaje',  $this->codigoTarifa((float)$detalle->tax_rate));
-            $xml->writeElement('tarifa',            number_format((float)$detalle->tax_rate, 2, '.', ''));
+            $xml->writeElement('codigoPorcentaje',  $this->codigoTarifa($taxRate));
+            $xml->writeElement('tarifa',            number_format($taxRate, 2, '.', ''));
             $xml->writeElement('baseImponible',     number_format($subtotalDetalle, 2, '.', ''));
-            $xml->writeElement('valor',             number_format((float)$detalle->tax_value, 2, '.', ''));
+            $xml->writeElement('valor',             number_format($valorImpuesto, 2, '.', ''));
             $xml->endElement(); // impuesto
             $xml->endElement(); // impuestos
 
@@ -134,6 +163,13 @@ class XmlGeneratorService
 
         // ─── infoAdicional ──────────────────────────────────────────────
         $xml->startElement('infoAdicional');
+        $otNumber = $sale->work_order_number ?: ($sale->workOrder ? $sale->workOrder->number : null);
+        if ($otNumber) {
+            $xml->startElement('campoAdicional');
+            $xml->writeAttribute('nombre', 'ORDEN DE TRABAJO');
+            $xml->text($this->sanitizar($otNumber));
+            $xml->endElement();
+        }
         if ($cliente->email) {
             $xml->startElement('campoAdicional');
             $xml->writeAttribute('nombre', 'email');
@@ -235,10 +271,20 @@ class XmlGeneratorService
         $tarifas = [];
 
         foreach ($sale->details as $detalle) {
-            $rate    = (float) $detalle->tax_rate;
-            $codigo  = $this->codigoTarifa($rate);
-            $base    = ((float)$detalle->quantity * (float)$detalle->price) - (float)$detalle->discount;
-            $valor   = (float) $detalle->tax_value;
+            $taxRate  = (float)($detalle->tax_rate ?? 15.00);
+            $codigo   = $this->codigoTarifa($taxRate);
+            $qty      = (float)($detalle->quantity ?? 1);
+            $grossPvp = $qty * (float)$detalle->price;
+            $discount = (float)($detalle->discount ?? 0);
+            $itemTotal = max(0, $grossPvp - $discount);
+
+            if ($taxRate > 0) {
+                $base  = round($itemTotal / (1 + ($taxRate / 100)), 2);
+                $valor = round($itemTotal - $base, 2);
+            } else {
+                $base  = $itemTotal;
+                $valor = 0.00;
+            }
 
             if (!isset($tarifas[$codigo])) {
                 $tarifas[$codigo] = ['codigoPorcentaje' => $codigo, 'baseImponible' => 0.0, 'valor' => 0.0];

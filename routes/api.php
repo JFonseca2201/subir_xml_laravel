@@ -80,7 +80,7 @@ Route::group(
 
         // ============= RUTAS DE SUCURSALES ==============
         Route::get('sucursales/{id}', [SucursaleController::class, 'show']);
-        Route::put('sucursales/{id}', [SucursaleController::class, 'update']);
+        Route::match(['put', 'post'], 'sucursales/{id}', [SucursaleController::class, 'update']);
 
         // ============= RUTAS DE ALMACENES ==============
         Route::resource('warehouses', WarehouseController::class);
@@ -208,10 +208,11 @@ Route::group(
         Route::get('quotes/{id}/pdf', [QuoteController::class, 'generateSinglePDF']);
 
         // ============= RUTAS SRI FACTURACIÓN ELECTRÓNICA ==========
-        Route::post('sales/{id}/sri/reenviar', [SaleController::class, 'reenviarSri']);
-        Route::get('sales/{id}/sri/estado',    [SaleController::class, 'estadoSri']);
-        Route::get('sales/{id}/xml',           [SaleController::class, 'descargarXml']);
-        Route::get('sales/{id}/ride',          [SaleController::class, 'descargarRide']);
+        Route::post('sales/{id}/sri/reenviar',     [SaleController::class, 'reenviarSri']);
+        Route::get('sales/{id}/sri/estado',        [SaleController::class, 'estadoSri']);
+        Route::get('sales/{id}/xml',               [SaleController::class, 'descargarXml']);
+        Route::get('sales/{id}/ride',              [SaleController::class, 'descargarRide']);
+        Route::post('sales/{id}/sri/enviar-email', [SaleController::class, 'enviarEmail']);
 
 
         // ============= RUTAS DE DEVOLUCIONES ==========

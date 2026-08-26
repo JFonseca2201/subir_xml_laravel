@@ -52,7 +52,7 @@ class SucursaleController extends Controller
                 'ambiente' => 'required|in:1,2',
                 'tipo_emision' => 'required|in:1',
                 'firma_electronica' => 'nullable|string|max:255',
-                'firma_file' => 'nullable|file|mimes:p12,pfx,bin,octet-stream|max:5120',
+                'firma_file' => 'nullable|file|max:10240',
                 'password_firma' => 'nullable|string|max:255',
                 'logo' => 'nullable|string|max:255',
                 'obligado_contabilidad' => 'required|in:SI,NO,si,no',

@@ -4,644 +4,682 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <title>RIDE - Factura Electrónica {{ $sale->document_number }}</title>
+    <title>RIDE - Factura {{ $sale->document_number }}</title>
     <style>
+        /*  @page {
+            margin: 20mm 25mm 16mm 25mm;
+            size: letter portrait;
+        }
+
         * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        } */
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 7.5px;
+            color: #1e293b;
+            background: #ffffff;
+            line-height: 1.25;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 9px;
-            color: #1a1a1a;
-            background: #fff;
-        }
-
-        .page {
-            width: 100%;
-            padding: 12px 18px;
-        }
-
-        /* ── ENCABEZADO ─────────────────────────────────────────── */
-        .header {
-            width: 100%;
-            border: 1px solid #999;
-            margin-bottom: 6px;
-        }
-
-        .header-table {
+        /* ── HEADER TWO-COLUMN BOXES ───────────────────────────── */
+        .layout-table {
             width: 100%;
             border-collapse: collapse;
+            margin-bottom: 10px;
         }
 
-        .header-table td {
-            padding: 6px 8px;
-            vertical-align: middle;
+        .card-panel {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #ffffff;
+            box-sizing: border-box;
         }
 
-        .header-logo {
-            width: 28%;
-            border-right: 1px solid #999;
-            text-align: center;
+        .card-panel-shaded {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #f8fafc;
+            box-sizing: border-box;
         }
 
-        .header-logo img {
-            max-height: 60px;
-            max-width: 110px;
+        .logo-img {
+            max-height: 48px;
+            max-width: 150px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto 6px auto;
         }
 
-        .header-logo .empresa-nombre {
+        .company-title {
             font-size: 10px;
-            font-weight: bold;
-            margin-top: 4px;
-            color: #222;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
         }
 
-        .header-info {
-            width: 42%;
-            border-right: 1px solid #999;
-            font-size: 8.5px;
-            line-height: 1.6;
+        .company-subtitle {
+            font-size: 7px;
+            color: #64748b;
+            margin-bottom: 4px;
+            line-height: 1.2;
         }
 
-        .header-info .label {
-            font-weight: bold;
+        .company-detail {
+            font-size: 7.5px;
+            color: #334155;
+            margin-bottom: 1.5px;
         }
 
-        .header-doc {
-            width: 30%;
-            text-align: center;
-            font-size: 8.5px;
+        .company-detail strong {
+            color: #0f172a;
         }
 
-        .header-doc .doc-tipo {
-            font-weight: bold;
-            font-size: 11px;
-            color: #1a1a1a;
+        /* Right column headers */
+        .doc-ruc {
+            font-size: 10.5px;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .doc-type-badge {
+            display: inline-block;
+            font-size: 11.5px;
+            font-weight: 900;
+            color: #0284c7;
+            letter-spacing: 1.5px;
+            margin-bottom: 2px;
+        }
+
+        .doc-number {
+            font-size: 9.5px;
+            font-weight: 800;
+            color: #1e293b;
             margin-bottom: 4px;
         }
 
-        .header-doc .doc-numero {
-            font-size: 10px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .header-doc .doc-clave {
+        .auth-label {
             font-size: 7px;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .auth-value {
+            font-size: 6.5px;
+            font-family: monospace;
+            color: #0f172a;
             word-break: break-all;
-            margin-top: 5px;
-            border: 1px solid #ccc;
-            padding: 3px;
-            background: #f7f7f7;
+            margin-bottom: 3px;
         }
 
-        /* ── AUTORIZACIÓN ───────────────────────────────────────── */
-        .autorizacion-box {
-            border: 1.5px solid #2e7d32;
-            background: #f1f8e9;
-            padding: 5px 8px;
-            margin-bottom: 6px;
-            border-radius: 2px;
-        }
-
-        .autorizacion-box table {
+        .meta-grid {
             width: 100%;
             border-collapse: collapse;
+            margin-bottom: 4px;
         }
 
-        .autorizacion-box .estado {
-            font-weight: bold;
-            font-size: 10px;
-            color: #2e7d32;
+        .meta-grid td {
+            font-size: 7px;
+            padding: 1px 0;
         }
 
-        /* ── RECEPTOR ───────────────────────────────────────────── */
-        .receptor-box {
-            border: 1px solid #aaa;
-            margin-bottom: 6px;
+        .barcode-container {
+            text-align: center;
+            margin-top: 3px;
+            padding: 3px 4px 2px 4px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
         }
 
-        .receptor-box .section-title {
-            background: #455a64;
-            color: #fff;
-            padding: 3px 8px;
-            font-weight: bold;
-            font-size: 8.5px;
+        .access-key-text {
+            font-family: monospace;
+            font-size: 6.5px;
+            letter-spacing: 0.4px;
+            color: #1e293b;
+            margin-top: 2px;
+            text-align: center;
+        }
+
+        /* ── CARD BOXES (CLIENT & DETAILS) ─────────────────────── */
+        .card-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .card-header {
+            background: #0f172a;
+            color: #ffffff;
+            padding: 4px 10px;
+            font-size: 7.5px;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
-        .receptor-box table {
+        .card-body {
+            padding: 6px 10px;
+        }
+
+        .client-table {
             width: 100%;
             border-collapse: collapse;
-            padding: 4px 8px;
         }
 
-        .receptor-box table td {
-            padding: 2px 8px;
-            font-size: 8.5px;
+        .client-table td {
+            padding: 2px 3px;
+            font-size: 7.5px;
+            vertical-align: middle;
         }
 
-        .field-label {
-            font-weight: bold;
-            color: #444;
-            width: 120px;
+        .c-label {
+            font-weight: 700;
+            color: #475569;
+            width: 18%;
         }
 
-        /* ── DETALLES ────────────────────────────────────────────── */
-        .detalles-box {
-            border: 1px solid #aaa;
-            margin-bottom: 6px;
+        .c-val {
+            color: #0f172a;
+            width: 32%;
         }
 
-        .detalles-box .section-title {
-            background: #455a64;
-            color: #fff;
-            padding: 3px 8px;
-            font-weight: bold;
-            font-size: 8.5px;
+        /* ── DETAILS TABLE ─────────────────────────────────────── */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .items-table thead th {
+            background: #0f172a;
+            color: #ffffff;
+            font-size: 7px;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .detalles-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .detalles-table thead th {
-            background: #eceff1;
-            border-bottom: 1px solid #bbb;
             padding: 4px 6px;
             text-align: center;
-            font-size: 8px;
-            font-weight: bold;
-            color: #333;
+            border-right: 1px solid #334155;
+            letter-spacing: 0.3px;
         }
 
-        .detalles-table tbody td {
-            padding: 3px 6px;
-            border-bottom: 1px solid #e8e8e8;
-            font-size: 8.5px;
-            vertical-align: top;
+        .items-table thead th:last-child {
+            border-right: none;
         }
 
-        .detalles-table tbody tr:nth-child(even) {
-            background: #fafafa;
+        .items-table tbody td {
+            padding: 3.5px 6px;
+            font-size: 7.5px;
+            border-bottom: 1px solid #e2e8f0;
+            border-right: 1px solid #f1f5f9;
+            vertical-align: middle;
         }
 
-        .text-right {
-            text-align: right;
+        .items-table tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        .items-table tbody td:last-child {
+            border-right: none;
         }
 
         .text-center {
             text-align: center;
         }
 
-        /* ── TOTALES ─────────────────────────────────────────────── */
-        .totales-section {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 6px;
-        }
-
-        .totales-section td {
-            vertical-align: top;
-            padding: 0 4px;
-        }
-
-        .totales-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid #aaa;
-        }
-
-        .totales-table .row {
-            border-bottom: 1px solid #eee;
-        }
-
-        .totales-table .row td {
-            padding: 3px 8px;
-            font-size: 8.5px;
-        }
-
-        .totales-table .row .t-label {
-            font-weight: bold;
-            color: #444;
-        }
-
-        .totales-table .row .t-value {
+        .text-right {
             text-align: right;
-            font-weight: bold;
         }
 
-        .totales-table .row-total td {
-            background: #455a64;
-            color: #fff;
-            padding: 5px 8px;
-            font-size: 10px;
-            font-weight: bold;
+        .text-left {
+            text-align: left;
         }
 
-        /* ── INFORMACIÓN ADICIONAL ──────────────────────────────── */
-        .info-adicional-box {
-            border: 1px solid #aaa;
-            margin-bottom: 6px;
+        /* ── BOTTOM SECTION (INFO ADICIONAL + TOTALES) ─────────── */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        .info-adicional-box .section-title {
-            background: #455a64;
-            color: #fff;
-            padding: 3px 8px;
-            font-weight: bold;
-            font-size: 8.5px;
+        .info-table td {
+            padding: 2px 3px;
+            font-size: 7.5px;
+        }
+
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .totals-table td {
+            padding: 2.5px 8px;
+            font-size: 7.5px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .totals-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .tot-label {
+            font-weight: 700;
+            color: #334155;
             text-transform: uppercase;
         }
 
-        .info-adicional-box table {
-            width: 100%;
-            border-collapse: collapse;
+        .tot-val {
+            text-align: right;
+            font-weight: 800;
+            color: #0f172a;
         }
 
-        .info-adicional-box table td {
-            padding: 2px 8px;
-            font-size: 8.5px;
+        .tot-highlight {
+            background: #0f172a !important;
+            color: #ffffff !important;
+        }
+
+        .tot-highlight td {
+            padding: 4.5px 8px;
+            font-size: 9px;
+            font-weight: 900;
+            color: #ffffff;
+        }
+
+        .tot-highlight .tot-val {
+            color: #ffffff;
         }
 
         /* ── FOOTER ─────────────────────────────────────────────── */
         .footer {
             text-align: center;
-            font-size: 7.5px;
-            color: #888;
-            margin-top: 8px;
-            border-top: 1px solid #ddd;
+            font-size: 6.5px;
+            color: #64748b;
+            margin-top: 6px;
+            border-top: 1px solid #e2e8f0;
             padding-top: 4px;
+            line-height: 1.3;
         }
     </style>
 </head>
 
 <body>
-    <div class="page">
+    @php
+    // Cargar logo en base64 para renderizado perfecto
+    $logoBase64 = '';
+    $logoCandidates = [
+    $sucursal->logo ? storage_path('app/public/' . str_replace('storage/', '', ltrim($sucursal->logo, '/'))) : null,
+    $sucursal->logo ? public_path($sucursal->logo) : null,
+    public_path('assets/img/brand/logo.png'),
+    public_path('assets/img/brand/logo.jpeg'),
+    public_path('logo.png'),
+    ];
+    foreach ($logoCandidates as $cand) {
+    if ($cand && file_exists($cand) && filesize($cand) > 0) {
+    $ext = strtolower(pathinfo($cand, PATHINFO_EXTENSION));
+    $mime = in_array($ext, ['png', 'gif', 'svg']) ? "image/{$ext}" : 'image/jpeg';
+    $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($cand));
+    break;
+    }
+    }
 
-        {{-- ═══ ENCABEZADO ════════════════════════════════════════════════ --}}
-        <div class="header">
-            <table class="header-table">
-                <tr>
-                    {{-- Logo + Nombre --}}
-                    <td class="header-logo">
-                        @if ($sucursal->logo && file_exists(storage_path('app/' . $sucursal->logo)))
-                            <img src="{{ storage_path('app/public/' . ltrim($sucursal->logo, '/')) }}" alt="Logo">
-                        @endif
-                        <div class="empresa-nombre">{{ $sucursal->trade_name ?? $sucursal->name }}</div>
-                        <div style="font-size:8px; color:#666;">{{ $sucursal->name }}</div>
-                    </td>
+    $estab = str_pad($sucursal->establishment_code ?? '001', 3, '0', STR_PAD_LEFT);
+    $ptoEmi = str_pad($sucursal->emission_point_code ?? '001', 3, '0', STR_PAD_LEFT);
+    $secuencial = str_pad(preg_replace('/\D/', '', $sale->document_number), 9, '0', STR_PAD_LEFT);
+    $numeroFormateado = "{$estab}-{$ptoEmi}-{$secuencial}";
 
-                    {{-- Datos del Emisor --}}
-                    <td class="header-info">
-                        <div><span class="label">RUC:</span> {{ $sucursal->ruc }}</div>
-                        <div><span class="label">Dirección Matriz:</span> {{ $sucursal->address }}</div>
-                        <div><span class="label">Teléfono:</span> {{ $sucursal->phone }}</div>
-                        <div><span class="label">Email:</span> {{ $sucursal->email }}</div>
-                        <div><span class="label">Oblig. Contabilidad:</span>
-                            {{ strtoupper($sucursal->obligado_contabilidad ?? 'NO') }}</div>
-                        @if ($sucursal->contribuyente_especial)
-                            <div><span class="label">Contribuyente Especial Nro.:</span>
-                                {{ $sucursal->contribuyente_especial }}</div>
-                        @endif
-                    </td>
+    $fechaEmision = $sale->service_date
+    ? \Carbon\Carbon::parse($sale->service_date)->format('d/m/Y')
+    : now()->format('d/m/Y');
 
-                    {{-- Tipo y Número de Documento --}}
-                    <td class="header-doc">
-                        <div class="doc-tipo">FACTURA</div>
-                        <div class="doc-numero">{{ $sale->document_number }}</div>
-                        <div style="font-size:7.5px; margin-top:4px; color:#555;">
-                            <strong>Ambiente:</strong>
-                            {{ env('SRI_AMBIENTE', 1) == 1 ? 'PRUEBAS' : 'PRODUCCIÓN' }}
-                        </div>
-                        <div style="font-size:7.5px; color:#555;">
-                            <strong>Emisión:</strong> NORMAL
-                        </div>
-                        <div class="doc-clave">
-                            <strong>CLAVE DE ACCESO</strong><br>
-                            @if(!empty($sale->sri_access_key))
-                                <div style="margin-top: 3px; margin-bottom: 3px;">
-                                    {!! \App\Helpers\PdfHelper::generateBarcodeHTML($sale->sri_access_key, 28) !!}
-                                </div>
-                            @endif
-                            <span style="font-size: 7px; font-family: monospace;">{{ $sale->sri_access_key }}</span>
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        </div>
+    $isAutorizada = in_array(strtoupper($sale->sri_status ?? ''), ['AUTORIZADA', 'AUTORIZADO']);
+    $fechaAutorizacion = $autorizacion['fechaAutorizacion']
+    ?? ($sale->sri_authorization_date ? \Carbon\Carbon::parse($sale->sri_authorization_date)->format('d/m/Y H:i:s') : null);
+    $numeroAutorizacion = $autorizacion['numeroAutorizacion'] ?? $sale->sri_access_key;
 
-        {{-- ═══ ESTADO DE AUTORIZACIÓN ═════════════════════════════════════ --}}
-        @if ($sale->sri_status === 'AUTORIZADA')
-            <div class="autorizacion-box">
-                <table>
-                    <tr>
-                        <td>
-                            <span class="estado">✔ AUTORIZADO POR EL SRI</span>
-                        </td>
-                        <td style="text-align:right;">
-                            <strong>Fecha de Autorización:</strong>
-                            {{ $autorizacion['fechaAutorizacion'] ?? ($sale->sri_authorization_date ? $sale->sri_authorization_date->format('d/m/Y H:i:s') : '-') }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="font-size:8px; color:#555; padding-top:2px;">
-                            <strong>Nro. Autorización:</strong>
-                            {{ $autorizacion['numeroAutorizacion'] ?? $sale->sri_access_key }}
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        @else
-            <div
-                style="border:1px solid #e57373; background:#ffebee; padding:4px 8px; margin-bottom:6px; font-size:8.5px;">
-                <strong style="color:#c62828;">Estado SRI:</strong> {{ $sale->sri_status ?? 'PENDIENTE' }}
-                @if ($sale->sri_error)
-                    — {{ $sale->sri_error }}
-                @endif
-            </div>
-        @endif
+    // Resolución de Marca de Vehículo desde el catálogo de marcas (ID => Nombre)
+    $vehicleBrands = config('vehicle_brands', []);
+    $brandRaw = $sale->vehicle->brand ?? '';
+    $brandName = '';
+    if (!empty($brandRaw)) {
+    $brandName = is_numeric($brandRaw) ? ($vehicleBrands[(int)$brandRaw] ?? $brandRaw) : $brandRaw;
+    $brandName = ucwords(strtolower($brandName));
+    }
+    $vehicleModel = $sale->vehicle->model ?? '';
+    $vehicleFull = trim("{$brandName} {$vehicleModel}");
+    @endphp
 
-        {{-- ═══ DATOS DEL RECEPTOR ═════════════════════════════════════════ --}}
-        <div class="receptor-box">
-            <div class="section-title">Datos del Receptor</div>
-            <table>
-                <tr>
-                    <td class="field-label">Razón Social / Nombres:</td>
-                    <td>{{ $sale->client->full_name ?? $sale->client->name }}</td>
-                    <td class="field-label">Identificación:</td>
-                    <td>{{ $sale->client->n_document }}</td>
-                </tr>
-                <tr>
-                    <td class="field-label">Tipo Identificación:</td>
-                    <td>
-                        @switch(strtolower($sale->client->type_document ?? ''))
-                            @case('ruc')
-                                RUC
-                            @break
+    <div class="container">
 
-                            @case('pasaporte')
-                                Pasaporte
-                            @break
-
-                            @default
-                                Cédula de Identidad
-                        @endswitch
-                    </td>
-                    <td class="field-label">Fecha Emisión:</td>
-                    <td>
-                        {{ $sale->service_date ? \Carbon\Carbon::parse($sale->service_date)->format('d/m/Y') : now()->format('d/m/Y') }}
-                    </td>
-                </tr>
-                <tr>
-                    <td class="field-label">Dirección:</td>
-                    <td colspan="3">{{ $sale->client->address ?? 'N/A' }}</td>
-                </tr>
-                @if ($sale->vehicle)
-                    <tr>
-                        <td class="field-label">Vehículo:</td>
-                        <td>{{ $sale->vehicle->brand ?? '' }} {{ $sale->vehicle->model ?? '' }} — Placa:
-                            {{ $sale->vehicle->license_plate ?? 'N/A' }}</td>
-                        @if ($sale->mileage)
-                            <td class="field-label">Kilometraje:</td>
-                            <td>{{ number_format($sale->mileage) }} km</td>
-                        @else
-                            <td colspan="2"></td>
-                        @endif
-                    </tr>
-                @endif
-            </table>
-        </div>
-
-        {{-- ═══ DETALLES ════════════════════════════════════════════════════ --}}
-        <div class="detalles-box">
-            <div class="section-title">Detalle de Productos / Servicios</div>
-            <table class="detalles-table">
-                <thead>
-                    <tr>
-                        <th style="width:8%">Código</th>
-                        <th style="width:36%; text-align:left;">Descripción</th>
-                        <th style="width:8%">Cant.</th>
-                        <th style="width:10%">P. Unit.</th>
-                        <th style="width:8%">Desc.</th>
-                        <th style="width:10%">Subtotal</th>
-                        <th style="width:7%">IVA %</th>
-                        <th style="width:13%">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($sale->details as $index => $detalle)
-                        @php
-                            $base = (float) $detalle->quantity * (float) $detalle->price - (float) $detalle->discount;
-                            $taxValue = (float) $detalle->tax_value ?? $base * ((float) $detalle->tax_rate / 100);
-                            $total = $base + $taxValue;
-                        @endphp
-                        <tr>
-                            <td class="text-center">
-                                {{ $detalle->product_id ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT) : str_pad($index + 1, 6, '0', STR_PAD_LEFT) }}
-                            </td>
-                            <td>{{ $detalle->description }}</td>
-                            <td class="text-center">{{ number_format((float) $detalle->quantity, 2) }}</td>
-                            <td class="text-right">${{ number_format((float) $detalle->price, 2) }}</td>
-                            <td class="text-right">${{ number_format((float) $detalle->discount, 2) }}</td>
-                            <td class="text-right">${{ number_format($base, 2) }}</td>
-                            <td class="text-center">{{ number_format((float) $detalle->tax_rate, 0) }}%</td>
-                            <td class="text-right">${{ number_format($total, 2) }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-
-        {{-- ═══ TOTALES ════════════════════════════════════════════════════ --}}
-        <table class="totales-section">
+        {{-- ═══ CABECERA SRI (2 COLUMNAS OFICIALES) ════════════════════════ --}}
+        <table class="layout-table">
             <tr>
-                {{-- Información de Pago --}}
-                <td style="width:55%;">
-                    <div style="border:1px solid #aaa; font-size:8.5px;">
-                        <div class="section-title"
-                            style="background:#455a64; color:#fff; padding:3px 8px; font-weight:bold; font-size:8.5px; text-transform:uppercase;">
-                            Forma de Pago
-                        </div>
-                        <table style="width:100%; border-collapse:collapse;">
-                            <thead>
-                                <tr>
-                                    <th style="padding:3px 8px; background:#eceff1; text-align:left; font-size:8px;">
-                                        Forma de Pago</th>
-                                    <th style="padding:3px 8px; background:#eceff1; text-align:right; font-size:8px;">
-                                        Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @php
-                                    $ridePayments = collect();
-                                    if (isset($sale->financeRecord) && $sale->financeRecord->paymentDistributions->count() > 0) {
-                                        $ridePayments = $sale->financeRecord->paymentDistributions;
-                                    }
-                                @endphp
-                                @if ($ridePayments->isNotEmpty())
-                                    @foreach ($ridePayments as $pDist)
-                                        @php
-                                            $pMethod = ucfirst(strtolower($pDist->payment_method ?? 'Efectivo'));
-                                            $bName = '';
-                                            if (isset($pDist->account) && !empty($pDist->account->bank_name)) {
-                                                $bName = $pDist->account->bank_name;
-                                            } elseif (isset($pDist->account) && !empty($pDist->account->name) && $pDist->account->type === 'bank') {
-                                                $bName = $pDist->account->name;
-                                            } elseif (isset($pDist->account_id)) {
-                                                $acc = \App\Models\Finance\Account::find($pDist->account_id);
-                                                if ($acc) {
-                                                    $bName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
-                                                }
-                                            }
-                                        @endphp
-                                        <tr>
-                                            <td style="padding:3px 8px;">
-                                                {{ $pMethod }}
-                                                @if (!empty($bName))
-                                                    <br><span style="font-size: 6.5px; color: #777; font-weight: normal; text-transform: uppercase;">{{ $bName }}</span>
-                                                @endif
-                                            </td>
-                                            <td style="padding:3px 8px; text-align:right; font-weight:bold;">
-                                                ${{ number_format((float) $pDist->amount, 2) }}
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                @else
-                                    <tr>
-                                        <td style="padding:3px 8px;">
-                                            @php
-                                                $rawMethod = strtolower($sale->payment_method ?? 'efectivo');
-                                                $pMethod = match($rawMethod) {
-                                                    'cash' => 'Efectivo',
-                                                    'transfer' => 'Transferencia',
-                                                    'card' => 'Tarjeta',
-                                                    'credit' => 'Crédito',
-                                                    default => ucfirst($sale->payment_method ?? 'Efectivo'),
-                                                };
-                                                $bName = '';
-                                                if ($rawMethod === 'transferencia' || $rawMethod === 'transfer') {
-                                                    $mov = \Illuminate\Support\Facades\DB::table('financial_movements')
-                                                        ->where('movable_type', 'App\\Models\\Sales\\Sale')
-                                                        ->where('movable_id', $sale->id)
-                                                        ->first();
-                                                    if ($mov && $mov->account_id) {
-                                                        $acc = \App\Models\Finance\Account::find($mov->account_id);
-                                                        if ($acc) {
-                                                            $bName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
-                                                        }
-                                                    }
-                                                }
-                                            @endphp
-                                            {{ $pMethod }}
-                                            @if (!empty($bName))
-                                                <br><span style="font-size: 6.5px; color: #777; font-weight: normal; text-transform: uppercase;">{{ $bName }}</span>
-                                            @endif
-                                        </td>
-                                        <td style="padding:3px 8px; text-align:right; font-weight:bold;">
-                                            ${{ number_format((float) $sale->total, 2) }}
-                                        </td>
-                                    </tr>
-                                @endif
-                            </tbody>
-                        </table>
+                {{-- COLUMNA IZQUIERDA: DATOS DE LA EMPRESA --}}
+                <td style="width: 48%; vertical-align: top;">
+                    @if (!empty($logoBase64))
+                    <div style="text-align: center; margin-bottom: 6px;">
+                        <img src="{{ $logoBase64 }}" style="max-height: 55px; max-width: 170px; object-fit: contain;" alt="Logo">
                     </div>
-
-                    @if ($sale->observations)
-                        <div style="border:1px solid #ddd; margin-top:5px; font-size:8px; padding:4px 8px;">
-                            <strong>Observaciones:</strong> {{ $sale->observations }}
-                        </div>
                     @endif
+                    <div class="card-panel">
+                        <div class="company-title">{{ $sucursal->trade_name ?? $sucursal->name ?? 'LUXURY EVYS' }}</div>
+                        @if (!empty($sucursal->trade_name) && $sucursal->trade_name !== $sucursal->name)
+                        <div class="company-subtitle">{{ $sucursal->name }}</div>
+                        @endif
+
+                        <div class="company-detail" style="margin-top: 4px;">
+                            <strong>Dirección Matriz:</strong> {{ $sucursal->address ?? 'SUR DE QUITO' }}
+                        </div>
+                        @if (!empty($sucursal->branch_address) && $sucursal->branch_address !== $sucursal->address)
+                        <div class="company-detail">
+                            <strong>Dirección Sucursal:</strong> {{ $sucursal->branch_address }}
+                        </div>
+                        @endif
+                        <div class="company-detail">
+                            <strong>Teléfono:</strong> {{ $sucursal->phone ?? '0999179988' }}
+                        </div>
+                        <div class="company-detail">
+                            <strong>Email:</strong> {{ $sucursal->email ?? 'comp.luxuryevys@gmail.com' }}
+                        </div>
+                        <div class="company-detail" style="margin-top: 2px;">
+                            <strong>Obligado a Llevar Contabilidad:</strong>
+                            <span style="font-weight: 800; color: #0284c7;">{{ strtoupper($sucursal->obligado_contabilidad ?? 'SI') }}</span>
+                        </div>
+                        @if (!empty($sucursal->contribuyente_especial))
+                        <div class="company-detail">
+                            <strong>Contribuyente Especial Nro:</strong> {{ $sucursal->contribuyente_especial }}
+                        </div>
+                        @endif
+                        @if (!empty($sucursal->regimen_rimpe))
+                        <div class="company-detail" style="color: #0369a1; font-weight: 800;">
+                            CONTRIBUYENTE RÉGIMEN RIMPE
+                        </div>
+                        @endif
+                    </div>
                 </td>
 
-                {{-- Resumen de Totales --}}
-                <td style="width:5%;"></td>
-                <td style="width:40%; vertical-align:top;">
-                    <table class="totales-table">
-                        @if ((float) $sale->subtotal_iva_0 > 0)
-                            <tr class="row">
-                                <td class="t-label">Subtotal IVA 0%</td>
-                                <td class="t-value">${{ number_format((float) $sale->subtotal_iva_0, 2) }}</td>
+                {{-- ESPACIADOR CENTRAL --}}
+                <td style="width: 4%;"></td>
+
+                {{-- COLUMNA DERECHA: DATOS TRIBUTARIOS Y FISCALES --}}
+                <td style="width: 48%; vertical-align: top;">
+                    <div class="card-panel-shaded">
+                        <div class="doc-ruc">R.U.C.: {{ $sucursal->ruc ?? '1793192550001' }}</div>
+                        <div class="doc-type-badge">FACTURA</div>
+                        <div class="doc-number">No. {{ $numeroFormateado }}</div>
+
+                        <div class="auth-label">NÚMERO DE AUTORIZACIÓN:</div>
+                        <div class="auth-value">{{ $numeroAutorizacion ?: 'PENDIENTE' }}</div>
+
+                        <table class="meta-grid">
+                            <tr>
+                                <td style="width: 50%;">
+                                    <strong>FECHA Y HORA DE AUTORIZACIÓN:</strong>
+                                </td>
+                                <td style="width: 50%;">
+                                    {{ $fechaAutorizacion ?: ($isAutorizada ? $fechaEmision : 'PENDIENTE') }}
+                                </td>
                             </tr>
-                        @endif
-                        @if ((float) $sale->subtotal_iva_15 > 0)
-                            <tr class="row">
-                                <td class="t-label">Subtotal IVA 15%</td>
-                                <td class="t-value">${{ number_format((float) $sale->subtotal_iva_15, 2) }}</td>
+                            <tr>
+                                <td><strong>AMBIENTE:</strong></td>
+                                <td style="font-weight: 800; color: {{ env('SRI_AMBIENTE', 1) == 1 ? '#d97706' : '#16a34a' }};">
+                                    {{ env('SRI_AMBIENTE', 1) == 1 ? 'PRUEBAS' : 'PRODUCCIÓN' }}
+                                </td>
                             </tr>
-                        @endif
-                        @if ((float) $sale->subtotal_no_objeto > 0)
-                            <tr class="row">
-                                <td class="t-label">No Objeto de IVA</td>
-                                <td class="t-value">${{ number_format((float) $sale->subtotal_no_objeto, 2) }}</td>
+                            <tr>
+                                <td><strong>EMISIÓN:</strong></td>
+                                <td>NORMAL</td>
                             </tr>
-                        @endif
-                        @if ((float) $sale->subtotal_exento > 0)
-                            <tr class="row">
-                                <td class="t-label">Exento de IVA</td>
-                                <td class="t-value">${{ number_format((float) $sale->subtotal_exento, 2) }}</td>
-                            </tr>
-                        @endif
-                        <tr class="row">
-                            <td class="t-label">Subtotal sin Impuestos</td>
-                            <td class="t-value">${{ number_format((float) $sale->subtotal, 2) }}</td>
+                        </table>
+
+                        <div class="barcode-container">
+                            <div class="auth-label" style="margin-top: 0; margin-bottom: 1px;">CLAVE DE ACCESO</div>
+                            @if (!empty($sale->sri_access_key))
+                            <div style="padding: 1px 0;">
+                                {!! \App\Helpers\PdfHelper::generateBarcodeHTML($sale->sri_access_key, 22) !!}
+                            </div>
+                            <div class="access-key-text">{{ $sale->sri_access_key }}</div>
+                            @else
+                            <div style="color: #94a3b8; font-size: 6.5px;">SIN CLAVE DE ACCESO</div>
+                            @endif
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        {{-- ═══ DATOS DEL RECEPTOR / CLIENTE ════════════════════════════════ --}}
+        <div class="card-box">
+            <div class="card-header">Información del Comprador</div>
+            <div class="card-body">
+                <table class="client-table">
+                    <tr>
+                        <td class="c-label">Razón Social / Nombres:</td>
+                        <td class="c-val" style="font-weight: 800;">{{ $sale->client->full_name ?? $sale->client->name ?? 'CONSUMIDOR FINAL' }}</td>
+                        <td class="c-label">Identificación:</td>
+                        <td class="c-val" style="font-weight: 800;">{{ $sale->client->n_document ?? '9999999999999' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="c-label">Fecha Emisión:</td>
+                        <td class="c-val">{{ $fechaEmision }}</td>
+                        <td class="c-label">Tipo Identificación:</td>
+                        <td class="c-val">
+                            @php
+                            $typeDoc = strtolower($sale->client->type_document ?? '');
+                            $tipoDocNombre = match ($typeDoc) {
+                            'ruc' => 'RUC',
+                            'cedula' => 'Cédula de Identidad',
+                            'pasaporte' => 'Pasaporte',
+                            default => 'Cédula / Identificación',
+                            };
+                            @endphp
+                            {{ $tipoDocNombre }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="c-label">Dirección:</td>
+                        <td class="c-val" colspan="3">{{ $sale->client->address ?? 'SUR DE QUITO' }}</td>
+                    </tr>
+                    @if ($sale->vehicle)
+                    <tr>
+                        <td class="c-label">Vehículo / Placa:</td>
+                        <td class="c-val">
+                            {{ $vehicleFull ?: 'Vehículo' }}
+                            @if(!empty($sale->vehicle->license_plate))
+                            — <strong>Placa: {{ $sale->vehicle->license_plate }}</strong>
+                            @endif
+                        </td>
+                        <td class="c-label">Kilometraje:</td>
+                        <td class="c-val">{{ $sale->mileage ? number_format($sale->mileage) . ' km' : 'N/A' }}</td>
+                    </tr>
+                    @endif
+                </table>
+            </div>
+        </div>
+
+        {{-- ═══ TABLA DE DETALLES (PRODUCTOS / SERVICIOS) ════════════════════ --}}
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">Cod. Principal</th>
+                    <th style="width: 8%;">Cant.</th>
+                    <th style="width: 44%; text-align: left;">Descripción</th>
+                    <th style="width: 12%;">Precio Unit.</th>
+                    <th style="width: 10%;">Descuento</th>
+                    <th style="width: 14%;">Precio Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($sale->details as $index => $detalle)
+                @php
+                $taxRate = (float)($detalle->tax_rate ?? 15.00);
+                $qty = (float)($detalle->quantity ?? 1);
+                $grossPvp = $qty * (float)$detalle->price;
+                $discount = (float)($detalle->discount ?? 0);
+                $itemTotal = max(0, $grossPvp - $discount);
+
+                if ($taxRate > 0) {
+                $unitSinImpuesto = round((float)$detalle->price / (1 + ($taxRate / 100)), 4);
+                $subtotalItem = round($itemTotal / (1 + ($taxRate / 100)), 2);
+                } else {
+                $unitSinImpuesto = (float)$detalle->price;
+                $subtotalItem = $itemTotal;
+                }
+                $codPrincipal = $detalle->product_id ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT) : str_pad($index + 1, 6, '0', STR_PAD_LEFT);
+                @endphp
+                <tr>
+                    <td class="text-center">{{ $codPrincipal }}</td>
+                    <td class="text-center">{{ number_format($qty, 2) }}</td>
+                    <td class="text-left" style="font-weight: 600;">{{ $detalle->description }}</td>
+                    <td class="text-right">${{ number_format($unitSinImpuesto, 4) }}</td>
+                    <td class="text-right">${{ number_format($discount, 2) }}</td>
+                    <td class="text-right" style="font-weight: 700;">${{ number_format($subtotalItem, 2) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        {{-- ═══ SECCIÓN INFERIOR: INFORMACIÓN ADICIONAL Y TOTALES ═══════════ --}}
+        <table class="layout-table" style="margin-bottom: 4px;">
+            <tr>
+                {{-- INFORMACIÓN ADICIONAL & FORMAS DE PAGO --}}
+                <td style="width: 52%; vertical-align: top;">
+                    <div class="card-box" style="margin-bottom: 6px;">
+                        <div class="card-header">Información Adicional</div>
+                        <div class="card-body">
+                            <table class="info-table">
+                                @php
+                                    $otNumber = $sale->work_order_number ?: ($sale->workOrder->number ?? null);
+                                @endphp
+                                @if (!empty($otNumber))
+                                <tr>
+                                    <td style="font-weight: 700; width: 25%; color: #475569;">Orden de Trabajo:</td>
+                                    <td style="color: #0f172a; font-weight: 700;">{{ $otNumber }}</td>
+                                </tr>
+                                @endif
+                                <tr>
+                                    <td style="font-weight: 700; width: 25%; color: #475569;">Email:</td>
+                                    <td style="color: #0f172a;">{{ $sale->client->email ?? 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: #475569;">Teléfono:</td>
+                                    <td style="color: #0f172a;">{{ $sale->client->phone ?? $sale->client->cellphone ?? 'N/A' }}</td>
+                                </tr>
+                                @if (!empty($sale->observations))
+                                <tr>
+                                    <td style="font-weight: 700; color: #475569;">Observaciones:</td>
+                                    <td style="color: #0f172a;">{{ $sale->observations }}</td>
+                                </tr>
+                                @endif
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card-box" style="margin-bottom: 0;">
+                        <div class="card-header">Formas de Pago</div>
+                        <div class="card-body" style="padding: 4px 10px;">
+                            <table class="info-table">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <th style="text-align: left; font-size: 7px; padding-bottom: 2px; color: #64748b;">Forma de Pago</th>
+                                        <th style="text-align: right; font-size: 7px; padding-bottom: 2px; color: #64748b;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="font-size: 7.5px; font-weight: 600; color: #1e293b;">{{ $sale->payment_method ?? 'Sin utilización del sistema financiero' }}</td>
+                                        <td style="text-align: right; font-weight: 800; font-size: 8px; color: #0f172a;">${{ number_format((float)$sale->total, 2) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </td>
+
+                {{-- ESPACIADOR CENTRAL --}}
+                <td style="width: 4%;"></td>
+
+                {{-- TOTALES OFICIALES SRI --}}
+                <td style="width: 44%; vertical-align: top;">
+                    @php
+                    $subtotalSinImp = (float)$sale->subtotal;
+                    $descuentoTotal = (float)$sale->details->sum('discount');
+                    $iva15 = (float)($sale->total - $sale->subtotal);
+                    $importeTotal = (float)$sale->total;
+                    @endphp
+                    <table class="totals-table">
+                        <tr>
+                            <td class="tot-label">Subtotal 15%</td>
+                            <td class="tot-val">${{ number_format($subtotalSinImp, 2) }}</td>
                         </tr>
-                        <tr class="row">
-                            <td class="t-label">IVA ({{ number_format(15, 0) }}%)</td>
-                            <td class="t-value">${{ number_format((float) $sale->tax_amount, 2) }}</td>
+                        <tr>
+                            <td class="tot-label">Subtotal 0%</td>
+                            <td class="tot-val">$0.00</td>
                         </tr>
-                        @php
-                            $descTotal = $sale->details->sum('discount');
-                        @endphp
-                        @if ($descTotal > 0)
-                            <tr class="row">
-                                <td class="t-label">Descuento Total</td>
-                                <td class="t-value">-${{ number_format((float) $descTotal, 2) }}</td>
-                            </tr>
-                        @endif
-                        <tr class="row-total">
-                            <td>IMPORTE TOTAL</td>
-                            <td style="text-align:right;">${{ number_format((float) $sale->total, 2) }}</td>
+                        <tr>
+                            <td class="tot-label">Subtotal No Objeto de IVA</td>
+                            <td class="tot-val">$0.00</td>
+                        </tr>
+                        <tr>
+                            <td class="tot-label">Subtotal Exento de IVA</td>
+                            <td class="tot-val">$0.00</td>
+                        </tr>
+                        <tr>
+                            <td class="tot-label">Subtotal Sin Impuestos</td>
+                            <td class="tot-val">${{ number_format($subtotalSinImp, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="tot-label">Total Descuento</td>
+                            <td class="tot-val">${{ number_format($descuentoTotal, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="tot-label">IVA 15%</td>
+                            <td class="tot-val">${{ number_format($iva15, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="tot-label">Propina</td>
+                            <td class="tot-val">$0.00</td>
+                        </tr>
+                        <tr class="tot-highlight">
+                            <td class="tot-label">VALOR TOTAL</td>
+                            <td class="tot-val">${{ number_format($importeTotal, 2) }}</td>
                         </tr>
                     </table>
                 </td>
             </tr>
         </table>
 
-        {{-- ═══ INFORMACIÓN ADICIONAL ══════════════════════════════════════ --}}
-        @if ($sale->client->email || $sale->client->phone)
-            <div class="info-adicional-box">
-                <div class="section-title">Información Adicional</div>
-                <table>
-                    @if ($sale->client->email)
-                        <tr>
-                            <td class="field-label">Email:</td>
-                            <td>{{ $sale->client->email }}</td>
-                        </tr>
-                    @endif
-                    @if ($sale->client->phone)
-                        <tr>
-                            <td class="field-label">Teléfono:</td>
-                            <td>{{ $sale->client->phone }}</td>
-                        </tr>
-                    @endif
-                </table>
-            </div>
-        @endif
-
-        {{-- ═══ FOOTER ══════════════════════════════════════════════════════ --}}
+        {{-- ═══ PIE DE PÁGINA ════════════════════════════════════════════════ --}}
         <div class="footer">
-            Este documento es una Representación Impresa de un Comprobante Electrónico.
-            Para verificar su validez, ingrese la clave de acceso en:
-            <strong>https://sri.gob.ec</strong> &nbsp;|&nbsp;
-            Generado: {{ now()->format('d/m/Y H:i') }}
+            Este documento es una representación impresa de un Comprobante Electrónico (RIDE) de acuerdo al Art. 21 del Reglamento de Comprobantes de Venta y Retención.<br>
+            Para consultar la validez del comprobante, ingrese a <strong>https://sri.gob.ec</strong>.
         </div>
 
     </div>

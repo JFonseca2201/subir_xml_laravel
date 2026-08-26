@@ -4,6 +4,7 @@ namespace App\Models\Sales;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Sales\SaleDetail;
 use App\Traits\RecordsFinancialMovements;
 
@@ -12,7 +13,7 @@ use App\Traits\HasAttachments;
 
 class Sale extends Model
 {
-    use HasFactory, RecordsFinancialMovements, SerializeDateLocal, HasAttachments;
+    use HasFactory, SoftDeletes, RecordsFinancialMovements, SerializeDateLocal, HasAttachments;
 
     protected $fillable = [
         'document_type',

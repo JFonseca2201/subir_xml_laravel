@@ -8,6 +8,11 @@
     <meta name="format-detection" content="telephone=no">
 
     <style>
+        @page {
+            margin: 10mm 12mm;
+            size: letter portrait;
+        }
+
         *,
         *::before,
         *::after {
@@ -655,7 +660,7 @@
             }
 
             .print-container {
-                padding: 10mm 20mm 20mm 20mm !important;
+                padding: 0 !important;
                 box-shadow: none !important;
                 width: 100% !important;
                 max-width: 100% !important;
@@ -831,48 +836,48 @@
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">CIUDAD/PROVINCIA:</span>
                             @php
-                                $provinceName = $sale->client->provincia ?? '';
-                                $districtName = $sale->client->distrito ?? '';
+                            $provinceName = $sale->client->provincia ?? '';
+                            $districtName = $sale->client->distrito ?? '';
 
-                                if (empty($provinceName) || is_numeric($provinceName) || empty($districtName) || is_numeric($districtName)) {
-                                    $provId = $sale->client->ubigeo_provincia;
-                                    $distId = $sale->client->ubigeo_distrito;
-                                    
-                                    $path = storage_path('app/ubigeo.json');
-                                    if (file_exists($path)) {
-                                        $json = file_get_contents($path);
-                                        $data = json_decode($json, true) ?? [];
-                                        
-                                        foreach ($data as $region) {
-                                            if (isset($region['provinces'])) {
-                                                foreach ($region['provinces'] as $prov) {
-                                                    if ($prov['id'] === $provId) {
-                                                        if (empty($provinceName) || is_numeric($provinceName)) {
-                                                            $provinceName = $prov['name'];
-                                                        }
-                                                        if (isset($prov['districts'])) {
-                                                            foreach ($prov['districts'] as $dist) {
-                                                                if ($dist['id'] === $distId) {
-                                                                    if (empty($districtName) || is_numeric($districtName)) {
-                                                                        $districtName = $dist['name'];
-                                                                    }
-                                                                    break 3;
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                            if (empty($provinceName) || is_numeric($provinceName) || empty($districtName) || is_numeric($districtName)) {
+                            $provId = $sale->client->ubigeo_provincia;
+                            $distId = $sale->client->ubigeo_distrito;
 
-                                if (empty($provinceName) || is_numeric($provinceName)) {
-                                    $provinceName = 'PICHINCHA';
-                                }
-                                if (empty($districtName) || is_numeric($districtName)) {
-                                    $districtName = 'QUITO';
-                                }
+                            $path = storage_path('app/ubigeo.json');
+                            if (file_exists($path)) {
+                            $json = file_get_contents($path);
+                            $data = json_decode($json, true) ?? [];
+
+                            foreach ($data as $region) {
+                            if (isset($region['provinces'])) {
+                            foreach ($region['provinces'] as $prov) {
+                            if ($prov['id'] === $provId) {
+                            if (empty($provinceName) || is_numeric($provinceName)) {
+                            $provinceName = $prov['name'];
+                            }
+                            if (isset($prov['districts'])) {
+                            foreach ($prov['districts'] as $dist) {
+                            if ($dist['id'] === $distId) {
+                            if (empty($districtName) || is_numeric($districtName)) {
+                            $districtName = $dist['name'];
+                            }
+                            break 3;
+                            }
+                            }
+                            }
+                            }
+                            }
+                            }
+                            }
+                            }
+                            }
+
+                            if (empty($provinceName) || is_numeric($provinceName)) {
+                            $provinceName = 'PICHINCHA';
+                            }
+                            if (empty($districtName) || is_numeric($districtName)) {
+                            $districtName = 'QUITO';
+                            }
                             @endphp
                             {{ strtoupper($provinceName) }}/{{ strtoupper($districtName) }}
                         </div>
@@ -889,7 +894,7 @@
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">MARCA:</span>
-                            {{ $sale->vehicle->brand ?? 'Sin información' }}
+                            {{ $sale->vehicle->brand ? (config('vehicle_brands')[(int)$sale->vehicle->brand] ?? $sale->vehicle->brand) : 'Sin información' }}
                         </div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">MODELO:</span>
@@ -1125,51 +1130,51 @@
                             @php
                             $metodo = 'Efectivo';
                             if (isset($payment->paymentMethod->name)) {
-                                $metodo = $payment->paymentMethod->name;
+                            $metodo = $payment->paymentMethod->name;
                             } elseif (isset($payment->method_payment)) {
-                                $metodo = $payment->method_payment;
+                            $metodo = $payment->method_payment;
                             } elseif (isset($payment->payment_method)) {
-                                $metodo = $payment->payment_method;
+                            $metodo = $payment->payment_method;
                             } elseif (isset($payment->payment_method_id)) {
-                                $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
-                                    ->where('id', $payment->payment_method_id)
-                                    ->first();
-                                if ($pm) {
-                                    $metodo = $pm->name;
-                                }
+                            $pm = \Illuminate\Support\Facades\DB::table('payment_methods')
+                            ->where('id', $payment->payment_method_id)
+                            ->first();
+                            if ($pm) {
+                            $metodo = $pm->name;
+                            }
                             }
 
                             // Obtener el nombre del banco o cuenta bancaria
                             $bankName = '';
                             if (isset($payment->account) && !empty($payment->account->bank_name)) {
-                                $bankName = $payment->account->bank_name;
+                            $bankName = $payment->account->bank_name;
                             } elseif (isset($payment->account) && !empty($payment->account->name) && $payment->account->type === 'bank') {
-                                $bankName = $payment->account->name;
+                            $bankName = $payment->account->name;
                             } elseif (!empty($payment->bank_name)) {
-                                $bankName = $payment->bank_name;
+                            $bankName = $payment->bank_name;
                             } elseif (isset($payment->account_id)) {
-                                $acc = \App\Models\Finance\Account::find($payment->account_id);
-                                if ($acc) {
-                                    $bankName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
-                                }
+                            $acc = \App\Models\Finance\Account::find($payment->account_id);
+                            if ($acc) {
+                            $bankName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
+                            }
                             }
 
                             if (empty($bankName) && (strtolower($metodo) === 'transferencia' || strtolower($metodo) === 'transfer')) {
-                                $mov = \Illuminate\Support\Facades\DB::table('financial_movements')
-                                    ->where('movable_type', 'App\\Models\\Sales\\Sale')
-                                    ->where('movable_id', $sale->id)
-                                    ->first();
-                                if ($mov && $mov->account_id) {
-                                    $acc = \App\Models\Finance\Account::find($mov->account_id);
-                                    if ($acc) {
-                                        $bankName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
-                                    }
-                                }
+                            $mov = \Illuminate\Support\Facades\DB::table('financial_movements')
+                            ->where('movable_type', 'App\\Models\\Sales\\Sale')
+                            ->where('movable_id', $sale->id)
+                            ->first();
+                            if ($mov && $mov->account_id) {
+                            $acc = \App\Models\Finance\Account::find($mov->account_id);
+                            if ($acc) {
+                            $bankName = $acc->bank_name ?? ($acc->type === 'bank' ? $acc->name : '');
+                            }
+                            }
                             }
                             @endphp
                             {{ $metodo }}
                             @if (!empty($bankName))
-                                <br><span style="font-size: 6.5px; color: #777; font-weight: normal; text-transform: uppercase; letter-spacing: 0.2px;">{{ $bankName }}</span>
+                            <br><span style="font-size: 6.5px; color: #777; font-weight: normal; text-transform: uppercase; letter-spacing: 0.2px;">{{ $bankName }}</span>
                             @endif
                         </td>
 

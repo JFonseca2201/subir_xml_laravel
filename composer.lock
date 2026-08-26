@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e0438345276846461111d56450564c52",
+    "content-hash": "14f9f405bc13440df079f453ed357c02",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -367,6 +367,56 @@
                 }
             ],
             "time": "2025-08-20T19:15:30+00:00"
+        },
+        {
+            "name": "dazza-dev/sri-signer",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/dazza-dev/sri-signer.git",
+                "reference": "07ef242b023b70fba876f7afdc58363a4917a572"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/dazza-dev/sri-signer/zipball/07ef242b023b70fba876f7afdc58363a4917a572",
+                "reference": "07ef242b023b70fba876f7afdc58363a4917a572",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0",
+                "ramsey/uuid": "^4.9"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DazzaDev\\SriSigner\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Andres Daza",
+                    "email": "adaza90@outlook.com"
+                }
+            ],
+            "description": "Paquete para firmar XML de documentos electrónicos (Factura, Guía de remisión, Nota crédito, Nota débito y Comprobante de retención) basado en las especificaciones del Servicio de Rentas Internas (SRI) de Ecuador.",
+            "keywords": [
+                "Firma",
+                "ecuador",
+                "factura electronica",
+                "firmar xml",
+                "signer",
+                "sri",
+                "xades-bes"
+            ],
+            "support": {
+                "issues": "https://github.com/dazza-dev/sri-signer/issues",
+                "source": "https://github.com/dazza-dev/sri-signer/tree/v1.0.0"
+            },
+            "time": "2025-10-13T19:41:32+00:00"
         },
         {
             "name": "dflydev/dot-access-data",
