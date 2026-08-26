@@ -483,6 +483,8 @@ class SaleController extends Controller
 
     /**
      * Verifica si la venta es una factura emitida en ambiente de pruebas (SRI ambiente 1).
+     * En ambiente de producción (ambiente 2) retorna false para que se realicen las operaciones en las cuentas respectivas.
+     * En ambiente de pruebas (ambiente 1) retorna true y no se realizan cambios en las cuentas.
      */
     private function isTestEnvironmentInvoice(Sale $sale): bool
     {
@@ -490,17 +492,15 @@ class SaleController extends Controller
             return false;
         }
 
-        $ambienteEnv = (int) env('SRI_AMBIENTE', 1);
-        if ($ambienteEnv === 1) {
-            return true;
+        // Obtener la sucursal emisora asociada a la venta
+        $sucursalId = $sale->client->sucursale_id ?? optional($sale->user)->sucursale_id ?? 1;
+        $sucursal = \App\Models\Config\Sucursale::find($sucursalId) ?? \App\Models\Config\Sucursale::first();
+
+        if ($sucursal && !empty($sucursal->ambiente)) {
+            return (int) $sucursal->ambiente === 1; // 1: Pruebas, 2: Producción
         }
 
-        $sucursal = \App\Models\Config\Sucursale::first();
-        if ($sucursal && (int)$sucursal->ambiente === 1) {
-            return true;
-        }
-
-        return false;
+        return (int) env('SRI_AMBIENTE', 1) === 1;
     }
 
     /**

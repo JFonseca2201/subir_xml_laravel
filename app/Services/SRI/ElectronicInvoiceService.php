@@ -43,6 +43,9 @@ class ElectronicInvoiceService
         $sale->load(['details.product', 'client', 'vehicle', 'user']);
 
         $sucursal = $this->obtenerSucursal($sale);
+        if (!empty($sucursal->ambiente)) {
+            $this->sriWs->setAmbiente((int) $sucursal->ambiente);
+        }
 
         // ── Paso 1: Calcular subtotales por tarifa ───────────────────────
         $subtotales = $this->calcularSubtotalesPorTarifa($sale);

@@ -449,8 +449,11 @@
                             </tr>
                             <tr>
                                 <td><strong>AMBIENTE:</strong></td>
-                                <td style="font-weight: 800; color: {{ env('SRI_AMBIENTE', 1) == 1 ? '#d97706' : '#16a34a' }};">
-                                    {{ env('SRI_AMBIENTE', 1) == 1 ? 'PRUEBAS' : 'PRODUCCIÓN' }}
+                                @php
+                                    $ambVal = (int) ($sucursal->ambiente ?? env('SRI_AMBIENTE', 1));
+                                @endphp
+                                <td style="font-weight: 800; color: {{ $ambVal === 1 ? '#d97706' : '#16a34a' }};">
+                                    {{ $ambVal === 1 ? 'PRUEBAS' : 'PRODUCCIÓN' }}
                                 </td>
                             </tr>
                             <tr>

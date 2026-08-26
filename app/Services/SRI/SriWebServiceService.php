@@ -17,9 +17,22 @@ class SriWebServiceService
 {
     private int $ambiente;
 
-    public function __construct()
+    public function __construct(?int $ambiente = null)
     {
-        $this->ambiente = (int) env('SRI_AMBIENTE', 1);
+        if ($ambiente !== null) {
+            $this->ambiente = $ambiente;
+        } else {
+            $sucursal = \App\Models\Config\Sucursale::first();
+            $this->ambiente = $sucursal && !empty($sucursal->ambiente)
+                ? (int) $sucursal->ambiente
+                : (int) env('SRI_AMBIENTE', 1);
+        }
+    }
+
+    public function setAmbiente(int $ambiente): self
+    {
+        $this->ambiente = $ambiente;
+        return $this;
     }
 
     /**
