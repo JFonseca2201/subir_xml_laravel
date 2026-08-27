@@ -190,6 +190,11 @@
             font-weight: bold;
         }
 
+        .badge-partial {
+            color: #0284c7;
+            font-weight: bold;
+        }
+
         .badge-pending {
             color: #dc2626;
             font-weight: bold;
@@ -428,8 +433,8 @@
                     </td>
                     <td class="text-right" style="font-weight: bold; color: {{ $tx['due_amount'] > 0 ? '#dc2626' : '#64748b' }};">
                         ${{ number_format($tx['due_amount'], 2) }}
-                        <div class="{{ $tx['payment_status'] === 'paid' ? 'badge-paid' : 'badge-pending' }}" style="font-size: 7px; margin-top: 1px;">
-                            {{ $tx['payment_status'] === 'paid' ? 'PAGADO' : 'PENDIENTE' }}
+                        <div class="{{ $tx['payment_status'] === 'paid' ? 'badge-paid' : ($tx['payment_status'] === 'partial' ? 'badge-partial' : 'badge-pending') }}" style="font-size: 7px; margin-top: 1px;">
+                            {{ $tx['payment_status'] === 'paid' ? 'PAGADO' : ($tx['payment_status'] === 'partial' ? 'PARCIAL' : 'PENDIENTE') }}
                         </div>
                     </td>
                 </tr>

@@ -42,6 +42,23 @@ class Supplier extends Model
         return $this->hasMany(Invoice::class , 'tax_id');
     }
 
+    public function creditBalances()
+    {
+        return $this->hasMany(SupplierCreditBalance::class, 'supplier_id');
+    }
+
+    public function availableCreditBalances()
+    {
+        return $this->hasMany(SupplierCreditBalance::class, 'supplier_id')
+            ->whereIn('status', ['available', 'partially_used'])
+            ->where('remaining_balance', '>', 0);
+    }
+
+    public function getAvailableCreditAmountAttribute(): float
+    {
+        return (float) $this->availableCreditBalances()->sum('remaining_balance');
+    }
+
     public function pedidos()
     {
         return $this->hasMany(PedidoDistribuidor::class, 'distribuidor_id');

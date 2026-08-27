@@ -196,38 +196,99 @@ class DashboardController extends Controller
                 ];
             });
 
-        // 7. Top Suppliers by YTD Purchase Invoices
-        $topSuppliers = Invoice::select('supplier_id', DB::raw('SUM(total) as total_purchases'))
-            ->whereBetween('created_at', [$startOfYear, $endOfYear])
+        // 7. Top Proveedores a los que más se les ha comprado (Historial de Compras y Facturas)
+        $allPurchasesTotal = (float) Invoice::sum('total');
+        $topSuppliers = Invoice::select(
+            'supplier_id',
+            DB::raw('COUNT(id) as total_invoices'),
+            DB::raw('SUM(total) as total_purchases'),
+            DB::raw('MAX(issue_date) as last_purchase_date')
+        )
+            ->whereNotNull('supplier_id')
             ->groupBy('supplier_id')
             ->orderByDesc('total_purchases')
-            ->take(5)
-            ->with('supplier:id,name')
+            ->take(6)
+            ->with('supplier:id,name,ruc,phone,email')
             ->get()
-            ->map(function ($item) {
-                $supplierName = 'Proveedor Desconocido';
+            ->map(function ($item) use ($allPurchasesTotal) {
+                $supplierName = 'Proveedor General';
+                $ruc = '';
                 if ($item->supplier) {
                     $supplierName = $item->supplier->name;
+                    $ruc = $item->supplier->ruc ?: ($item->supplier->tax_id ?: '');
                 }
+                $totalSpent = round((float) $item->total_purchases, 2);
+                $percentage = $allPurchasesTotal > 0 ? round(($totalSpent / $allPurchasesTotal) * 100, 1) : 0;
+
                 return [
-                    'name' => $supplierName ?: 'Proveedor Desconocido',
-                    'total' => round((float) $item->total_purchases, 2)
+                    'id' => $item->supplier_id,
+                    'name' => $supplierName,
+                    'ruc' => $ruc,
+                    'invoices_count' => (int) $item->total_invoices,
+                    'total' => $totalSpent,
+                    'percentage' => $percentage,
+                    'last_purchase' => $item->last_purchase_date ? (is_string($item->last_purchase_date) ? substr($item->last_purchase_date, 0, 10) : $item->last_purchase_date->format('Y-m-d')) : null,
                 ];
             });
 
-        // 8. Work Orders Report (Rendimiento de Técnicos / OTs)
+        // 7.5. Productos Más Comprados a Proveedores (Basado en ítems de compras e inventario)
+        $topPurchasedQuery = DB::table('invoice_items')
+            ->select(
+                'description',
+                DB::raw('SUM(quantity) as total_quantity'),
+                DB::raw('SUM(total) as total_spent'),
+                DB::raw('AVG(unit_price) as avg_price')
+            )
+            ->whereNotNull('description')
+            ->where('description', '!=', '')
+            ->groupBy('description')
+            ->orderByDesc('total_quantity')
+            ->take(5)
+            ->get();
+
+        $allPurchasedQty = (float) DB::table('invoice_items')->sum('quantity');
+        $topQtySum = (float) $topPurchasedQuery->sum('total_quantity');
+        $otherQty = max(0.0, round($allPurchasedQty - $topQtySum, 2));
+
+        $topPurchasedProducts = $topPurchasedQuery->map(function ($item) use ($allPurchasedQty) {
+            $qty = round((float) $item->total_quantity, 2);
+            $spent = round((float) $item->total_spent, 2);
+            $percent = $allPurchasedQty > 0 ? round(($qty / $allPurchasedQty) * 100, 1) : 0;
+
+            return [
+                'description' => $item->description,
+                'total_quantity' => $qty,
+                'total_spent' => $spent,
+                'avg_price' => round((float) $item->avg_price, 2),
+                'percentage' => $percent,
+            ];
+        })->toArray();
+
+        if ($otherQty > 0) {
+            $otherSpent = (float) DB::table('invoice_items')
+                ->whereNotIn('description', $topPurchasedQuery->pluck('description'))
+                ->sum('total');
+
+            $topPurchasedProducts[] = [
+                'description' => 'Otros Repuestos / Insumos',
+                'total_quantity' => $otherQty,
+                'total_spent' => round($otherSpent, 2),
+                'avg_price' => 0.0,
+                'percentage' => $allPurchasedQty > 0 ? round(($otherQty / $allPurchasedQty) * 100, 1) : 0,
+            ];
+        }
+
+        // 8. Work Orders Report (Rendimiento de Técnicos / OTs 100% Real)
         // OT Totales grouped by status
         $otTotales = \App\Models\WorkOrder\WorkOrder::select('status', DB::raw('count(*) as count'))
-            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->groupBy('status')
             ->get()
             ->map(function ($item) {
-                return ['status' => $item->status, 'count' => $item->count];
+                return ['status' => $item->status ?: 'Sin estado', 'count' => (int) $item->count];
             });
 
         // SLA (Días para cerrar OTs)
         $slas = \App\Models\WorkOrder\WorkOrder::whereIn('status', ['CERRADA_OK', 'FINALIZADA', 'FINALIZADO'])
-            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->get(['created_at', 'updated_at']);
         
         $slaBuckets = [
@@ -238,15 +299,17 @@ class DashboardController extends Controller
         ];
         
         foreach ($slas as $sla) {
-            $days = $sla->created_at->diffInDays($sla->updated_at);
-            if ($days <= 1) {
-                $slaBuckets['1 día']++;
-            } elseif ($days <= 3) {
-                $slaBuckets['2-3 días']++;
-            } elseif ($days <= 7) {
-                $slaBuckets['4-7 días']++;
-            } else {
-                $slaBuckets['+8 días']++;
+            if ($sla->created_at && $sla->updated_at) {
+                $days = $sla->created_at->diffInDays($sla->updated_at);
+                if ($days <= 1) {
+                    $slaBuckets['1 día']++;
+                } elseif ($days <= 3) {
+                    $slaBuckets['2-3 días']++;
+                } elseif ($days <= 7) {
+                    $slaBuckets['4-7 días']++;
+                } else {
+                    $slaBuckets['+8 días']++;
+                }
             }
         }
 
@@ -255,26 +318,20 @@ class DashboardController extends Controller
             ->join('work_orders', 'work_order_technicians.work_order_id', '=', 'work_orders.id')
             ->join('employees', 'work_order_technicians.employee_id', '=', 'employees.id')
             ->select('employees.first_name', 'employees.last_name', 'work_orders.status', DB::raw('count(*) as count'))
-            ->whereBetween('work_orders.created_at', [$startOfMonth, $endOfMonth])
             ->groupBy('employees.id', 'employees.first_name', 'employees.last_name', 'work_orders.status')
             ->get();
 
         $techniciansData = [];
         foreach ($technicianReportRaw as $row) {
-            // First Name only to keep chart labels small, plus initial of surname
             $techName = trim($row->first_name . ' ' . substr($row->last_name, 0, 1) . '.');
             if (!isset($techniciansData[$techName])) {
                 $techniciansData[$techName] = [];
             }
-            $techniciansData[$techName][$row->status] = $row->count;
+            $techniciansData[$techName][$row->status ?: 'General'] = (int) $row->count;
         }
 
-        // Satisfacción (Mocked as there's no DB field currently)
-        $satisfactionMock = [
-            ['status' => 'Muy conforme', 'count' => rand(70, 90)],
-            ['status' => 'Conforme', 'count' => rand(10, 20)],
-            ['status' => 'Disconforme', 'count' => rand(0, 5)],
-        ];
+        // Resumen de Compras Globales
+        $totalPurchasesCount = Invoice::count();
 
         return response()->json([
             'status' => 200,
@@ -287,11 +344,12 @@ class DashboardController extends Controller
                     'monthly_sales' => round($totalSales, 2),
                     'monthly_expenses' => round($totalExpenses, 2),
                     'monthly_balance' => round($monthlyBalance, 2),
+                    'total_purchases_spent' => round($allPurchasesTotal, 2),
+                    'total_purchases_count' => $totalPurchasesCount,
                     'work_orders_report' => [
                         'ot_totales' => $otTotales,
                         'sla' => $slaBuckets,
                         'technicians' => $techniciansData,
-                        'satisfaction' => $satisfactionMock
                     ]
                 ],
                 'sales_by_type' => [
@@ -299,6 +357,7 @@ class DashboardController extends Controller
                     'services' => round($serviceRevenue, 2)
                 ],
                 'top_products' => $topProducts,
+                'top_purchased_products' => $topPurchasedProducts,
                 'sales_trend' => $salesTrendArray,
                 'cash_flow' => $cashFlowArray,
                 'top_clients' => $topClients,

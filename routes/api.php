@@ -39,6 +39,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\IncomeProductController;
 use App\Http\Controllers\Invoice\InvoiceFileController;
 use App\Http\Controllers\ParallelTransactionController;
+use App\Http\Controllers\Purchases\PurchaseManualController;
 use App\Http\Controllers\SparePartRequestController;
 use App\Http\Controllers\Supplier\PedidoDistribuidorController;
 use App\Http\Controllers\UnitTypeController;
@@ -97,13 +98,20 @@ Route::group(
 
         // ============= RUTAS DE FACTURAS / COMPRAS ==============
         Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
-        Route::post('purchases/manual', [\App\Http\Controllers\Purchases\PurchaseManualController::class, 'store']);
+        Route::post('purchases/manual', [PurchaseManualController::class, 'store']);
         Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
         Route::get('invoices/config', [InvoiceXmlImportController::class, 'config']);
         Route::get('/invoices/{id}', [InvoiceXmlImportController::class, 'show']);
         Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'update']);
         Route::delete('/invoices/{id}', [InvoiceXmlImportController::class, 'destroy']);
         Route::put('/invoice-items/{id}', [InvoiceXmlImportController::class, 'updateType']);
+
+        // ============= RUTAS DE CONCILIACIÓN Y SALDOS A FAVOR DE PROVEEDORES ==============
+        Route::get('supplier-reconciliation/pending-invoices/{supplierId}', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'getPendingInvoices']);
+        Route::get('supplier-reconciliation/credit-balances/{supplierId}', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'getAvailableCredits']);
+        Route::post('supplier-reconciliation/reconcile-payment', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'reconcilePayment']);
+        Route::get('supplier-credit-balances', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'indexCredits']);
+        Route::post('supplier-credit-balances/{id}/refund', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'refundCredit']);
 
         // ============= RUTAS DE PARTNERS ==============
         Route::post('partners/index', [PartnerController::class, 'index']);
