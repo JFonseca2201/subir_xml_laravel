@@ -318,7 +318,7 @@ class SaleController extends Controller
                     'vehicle_id' => $request->vehicle_id,
                     'work_order_id' => $request->work_order_id,
                     'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : ($request->work_order_number ?? ($request->work_order_id ? \App\Models\WorkOrder\WorkOrder::find($request->work_order_id)?->number : null)),
-                    'user_id' => $request->user_id,
+                    'user_id' => auth()->id() ?? $request->user_id ?? 1,
                     'mileage' => $request->mileage,
                     'service_date' => $request->service_date ?? now()->format('Y-m-d'),
                     'subtotal' => $request->subtotal,
@@ -351,12 +351,11 @@ class SaleController extends Controller
                         'total'       => $base,
                     ]);
 
-                    // Deducir stock solo si no es cotización y es producto físico
+                    // Deducir stock de forma atómica solo si no es cotización y es producto físico
                     if ($request->document_type !== 'quote' && !$isDraft && isset($item['product_id']) && $item['product_id']) {
                         $product = ModelsProduct::find($item['product_id']);
                         if ($product && $product->item_type == 1) {
-                            $product->stock -= $item['quantity'];
-                            $product->save();
+                            ModelsProduct::where('id', $item['product_id'])->decrement('stock', $item['quantity']);
                         }
                     }
                 }
@@ -394,8 +393,12 @@ class SaleController extends Controller
 
             // ── Despachar job de Facturación Electrónica SRI ─────────────
             if ($sale->document_type === 'invoice' && $sale->status !== 'draft') {
-                ProcessElectronicInvoice::dispatch($sale->id);
-                Log::info("[SRI] Job despachado para venta #{$sale->id}");
+                try {
+                    ProcessElectronicInvoice::dispatch($sale->id);
+                    Log::info("[SRI] Job despachado para venta #{$sale->id}");
+                } catch (\Throwable $e) {
+                    Log::error("[SRI] Error al despachar factura electrónica para venta #{$sale->id}: " . $e->getMessage());
+                }
             }
 
 
@@ -435,12 +438,8 @@ class SaleController extends Controller
                             new \App\Mail\System\TestNotificationMail($data, $pdfRawData, $pdfFileName)
                         );
                     }
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Error al enviar el correo electrónico.',
-                        'error' => $e->getMessage()
-                    ], 201);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Error al enviar email automático de venta:', ['error' => $e->getMessage()]);
                 }
             }
 
@@ -471,7 +470,21 @@ class SaleController extends Controller
                 'message' => 'El registro se procesó correctamente.',
                 'data' => $sale->load(['details', 'technicians', 'attachments'])
             ], 201);
-        } catch (Exception $e) {
+        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+            return $e->getResponse();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación.',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Error al procesar venta: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             // Si algo truena dentro del bloque, el DB::transaction hace rollback automático
             return response()->json([
                 'success' => false,

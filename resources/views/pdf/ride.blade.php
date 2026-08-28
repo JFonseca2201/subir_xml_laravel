@@ -495,12 +495,13 @@
                         <td class="c-label">Tipo Identificación:</td>
                         <td class="c-val">
                             @php
-                            $typeDoc = strtolower($sale->client->type_document ?? '');
-                            $tipoDocNombre = match ($typeDoc) {
-                            'ruc' => 'RUC',
-                            'cedula' => 'Cédula de Identidad',
-                            'pasaporte' => 'Pasaporte',
-                            default => 'Cédula / Identificación',
+                            $typeDoc = strtolower(trim((string)($sale->client->type_document ?? '')));
+                            $docNum = trim((string)($sale->client->n_document ?? ''));
+                            $tipoDocNombre = match (true) {
+                                $docNum === '9999999999999' || $typeDoc === '4' || $typeDoc === '07' => 'Consumidor Final',
+                                $typeDoc === '2' || $typeDoc === '04' || $typeDoc === 'ruc' || strlen($docNum) === 13 => 'RUC',
+                                $typeDoc === '3' || $typeDoc === '06' || $typeDoc === 'pasaporte' => 'Pasaporte',
+                                default => 'Cédula de Identidad',
                             };
                             @endphp
                             {{ $tipoDocNombre }}

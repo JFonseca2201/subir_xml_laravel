@@ -73,11 +73,14 @@ class SucursaleController extends Controller
                 'punto_emision',
                 'ambiente',
                 'tipo_emision',
-                'password_firma',
                 'obligado_contabilidad',
                 'contribuyente_especial',
                 'status',
             ]);
+
+            if ($request->filled('password_firma')) {
+                $data['password_firma'] = $request->password_firma;
+            }
 
             // Procesar archivo de firma electrónica si fue enviado
             if ($request->hasFile('firma_file')) {

@@ -304,8 +304,9 @@ Route::group(
 
         // ============= RUTAS DE GENERACIÓN DE PDFS Y RECIBOS ==========    
         Route::post('orders/{order}/generate-invoice', [InvoiceFileController::class, 'storeAndGenerate']);
+
+        // ============= IMPORT / EXPORT EXCEL DE PRODUCTOS ==========
+        Route::get('products-excel', [ProductController::class, 'download_excel']);
+        Route::post('products/import-excel', [ProductController::class, 'import_excel']);
     }
 );
-
-Route::get('products-excel', [ProductController::class, 'download_excel']);
-Route::post('products/import-excel', [ProductController::class, 'import_excel']);

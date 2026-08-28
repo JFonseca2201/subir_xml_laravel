@@ -27,10 +27,10 @@ class DailyCashCountController extends Controller
             ->orderBy('count_date', 'desc')
             ->first();
 
-        // Traer los balances teóricos actuales de las cuentas correspondientes
-        $acc1 = Account::find(1);
-        $acc2 = Account::find(2);
-        $acc3 = Account::find(3);
+        // Traer los balances teóricos actuales de las cuentas correspondientes de forma resiliente
+        $acc1 = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->orWhere('id', 1)->first();
+        $acc2 = Account::where('name', 'like', '%pichincha%')->orWhere('bank_name', 'like', '%pichincha%')->orWhere('id', 2)->first();
+        $acc3 = Account::where('name', 'like', '%guayaquil%')->orWhere('bank_name', 'like', '%guayaquil%')->orWhere('id', 3)->first();
 
         $saldoCajaChica = $acc1 ? ($acc1->saldo_actual ?? $acc1->current_balance) : 0.00;
         $saldoPichincha = $acc2 ? ($acc2->saldo_actual ?? $acc2->current_balance) : 0.00;

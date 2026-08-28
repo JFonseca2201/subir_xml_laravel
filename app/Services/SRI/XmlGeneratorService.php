@@ -63,7 +63,7 @@ class XmlGeneratorService
         }
 
         $xml->writeElement('obligadoContabilidad',      strtoupper($sucursal->obligado_contabilidad ?? 'NO'));
-        $xml->writeElement('tipoIdentificacionComprador', $this->tipoDocumento($cliente->type_document));
+        $xml->writeElement('tipoIdentificacionComprador', $this->tipoDocumento($cliente->type_document, $cliente->n_document));
 
         if (!empty($sale->guia_remision)) {
             $xml->writeElement('guiaRemision', $sale->guia_remision);
@@ -318,15 +318,35 @@ class XmlGeneratorService
 
     /**
      * Mapea el tipo de documento del cliente al código SRI.
+     * Tabla 6 del SRI:
+     * '04' → RUC
+     * '05' → CÉDULA
+     * '06' → PASAPORTE
+     * '07' → CONSUMIDOR FINAL
+     * '08' → IDENTIFICACIÓN DEL EXTERIOR
      */
-    private function tipoDocumento(?string $tipo): string
+    private function tipoDocumento(?string $tipo, ?string $nDocument = null): string
     {
-        return match (strtolower($tipo ?? '')) {
-            'ruc'          => '04',
-            'pasaporte', 'passport' => '06',
-            'consumidor final', 'consumidor_final' => '07',
-            default => '05', // Cédula de identidad por defecto
-        };
+        $doc = trim((string)($nDocument ?? ''));
+        if ($doc === '9999999999999') {
+            return '07';
+        }
+
+        $tipoStr = strtolower(trim((string)($tipo ?? '')));
+
+        if ($tipoStr === '2' || $tipoStr === '04' || $tipoStr === 'ruc' || strlen($doc) === 13) {
+            return '04'; // RUC
+        }
+
+        if ($tipoStr === '3' || $tipoStr === '06' || $tipoStr === 'pasaporte' || $tipoStr === 'passport') {
+            return '06'; // Pasaporte
+        }
+
+        if ($tipoStr === '4' || $tipoStr === '07' || $tipoStr === 'consumidor final' || $tipoStr === 'consumidor_final') {
+            return '07'; // Consumidor Final
+        }
+
+        return '05'; // Cédula de identidad (1, '1', 'cedula', etc.)
     }
 
     /**
@@ -344,12 +364,19 @@ class XmlGeneratorService
     }
 
     /**
-     * Elimina caracteres especiales no permitidos en el XML del SRI.
+     * Elimina caracteres especiales no permitidos en el XML del SRI y normaliza espacios.
      */
-    private function sanitizar(string $texto): string
+    private function sanitizar(?string $texto, int $maxLen = 300): string
     {
-        // Remueve caracteres de control y limita a ASCII + tildes básicas
-        $texto = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $texto);
-        return substr(trim($texto), 0, 300);
+        if ($texto === null || trim($texto) === '') {
+            return '';
+        }
+
+        // Remueve caracteres de control no imprimibles (excepto espacio estándar)
+        $texto = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $texto);
+        // Normaliza múltiples espacios y saltos de línea a un solo espacio
+        $texto = preg_replace('/\s+/', ' ', $texto);
+
+        return mb_substr(trim($texto), 0, $maxLen, 'UTF-8');
     }
 }

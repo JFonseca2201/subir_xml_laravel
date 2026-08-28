@@ -64,18 +64,17 @@ class ProcessElectronicInvoice implements ShouldQueue
         } catch (Exception $e) {
             Log::error("[SRI Job] Error en venta #{$this->saleId}: " . $e->getMessage());
 
-            // En el último intento, marcar como RECHAZADA para que el usuario pueda ver el error
-            if ($this->attempts() >= $this->tries) {
-                $sale->update([
-                    'sri_status' => 'RECHAZADA',
-                    'sri_error'  => 'Error tras ' . $this->tries . ' intentos: ' . $e->getMessage(),
-                ]);
-                Log::error("[SRI Job] Venta #{$this->saleId} marcada como RECHAZADA definitivamente.");
-                return; // No relanzar para evitar job permanentemente fallido
+            $sale->update([
+                'sri_status' => 'RECHAZADA',
+                'sri_error'  => $e->getMessage(),
+            ]);
+
+            // Solo relanzar para reintentar si es una cola asíncrona real (no 'sync') y quedan intentos
+            if (config('queue.default') !== 'sync' && $this->attempts() < $this->tries) {
+                throw $e;
             }
 
-            // Relanzar para que el queue reintente según $backoff
-            throw $e;
+            Log::error("[SRI Job] Venta #{$this->saleId} marcada como RECHAZADA.");
         }
     }
 }
