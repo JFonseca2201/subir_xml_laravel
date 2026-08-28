@@ -544,7 +544,7 @@
                     @if ($vehicle)
                     <tr>
                         <td class="c-label">Vehículo / Placa:</td>
-                        <td class="c-val">
+                        <td class="c-val" style="text-transform: uppercase;">
                             {{ $vehicleFull ?: 'Vehículo' }}
                             @if(!empty($vehicle->license_plate))
                             / <strong> {{ $vehicle->license_plate }}</strong>
