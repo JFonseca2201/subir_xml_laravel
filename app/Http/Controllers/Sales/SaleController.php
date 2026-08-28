@@ -791,7 +791,7 @@ class SaleController extends Controller
                     return view('pdf.ride', compact('sale', 'sucursal', 'autorizacion'));
                 }
                 $pdf = Pdf::loadView('pdf.ride', compact('sale', 'sucursal', 'autorizacion'));
-                $fileName = 'RIDE_' . $sale->document_number . '.pdf';
+                $fileName = $this->buildDownloadFileName($sale, 'pdf');
                 return $pdf->stream($fileName);
             }
 
@@ -1881,7 +1881,7 @@ class SaleController extends Controller
     public function descargarXml(int $id)
     {
         try {
-            $sale = Sale::findOrFail($id);
+            $sale = Sale::with(['client', 'workOrder'])->findOrFail($id);
 
             if (!$sale->xml_path || !Storage::exists($sale->xml_path)) {
                 return response()->json([
@@ -1890,11 +1890,11 @@ class SaleController extends Controller
                 ], 404);
             }
 
-            $filename = 'factura_' . $sale->document_number . '.xml';
+            $filename = $this->buildDownloadFileName($sale, 'xml');
 
             return response(Storage::get($sale->xml_path), 200, [
                 'Content-Type'        => 'application/xml',
-                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"; filename*=UTF-8''" . rawurlencode($filename),
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -1923,11 +1923,11 @@ class SaleController extends Controller
             $ridePath = app(\App\Services\SRI\ElectronicInvoiceService::class)->generarRide($sale, $sucursal, $autorizacion);
             $sale->update(['pdf_path' => $ridePath]);
 
-            $filename = 'RIDE_' . $sale->document_number . '.pdf';
+            $filename = $this->buildDownloadFileName($sale, 'pdf');
 
             return response(Storage::get($ridePath), 200, [
                 'Content-Type'        => 'application/pdf',
-                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"; filename*=UTF-8''" . rawurlencode($filename),
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -1936,6 +1936,36 @@ class SaleController extends Controller
                 'error'   => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Construye el nombre de archivo para descargas en formato: "{OT} {APELLIDOS NOMBRES}.{ext}"
+     * Ejemplo: "01613 AYALA MUÑOZ NELSON ARTURO.pdf"
+     */
+    private function buildDownloadFileName(Sale $sale, string $extension): string
+    {
+        $ot = $sale->work_order_number ?: ($sale->workOrder ? $sale->workOrder->number : null);
+        $prefix = $ot ? trim((string)$ot) : ($sale->document_number ? trim((string)$sale->document_number) : 'DOC');
+
+        $client = $sale->client;
+        $clientName = '';
+        if ($client) {
+            $surname = trim((string)($client->surname ?? ''));
+            $name = trim((string)($client->name ?? ''));
+            if (!empty($surname) || !empty($name)) {
+                $clientName = trim("{$surname} {$name}");
+            } else {
+                $clientName = trim((string)($client->full_name ?? ''));
+            }
+        }
+        $clientName = $clientName ?: 'CLIENTE';
+
+        $fullName = trim("{$prefix} {$clientName}");
+        $cleanName = preg_replace('~[\\\\/:*?"<>|]+~u', '', $fullName);
+        $cleanName = preg_replace('/\s+/', ' ', $cleanName);
+        $cleanName = trim($cleanName);
+
+        return "{$cleanName}.{$extension}";
     }
 
     /**

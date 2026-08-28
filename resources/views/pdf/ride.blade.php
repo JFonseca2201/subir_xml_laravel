@@ -6,21 +6,14 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>RIDE - Factura {{ $sale->document_number }}</title>
     <style>
-        /*  @page {
-            margin: 20mm 25mm 16mm 25mm;
-            size: letter portrait;
+        @page {
+            /* margin: 12px 14px 44px 14px; */
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        } */
 
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 7.5px;
-            color: #1e293b;
+            color: #334155;
             background: #ffffff;
             line-height: 1.25;
             padding: 0;
@@ -38,13 +31,13 @@
         .layout-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .card-panel {
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            padding: 8px 10px;
+            padding: 9px 10px;
             background: #ffffff;
             box-sizing: border-box;
         }
@@ -57,18 +50,24 @@
             box-sizing: border-box;
         }
 
+        .logo-box {
+            text-align: left;
+            margin-bottom: 8px;
+            height: 82px;
+        }
+
         .logo-img {
-            max-height: 48px;
-            max-width: 150px;
+            max-height: 80px;
+            max-width: 230px;
             object-fit: contain;
             display: block;
-            margin: 0 auto 6px auto;
+            margin: 0 0 2px 0;
         }
 
         .company-title {
-            font-size: 10px;
-            font-weight: 800;
-            color: #0f172a;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #1e293b;
             text-transform: uppercase;
             letter-spacing: 0.3px;
             margin-bottom: 2px;
@@ -77,59 +76,59 @@
         .company-subtitle {
             font-size: 7px;
             color: #64748b;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             line-height: 1.2;
         }
 
         .company-detail {
             font-size: 7.5px;
-            color: #334155;
+            color: #475569;
             margin-bottom: 1.5px;
         }
 
         .company-detail strong {
-            color: #0f172a;
+            color: #1e293b;
         }
 
         /* Right column headers */
         .doc-ruc {
-            font-size: 10.5px;
-            font-weight: 800;
-            color: #0f172a;
-            letter-spacing: 0.5px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            letter-spacing: 0.4px;
             margin-bottom: 2px;
         }
 
         .doc-type-badge {
             display: inline-block;
-            font-size: 11.5px;
-            font-weight: 900;
-            color: #0284c7;
-            letter-spacing: 1.5px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            letter-spacing: 1.2px;
             margin-bottom: 2px;
         }
 
         .doc-number {
-            font-size: 9.5px;
-            font-weight: 800;
-            color: #1e293b;
+            font-size: 9px;
+            font-weight: 700;
+            color: #334155;
             margin-bottom: 4px;
         }
 
         .auth-label {
-            font-size: 7px;
-            font-weight: 800;
-            color: #475569;
+            font-size: 6.8px;
+            font-weight: 700;
+            color: #64748b;
             text-transform: uppercase;
             margin-top: 2px;
         }
 
         .auth-value {
-            font-size: 6.5px;
-            font-family: monospace;
-            color: #0f172a;
+            font-size: 8px;
+            color: #5c77a3ff;
             word-break: break-all;
             margin-bottom: 3px;
+            font-weight: 600;
         }
 
         .meta-grid {
@@ -141,6 +140,11 @@
         .meta-grid td {
             font-size: 7px;
             padding: 1px 0;
+            color: #334155;
+        }
+
+        .meta-grid strong {
+            color: #475569;
         }
 
         .barcode-container {
@@ -153,31 +157,32 @@
         }
 
         .access-key-text {
-            font-family: monospace;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 6.5px;
-            letter-spacing: 0.4px;
-            color: #1e293b;
+            letter-spacing: 0.3px;
+            color: #334155;
             margin-top: 2px;
             text-align: center;
+            font-weight: 600;
         }
 
         /* ── CARD BOXES (CLIENT & DETAILS) ─────────────────────── */
         .card-box {
             border: 1px solid #cbd5e1;
-            border-radius: 6px;
+            border-radius: 5px;
             margin-bottom: 8px;
             overflow: hidden;
             background: #ffffff;
         }
 
         .card-header {
-            background: #0f172a;
+            background: #475569;
             color: #ffffff;
-            padding: 4px 10px;
+            padding: 3.5px 10px;
             font-size: 7.5px;
-            font-weight: 800;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
         }
 
         .card-body {
@@ -197,12 +202,12 @@
 
         .c-label {
             font-weight: 700;
-            color: #475569;
+            color: #64748b;
             width: 18%;
         }
 
         .c-val {
-            color: #0f172a;
+            color: #1e293b;
             width: 32%;
         }
 
@@ -212,19 +217,19 @@
             border-collapse: collapse;
             margin-bottom: 8px;
             border: 1px solid #cbd5e1;
-            border-radius: 6px;
+            border-radius: 5px;
             overflow: hidden;
         }
 
         .items-table thead th {
-            background: #0f172a;
+            background: #475569;
             color: #ffffff;
             font-size: 7px;
-            font-weight: 800;
+            font-weight: 700;
             text-transform: uppercase;
             padding: 4px 6px;
             text-align: center;
-            border-right: 1px solid #334155;
+            border-right: 1px solid #64748b;
             letter-spacing: 0.3px;
         }
 
@@ -238,6 +243,7 @@
             border-bottom: 1px solid #e2e8f0;
             border-right: 1px solid #f1f5f9;
             vertical-align: middle;
+            color: #334155;
         }
 
         .items-table tbody tr:nth-child(even) {
@@ -275,7 +281,7 @@
             width: 100%;
             border-collapse: collapse;
             border: 1px solid #cbd5e1;
-            border-radius: 6px;
+            border-radius: 5px;
             overflow: hidden;
         }
 
@@ -291,41 +297,58 @@
 
         .tot-label {
             font-weight: 700;
-            color: #334155;
+            color: #64748b;
             text-transform: uppercase;
         }
 
         .tot-val {
             text-align: right;
-            font-weight: 800;
-            color: #0f172a;
+            font-weight: 700;
+            color: #1e293b;
         }
 
         .tot-highlight {
-            background: #0f172a !important;
+            background: #475569 !important;
             color: #ffffff !important;
         }
 
         .tot-highlight td {
-            padding: 4.5px 8px;
-            font-size: 9px;
-            font-weight: 900;
-            color: #ffffff;
+            padding: 4px 8px;
+            font-size: 8.5px;
+            font-weight: 700;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+            color: #ffffff !important;
+        }
+
+        .tot-highlight .tot-label {
+            font-weight: 700;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+            color: #ffffff !important;
         }
 
         .tot-highlight .tot-val {
-            color: #ffffff;
+            font-weight: 700;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+            color: #ffffff !important;
         }
 
         /* ── FOOTER ─────────────────────────────────────────────── */
         .footer {
-            text-align: center;
+            position: fixed;
+            bottom: -36px;
+            left: 0;
+            right: 0;
+            height: 32px;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 4px;
             font-size: 6.5px;
             color: #64748b;
-            margin-top: 6px;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 4px;
             line-height: 1.3;
+        }
+
+        .footer-table {
+            width: 100%;
+            border-collapse: collapse;
         }
     </style>
 </head>
@@ -364,16 +387,23 @@
     ?? ($sale->sri_authorization_date ? \Carbon\Carbon::parse($sale->sri_authorization_date)->format('d/m/Y H:i:s') : null);
     $numeroAutorizacion = $autorizacion['numeroAutorizacion'] ?? $sale->sri_access_key;
 
-    // Resolución de Marca de Vehículo desde el catálogo de marcas (ID => Nombre)
+    // Resolución de Datos del Vehículo
+    $vehicle = $sale->vehicle ?: ($sale->workOrder ? $sale->workOrder->vehicle : null);
     $vehicleBrands = config('vehicle_brands', []);
-    $brandRaw = $sale->vehicle->brand ?? '';
+    $brandRaw = $vehicle->brand ?? '';
     $brandName = '';
     if (!empty($brandRaw)) {
     $brandName = is_numeric($brandRaw) ? ($vehicleBrands[(int)$brandRaw] ?? $brandRaw) : $brandRaw;
-    $brandName = ucwords(strtolower($brandName));
+    $brandName = ucwords(strtolower((string)$brandName));
     }
-    $vehicleModel = $sale->vehicle->model ?? '';
+    $vehicleModel = $vehicle->model ?? '';
     $vehicleFull = trim("{$brandName} {$vehicleModel}");
+    $vehicleYear = $vehicle->year ?? null;
+    $vehicleTypes = config('vehicle_types', []);
+    $typeRaw = $vehicle->vehicle_type ?? null;
+    $vehicleType = !empty($typeRaw) ? (is_numeric($typeRaw) ? ($vehicleTypes[(int)$typeRaw] ?? $typeRaw) : $typeRaw) : null;
+    $vehicleType = $vehicleType ? ucwords(strtolower((string)$vehicleType)) : null;
+    $mileageVal = $sale->mileage ?: ($sale->workOrder ? $sale->workOrder->mileage : null);
     @endphp
 
     <div class="container">
@@ -384,8 +414,8 @@
                 {{-- COLUMNA IZQUIERDA: DATOS DE LA EMPRESA --}}
                 <td style="width: 48%; vertical-align: top;">
                     @if (!empty($logoBase64))
-                    <div style="text-align: center; margin-bottom: 6px;">
-                        <img src="{{ $logoBase64 }}" style="max-height: 55px; max-width: 170px; object-fit: contain;" alt="Logo">
+                    <div style="text-align: left; margin-bottom: 6px;">
+                        <img src="{{ $logoBase64 }}" style="height: 86px; width: auto; max-width: 235px; object-fit: contain; display: block; margin: 0 0 2px 0;" alt="Logo">
                     </div>
                     @endif
                     <div class="card-panel">
@@ -410,7 +440,7 @@
                         </div>
                         <div class="company-detail" style="margin-top: 2px;">
                             <strong>Obligado a Llevar Contabilidad:</strong>
-                            <span style="font-weight: 800; color: #0284c7;">{{ strtoupper($sucursal->obligado_contabilidad ?? 'SI') }}</span>
+                            <span style="font-weight: 700; color: #475569;">{{ strtoupper($sucursal->obligado_contabilidad ?? 'SI') }}</span>
                         </div>
                         @if (!empty($sucursal->contribuyente_especial))
                         <div class="company-detail">
@@ -418,7 +448,7 @@
                         </div>
                         @endif
                         @if (!empty($sucursal->regimen_rimpe))
-                        <div class="company-detail" style="color: #0369a1; font-weight: 800;">
+                        <div class="company-detail" style="color: #475569; font-weight: 700;">
                             CONTRIBUYENTE RÉGIMEN RIMPE
                         </div>
                         @endif
@@ -450,9 +480,9 @@
                             <tr>
                                 <td><strong>AMBIENTE:</strong></td>
                                 @php
-                                    $ambVal = (int) ($sucursal->ambiente ?? env('SRI_AMBIENTE', 1));
+                                $ambVal = (int) ($sucursal->ambiente ?? env('SRI_AMBIENTE', 1));
                                 @endphp
-                                <td style="font-weight: 800; color: {{ $ambVal === 1 ? '#d97706' : '#16a34a' }};">
+                                <td style="font-weight: 700; color: {{ $ambVal === 1 ? '#d97706' : '#16a34a' }};">
                                     {{ $ambVal === 1 ? 'PRUEBAS' : 'PRODUCCIÓN' }}
                                 </td>
                             </tr>
@@ -485,9 +515,9 @@
                 <table class="client-table">
                     <tr>
                         <td class="c-label">Razón Social / Nombres:</td>
-                        <td class="c-val" style="font-weight: 800;">{{ $sale->client->full_name ?? $sale->client->name ?? 'CONSUMIDOR FINAL' }}</td>
+                        <td class="c-val" style="font-weight: 700;">{{ $sale->client->full_name ?? $sale->client->name ?? 'CONSUMIDOR FINAL' }}</td>
                         <td class="c-label">Identificación:</td>
-                        <td class="c-val" style="font-weight: 800;">{{ $sale->client->n_document ?? '9999999999999' }}</td>
+                        <td class="c-val" style="font-weight: 700;">{{ $sale->client->n_document ?? '9999999999999' }}</td>
                     </tr>
                     <tr>
                         <td class="c-label">Fecha Emisión:</td>
@@ -498,10 +528,10 @@
                             $typeDoc = strtolower(trim((string)($sale->client->type_document ?? '')));
                             $docNum = trim((string)($sale->client->n_document ?? ''));
                             $tipoDocNombre = match (true) {
-                                $docNum === '9999999999999' || $typeDoc === '4' || $typeDoc === '07' => 'Consumidor Final',
-                                $typeDoc === '2' || $typeDoc === '04' || $typeDoc === 'ruc' || strlen($docNum) === 13 => 'RUC',
-                                $typeDoc === '3' || $typeDoc === '06' || $typeDoc === 'pasaporte' => 'Pasaporte',
-                                default => 'Cédula de Identidad',
+                            $docNum === '9999999999999' || $typeDoc === '4' || $typeDoc === '07' => 'Consumidor Final',
+                            $typeDoc === '2' || $typeDoc === '04' || $typeDoc === 'ruc' || strlen($docNum) === 13 => 'RUC',
+                            $typeDoc === '3' || $typeDoc === '06' || $typeDoc === 'pasaporte' => 'Pasaporte',
+                            default => 'Cédula de Identidad',
                             };
                             @endphp
                             {{ $tipoDocNombre }}
@@ -511,17 +541,17 @@
                         <td class="c-label">Dirección:</td>
                         <td class="c-val" colspan="3">{{ $sale->client->address ?? 'SUR DE QUITO' }}</td>
                     </tr>
-                    @if ($sale->vehicle)
+                    @if ($vehicle)
                     <tr>
                         <td class="c-label">Vehículo / Placa:</td>
                         <td class="c-val">
                             {{ $vehicleFull ?: 'Vehículo' }}
-                            @if(!empty($sale->vehicle->license_plate))
-                            — <strong>Placa: {{ $sale->vehicle->license_plate }}</strong>
+                            @if(!empty($vehicle->license_plate))
+                            / <strong> {{ $vehicle->license_plate }}</strong>
                             @endif
                         </td>
                         <td class="c-label">Kilometraje:</td>
-                        <td class="c-val">{{ $sale->mileage ? number_format($sale->mileage) . ' km' : 'N/A' }}</td>
+                        <td class="c-val">{{ $mileageVal ? number_format($mileageVal) . ' km' : 'N/A' }}</td>
                     </tr>
                     @endif
                 </table>
@@ -556,12 +586,14 @@
                 $unitSinImpuesto = (float)$detalle->price;
                 $subtotalItem = $itemTotal;
                 }
-                $codPrincipal = $detalle->product_id ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT) : str_pad($index + 1, 6, '0', STR_PAD_LEFT);
+                $codPrincipal = !empty($detalle->product?->sku)
+                ? $detalle->product->sku
+                : ($detalle->product_id ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT) : str_pad($index + 1, 6, '0', STR_PAD_LEFT));
                 @endphp
                 <tr>
                     <td class="text-center">{{ $codPrincipal }}</td>
                     <td class="text-center">{{ number_format($qty, 2) }}</td>
-                    <td class="text-left" style="font-weight: 600;">{{ $detalle->description }}</td>
+                    <td class="text-left" style="font-family: 'sans-serif'; font-size: 8px;">{{ $detalle->description }}</td>
                     <td class="text-right">${{ number_format($unitSinImpuesto, 4) }}</td>
                     <td class="text-right">${{ number_format($discount, 2) }}</td>
                     <td class="text-right" style="font-weight: 700;">${{ number_format($subtotalItem, 2) }}</td>
@@ -569,7 +601,7 @@
                 @endforeach
             </tbody>
         </table>
-
+        <div style="border-top: 1px solid #cbd5e1; margin: 8px 0 10px 0;"></div>
         {{-- ═══ SECCIÓN INFERIOR: INFORMACIÓN ADICIONAL Y TOTALES ═══════════ --}}
         <table class="layout-table" style="margin-bottom: 4px;">
             <tr>
@@ -580,26 +612,58 @@
                         <div class="card-body">
                             <table class="info-table">
                                 @php
-                                    $otNumber = $sale->work_order_number ?: ($sale->workOrder->number ?? null);
+                                $otNumber = $sale->work_order_number ?: ($sale->workOrder->number ?? null);
                                 @endphp
                                 @if (!empty($otNumber))
                                 <tr>
-                                    <td style="font-weight: 700; width: 25%; color: #475569;">Orden de Trabajo:</td>
-                                    <td style="color: #0f172a; font-weight: 700;">{{ $otNumber }}</td>
+                                    <td style="font-weight: 700; width: 28%; color: #64748b;">Orden de Trabajo:</td>
+                                    <td style="color: #1e293b; font-weight: 700;">{{ $otNumber }}</td>
+                                </tr>
+                                @endif
+                                @if ($vehicle)
+                                @if (!empty($vehicle->license_plate))
+                                <tr>
+                                    <td style="font-weight: 700; width: 28%; color: #64748b;">Placa:</td>
+                                    <td style="color: #1e293b; font-weight: 700;">{{ $vehicle->license_plate }}</td>
+                                </tr>
+                                @endif
+                                @if (!empty($vehicleFull))
+                                <tr>
+                                    <td style="font-weight: 700; color: #64748b;">Vehículo:</td>
+                                    <td style="color: #1e293b;">{{ $vehicleFull }}</td>
+                                </tr>
+                                @endif
+                                @if (!empty($vehicleYear))
+                                <tr>
+                                    <td style="font-weight: 700; color: #64748b;">Año del Vehículo:</td>
+                                    <td style="color: #1e293b;">{{ $vehicleYear }}</td>
+                                </tr>
+                                @endif
+                                @if (!empty($vehicleType))
+                                <tr>
+                                    <td style="font-weight: 700; color: #64748b;">Tipo:</td>
+                                    <td style="color: #1e293b;">{{ $vehicleType }}</td>
+                                </tr>
+                                @endif
+                                @endif
+                                @if (!empty($mileageVal))
+                                <tr>
+                                    <td style="font-weight: 700; color: #64748b;">Kilometraje:</td>
+                                    <td style="color: #1e293b;">{{ number_format($mileageVal) }} km</td>
                                 </tr>
                                 @endif
                                 <tr>
-                                    <td style="font-weight: 700; width: 25%; color: #475569;">Email:</td>
-                                    <td style="color: #0f172a;">{{ $sale->client->email ?? 'N/A' }}</td>
+                                    <td style="font-weight: 700; width: 28%; color: #64748b;">Email:</td>
+                                    <td style="color: #1e293b;">{{ $sale->client->email ?? 'N/A' }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="font-weight: 700; color: #475569;">Teléfono:</td>
-                                    <td style="color: #0f172a;">{{ $sale->client->phone ?? $sale->client->cellphone ?? 'N/A' }}</td>
+                                    <td style="font-weight: 700; color: #64748b;">Teléfono:</td>
+                                    <td style="color: #1e293b;">{{ $sale->client->phone ?? $sale->client->cellphone ?? 'N/A' }}</td>
                                 </tr>
                                 @if (!empty($sale->observations))
                                 <tr>
-                                    <td style="font-weight: 700; color: #475569;">Observaciones:</td>
-                                    <td style="color: #0f172a;">{{ $sale->observations }}</td>
+                                    <td style="font-weight: 700; color: #64748b;">Observaciones:</td>
+                                    <td style="color: #1e293b;">{{ $sale->observations }}</td>
                                 </tr>
                                 @endif
                             </table>
@@ -612,14 +676,14 @@
                             <table class="info-table">
                                 <thead>
                                     <tr style="border-bottom: 1px solid #e2e8f0;">
-                                        <th style="text-align: left; font-size: 7px; padding-bottom: 2px; color: #64748b;">Forma de Pago</th>
-                                        <th style="text-align: right; font-size: 7px; padding-bottom: 2px; color: #64748b;">Total</th>
+                                        <th style="text-align: left; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700;">Forma de Pago</th>
+                                        <th style="text-align: right; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700;">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td style="font-size: 7.5px; font-weight: 600; color: #1e293b;">{{ $sale->payment_method ?? 'Sin utilización del sistema financiero' }}</td>
-                                        <td style="text-align: right; font-weight: 800; font-size: 8px; color: #0f172a;">${{ number_format((float)$sale->total, 2) }}</td>
+                                        <td style="font-size: 7.5px; font-weight: 600; color: #334155;">{{ $sale->payment_method ?? 'Sin utilización del sistema financiero' }}</td>
+                                        <td style="text-align: right; font-weight: 700; font-size: 8px; color: #1e293b;">${{ number_format((float)$sale->total, 2) }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -680,13 +744,32 @@
             </tr>
         </table>
 
-        {{-- ═══ PIE DE PÁGINA ════════════════════════════════════════════════ --}}
+        {{-- ═══ PIE DE PÁGINA FIJO ═══════════════════════════════════════════ --}}
         <div class="footer">
-            Este documento es una representación impresa de un Comprobante Electrónico (RIDE) de acuerdo al Art. 21 del Reglamento de Comprobantes de Venta y Retención.<br>
-            Para consultar la validez del comprobante, ingrese a <strong>https://sri.gob.ec</strong>.
+            <table class="footer-table">
+                <tr>
+                    <td style="width: 80%; text-align: left; vertical-align: middle; color: #64748b; font-size: 6.5px;">
+                        Este documento es una representación impresa de un Comprobante Electrónico (RIDE) de acuerdo al Art. 21 del Reglamento de Comprobantes de Venta y Retención.<br>
+                        Para consultar la validez del comprobante, ingrese a <strong>https://sri.gob.ec</strong>.
+                    </td>
+                    <td style="width: 20%; text-align: right; vertical-align: middle;">
+                        {{-- El número de página dinámico "Página X de Y" es inyectado por el motor PHP de DomPDF --}}
+                    </td>
+                </tr>
+            </table>
         </div>
 
     </div>
+
+    <script type="text/php">
+        if (isset($pdf)) {
+            $font = $fontMetrics->getFont("Helvetica, Arial, sans-serif", "bold");
+            $size = 6.8;
+            $color = [0.28, 0.33, 0.41]; // #475569
+            $text = "Página {PAGE_NUM} de {PAGE_COUNT}";
+            $pdf->page_text(510, 818, $text, $font, $size, $color);
+        }
+    </script>
 </body>
 
 </html>

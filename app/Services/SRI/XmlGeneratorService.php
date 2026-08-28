@@ -135,9 +135,10 @@ class XmlGeneratorService
             }
 
             $xml->startElement('detalle');
-            $xml->writeElement('codigoPrincipal',    $detalle->product_id
-                ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT)
-                : str_pad($index + 1, 6, '0', STR_PAD_LEFT));
+            $codigoPrincipal = !empty($detalle->product?->sku)
+                ? $this->sanitizar($detalle->product->sku)
+                : ($detalle->product_id ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT) : str_pad($index + 1, 6, '0', STR_PAD_LEFT));
+            $xml->writeElement('codigoPrincipal',    $codigoPrincipal);
 
             if (!empty($detalle->product?->code_aux)) {
                 $xml->writeElement('codigoAuxiliar', $this->sanitizar($detalle->product->code_aux));
@@ -171,21 +172,73 @@ class XmlGeneratorService
             $xml->text($this->sanitizar($otNumber));
             $xml->endElement();
         }
+
+        $vehicle = $sale->vehicle ?: ($sale->workOrder ? $sale->workOrder->vehicle : null);
+        if ($vehicle) {
+            if (!empty($vehicle->license_plate)) {
+                $xml->startElement('campoAdicional');
+                $xml->writeAttribute('nombre', 'PLACA');
+                $xml->text($this->sanitizar($vehicle->license_plate));
+                $xml->endElement();
+            }
+
+            $vehicleBrands = config('vehicle_brands', []);
+            $brandRaw = $vehicle->brand ?? '';
+            $brandName = is_numeric($brandRaw) ? ($vehicleBrands[(int)$brandRaw] ?? $brandRaw) : $brandRaw;
+            $brandName = ucwords(strtolower((string)$brandName));
+            $vehicleModel = $vehicle->model ?? '';
+            $vehiculoNombre = trim("{$brandName} {$vehicleModel}");
+
+            if (!empty($vehiculoNombre)) {
+                $xml->startElement('campoAdicional');
+                $xml->writeAttribute('nombre', 'VEHICULO');
+                $xml->text($this->sanitizar($vehiculoNombre));
+                $xml->endElement();
+            }
+
+            if (!empty($vehicle->year)) {
+                $xml->startElement('campoAdicional');
+                $xml->writeAttribute('nombre', 'AÑO DEL VEHÍCULO');
+                $xml->text((string) $vehicle->year);
+                $xml->endElement();
+            }
+
+            if (!empty($vehicle->vehicle_type)) {
+                $vehicleTypes = config('vehicle_types', []);
+                $typeRaw = $vehicle->vehicle_type;
+                $typeName = is_numeric($typeRaw) ? ($vehicleTypes[(int)$typeRaw] ?? $typeRaw) : $typeRaw;
+                $typeName = ucwords(strtolower((string)$typeName));
+
+                $xml->startElement('campoAdicional');
+                $xml->writeAttribute('nombre', 'TIPO');
+                $xml->text($this->sanitizar($typeName));
+                $xml->endElement();
+            }
+        }
+
+        $mileage = $sale->mileage ?: ($sale->workOrder ? $sale->workOrder->mileage : null);
+        if (!empty($mileage)) {
+            $xml->startElement('campoAdicional');
+            $xml->writeAttribute('nombre', 'KILOMETRAJE');
+            $xml->text($this->sanitizar((string) $mileage));
+            $xml->endElement();
+        }
+
         if ($cliente->email) {
             $xml->startElement('campoAdicional');
-            $xml->writeAttribute('nombre', 'email');
+            $xml->writeAttribute('nombre', 'EMAIL');
             $xml->text($cliente->email);
             $xml->endElement();
         }
         if ($cliente->phone) {
             $xml->startElement('campoAdicional');
-            $xml->writeAttribute('nombre', 'telefono');
+            $xml->writeAttribute('nombre', 'TELEFONO');
             $xml->text($cliente->phone);
             $xml->endElement();
         }
         if ($sale->observations) {
             $xml->startElement('campoAdicional');
-            $xml->writeAttribute('nombre', 'observaciones');
+            $xml->writeAttribute('nombre', 'OBSERVACIONES');
             $xml->text($this->sanitizar($sale->observations));
             $xml->endElement();
         }
