@@ -295,8 +295,8 @@ class InvoiceXmlImportController extends Controller
 
     public function config()
     {
-        $suppliers = Supplier::orderBy('name', 'desc')->get();
-        $category = ProductCategorie::orderBy('title', 'desc')->get();
+        $suppliers = Supplier::orderBy('name', 'asc')->get();
+        $category = ProductCategorie::orderBy('title', 'asc')->get();
 
         return response()->json([
             'status' => 200,
@@ -701,17 +701,21 @@ class InvoiceXmlImportController extends Controller
                 $invoice = Invoice::findOrFail($id);
 
                 // 1. Revertir inventario si la factura fue procesada
-                if ($invoice->invoice_process === 1) {
+                if ((int) $invoice->invoice_process === 1) {
                     $invoiceItems = InvoiceItem::where('invoice_id', $invoice->id)->get();
                     foreach ($invoiceItems as $item) {
-                        if ((int) $item->item_type === 1) { // 1 = Producto físico
-                            $product = Product::where('sku', $item->code)
-                                ->orWhere('description', $item->description)
-                                ->first();
+                        if ((int) $item->item_type === 1) { // 1 = Producto físico inventariable
+                            $product = null;
+                            if (!empty($item->code)) {
+                                $product = Product::where('sku', $item->code)->first();
+                            }
+                            if (!$product && !empty($item->description)) {
+                                $product = Product::where('description', $item->description)->first();
+                            }
 
                             if ($product) {
-                                // Revertir stock
-                                $product->stock = max(0, $product->stock - $item->quantity);
+                                // Revertir stock restando la cantidad comprada
+                                $product->stock = max(0, (float) $product->stock - (float) $item->quantity);
                                 $product->save();
                             }
                         }
