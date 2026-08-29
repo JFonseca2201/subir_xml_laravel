@@ -38,6 +38,17 @@ class SaleUpdateService
             ];
         }
 
+        // Regla SRI: Si es factura y ya está autorizada por el SRI, no se puede editar
+        if ($sale->document_type === 'invoice' && $sale->sri_status === 'AUTORIZADA') {
+            return [
+                'status' => 422,
+                'data' => [
+                    'success' => false,
+                    'message' => 'Esta factura ya ha sido autorizada por el SRI y no puede ser modificada.'
+                ]
+            ];
+        }
+
         // Regla: Si la cotización ya fue convertida, está bloqueada
         if ($sale->document_type === 'quote' && $sale->is_converted) {
             return [
@@ -49,14 +60,31 @@ class SaleUpdateService
             ];
         }
 
-        // Regla: Solo se puede convertir de cotización a venta, no al revés
+        // Reglas de conversión de tipo de documento:
+        // 1. Cotización (quote) puede convertirse a Nota de Venta (sale_note) o Factura (invoice).
+        // 2. Nota de Venta (sale_note) puede convertirse a Factura (invoice).
+        // 3. Factura (invoice) NO se puede convertir a Nota de Venta ni Cotización.
+        // 4. Nota de Venta (sale_note) NO se puede convertir a Cotización.
         if ($request->has('document_type') && $request->document_type !== $sale->document_type) {
-            if ($sale->document_type !== 'quote') {
+            $newType = $request->document_type;
+            $currentType = $sale->document_type;
+
+            if ($currentType === 'invoice') {
                 return [
                     'status' => 400,
                     'data' => [
                         'success' => false,
-                        'message' => 'No se puede cambiar el tipo de documento de una venta o factura. Solo las cotizaciones pueden convertirse en ventas.'
+                        'message' => 'Una factura no puede convertirse en nota de venta ni en cotización.'
+                    ]
+                ];
+            }
+
+            if ($currentType === 'sale_note' && $newType === 'quote') {
+                return [
+                    'status' => 400,
+                    'data' => [
+                        'success' => false,
+                        'message' => 'Una nota de venta no puede convertirse en cotización.'
                     ]
                 ];
             }
@@ -457,6 +485,18 @@ class SaleUpdateService
 
         $this->reminderService->syncReplacementReminders($sale);
 
+        // Despachar job SRI si es factura y aún no ha sido encolada/autorizada
+        if ($sale->document_type === 'invoice' && empty($sale->sri_status)) {
+            try {
+                $sale->update(['sri_status' => 'CREADA']);
+                if (env('SRI_AUTOPROCESS', true)) {
+                    \App\Jobs\SRI\ProcessElectronicInvoice::dispatch($sale->id)->onQueue('sri');
+                }
+            } catch (Exception $e) {
+                \Illuminate\Support\Facades\Log::error("[SRI] Error al despachar factura electrónica en actualización para venta #{$sale->id}: " . $e->getMessage());
+            }
+        }
+
         return [
             'status' => 200,
             'data' => [
@@ -472,6 +512,16 @@ class SaleUpdateService
      */
     public function deleteSale(Sale $sale): array
     {
+        if ($sale->document_type === 'invoice' && $sale->sri_status === 'AUTORIZADA') {
+            return [
+                'status' => 422,
+                'data' => [
+                    'success' => false,
+                    'message' => 'No se puede eliminar una factura que ya ha sido autorizada por el SRI.'
+                ]
+            ];
+        }
+
         DB::transaction(function () use ($sale) {
             // 1. Reversar movimientos de cuentas y registros financieros
             if ($sale->financeRecord) {
@@ -556,6 +606,16 @@ class SaleUpdateService
                 'data' => [
                     'success' => false,
                     'message' => 'No se puede modificar una venta que ya ha sido anulada.'
+                ]
+            ];
+        }
+
+        if ($sale->document_type === 'invoice' && $sale->sri_status === 'AUTORIZADA') {
+            return [
+                'status' => 422,
+                'data' => [
+                    'success' => false,
+                    'message' => 'No se pueden eliminar ítems de una factura ya autorizada por el SRI.'
                 ]
             ];
         }
