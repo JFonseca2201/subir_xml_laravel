@@ -297,11 +297,71 @@ class InvoiceXmlImportController extends Controller
     {
         $suppliers = Supplier::orderBy('name', 'asc')->get();
         $category = ProductCategorie::orderBy('title', 'asc')->get();
+        $brands = Product::whereNotNull('brand')
+            ->where('brand', '!=', '')
+            ->distinct()
+            ->orderBy('brand', 'asc')
+            ->pluck('brand');
 
         return response()->json([
             'status' => 200,
             'suppliers' => $suppliers,
             'categories' => $category,
+            'brands' => $brands,
+        ]);
+    }
+
+    public function checkDuplicate(Request $request)
+    {
+        $accessKey = $request->get('access_key');
+        $invoiceNumber = $request->get('invoice_number');
+        $supplierRuc = $request->get('supplier_ruc');
+        $supplierId = $request->get('supplier_id');
+
+        $duplicate = null;
+
+        if (!empty($accessKey)) {
+            $duplicate = Invoice::with(['supplier', 'invoice_items'])
+                ->where('access_key', $accessKey)
+                ->first();
+        }
+
+        if (!$duplicate && !empty($invoiceNumber)) {
+            $query = Invoice::with(['supplier', 'invoice_items'])->where('invoice_number', $invoiceNumber);
+            if (!empty($supplierId)) {
+                $query->where('supplier_id', $supplierId);
+            } elseif (!empty($supplierRuc)) {
+                $query->whereHas('supplier', function ($q) use ($supplierRuc) {
+                    $q->where('ruc', $supplierRuc);
+                });
+            }
+            $duplicate = $query->first();
+        }
+
+        if ($duplicate) {
+            return response()->json([
+                'status' => 200,
+                'exists' => true,
+                'message' => 'Esta factura ya fue registrada previamente en el sistema.',
+                'invoice' => [
+                    'id' => $duplicate->id,
+                    'invoice_number' => $duplicate->invoice_number,
+                    'access_key' => $duplicate->access_key,
+                    'issue_date' => $duplicate->issue_date ? Carbon::parse($duplicate->issue_date)->format('Y-m-d') : null,
+                    'total' => (float)$duplicate->total,
+                    'supplier' => $duplicate->supplier ? [
+                        'id' => $duplicate->supplier->id,
+                        'name' => $duplicate->supplier->name,
+                        'ruc' => $duplicate->supplier->ruc,
+                    ] : null,
+                    'created_at' => $duplicate->created_at ? $duplicate->created_at->format('d/m/Y H:i') : null,
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'status' => 200,
+            'exists' => false,
         ]);
     }
 

@@ -97,6 +97,7 @@ Route::group(
         Route::resource('categories', ProductCategorieController::class);
 
         // ============= RUTAS DE FACTURAS / COMPRAS ==============
+        Route::post('invoices/check-duplicate', [InvoiceXmlImportController::class, 'checkDuplicate']);
         Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
         Route::post('purchases/manual', [PurchaseManualController::class, 'store']);
         Route::post('invoices/index', [InvoiceXmlImportController::class, 'index']);
