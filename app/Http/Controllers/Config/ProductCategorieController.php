@@ -48,7 +48,9 @@ class ProductCategorieController extends Controller
             'image' => 'nullable|image|max:2048',
         ]);
 
-        $is_categorie_exists = ProductCategorie::where('title', $request->title)->first();
+        $cleanTitle = strtoupper(trim($request->title));
+
+        $is_categorie_exists = ProductCategorie::whereRaw('LOWER(TRIM(title)) = ?', [strtolower($cleanTitle)])->first();
         if ($is_categorie_exists) {
             return response()->json([
                 'message' => 403,
@@ -56,7 +58,10 @@ class ProductCategorieController extends Controller
             ]);
         }
 
-        $data = $request->only(['title', 'state']);
+        $data = [
+            'title' => $cleanTitle,
+            'state' => $request->has('state') ? (int)$request->state : 1,
+        ];
         if ($request->hasFile('image')) {
             $path = Storage::putFile('categories', $request->file('image'));
             $data['imagen'] = $path;
@@ -95,7 +100,11 @@ class ProductCategorieController extends Controller
             'image' => 'nullable|image|max:2048',
         ]);
 
-        $is_categorie_exists = ProductCategorie::where('title', $request->title)->where('id', '<>', $id)->first();
+        $cleanTitle = strtoupper(trim($request->title));
+
+        $is_categorie_exists = ProductCategorie::whereRaw('LOWER(TRIM(title)) = ?', [strtolower($cleanTitle)])
+            ->where('id', '<>', $id)
+            ->first();
         if ($is_categorie_exists) {
             return response()->json([
                 'message' => 403,
@@ -104,7 +113,12 @@ class ProductCategorieController extends Controller
         }
 
         $categorie = ProductCategorie::findOrFail($id);
-        $data = $request->only(['title', 'state']);
+        $data = [
+            'title' => $cleanTitle,
+        ];
+        if ($request->has('state')) {
+            $data['state'] = (int)$request->state;
+        }
         if ($request->hasFile('image')) {
             if ($categorie->imagen) {
                 Storage::delete($categorie->imagen);

@@ -124,13 +124,13 @@ class VehicleController extends Controller
      */
     public function store(Request $request)
     {
-
-        $exists = Vehicle::where('license_plate', $request->license_plate)->first();
+        $cleanPlate = strtoupper(trim((string)$request->license_plate));
+        $exists = Vehicle::whereRaw('LOWER(TRIM(license_plate)) = ?', [strtolower($cleanPlate)])->first();
         if ($exists) {
             return response()->json([
                 'status' => 422,
-                'message' => 'El vehículo con la placa ' . $request->license_plate . ' ya se encuentra registrado',
-                'errors' => ['license_plate' => 'El vehículo con la placa ' . $request->license_plate . ' ya se encuentra registrado'],
+                'message' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado',
+                'errors' => ['license_plate' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado'],
             ], 422);
         }
 

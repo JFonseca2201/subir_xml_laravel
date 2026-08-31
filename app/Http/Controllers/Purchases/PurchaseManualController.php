@@ -65,17 +65,31 @@ class PurchaseManualController extends Controller
             }
 
             if (!$supplierId) {
-                $ruc = $request->supplier_ruc ?: ($request->supplier_id ? (string) $request->supplier_id : '9999999999001');
-                $name = $request->supplier_name ?: 'PROVEEDOR ' . $ruc;
-                $supplier = \App\Models\Supplier\Supplier::firstOrCreate(
-                    ['ruc' => $ruc],
-                    [
-                        'tax_id' => $ruc,
-                        'name' => $name,
-                        'address' => $request->supplier_address ?: 'S/N',
-                    ]
-                );
-                $supplierId = $supplier->id;
+                $rawRuc = trim((string)($request->supplier_ruc ?: ($request->supplier_id ?: '9999999999001')));
+                if (strlen($rawRuc) === 12 && !str_starts_with($rawRuc, '0')) {
+                    $rawRuc = '0' . $rawRuc;
+                }
+                $rawName = strtoupper(trim((string)($request->supplier_name ?: 'PROVEEDOR ' . $rawRuc)));
+                $rawAddress = strtoupper(trim((string)($request->supplier_address ?: 'S/N')));
+
+                // Buscar proveedor existente por RUC (con o sin 0) o por nombre
+                $existing = \App\Models\Supplier\Supplier::where('ruc', $rawRuc)
+                    ->orWhere('tax_id', $rawRuc)
+                    ->orWhere('ruc', ltrim($rawRuc, '0'))
+                    ->orWhereRaw('LOWER(TRIM(name)) = ?', [strtolower($rawName)])
+                    ->first();
+
+                if ($existing) {
+                    $supplierId = $existing->id;
+                } else {
+                    $supplier = \App\Models\Supplier\Supplier::create([
+                        'tax_id' => $rawRuc,
+                        'ruc' => $rawRuc,
+                        'name' => $rawName,
+                        'address' => $rawAddress,
+                    ]);
+                    $supplierId = $supplier->id;
+                }
             }
 
             // 1. Validar duplicados de Factura (Clave de Acceso y Número de Factura)

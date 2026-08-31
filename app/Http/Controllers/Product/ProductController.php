@@ -353,8 +353,11 @@ class ProductController extends Controller
     {
         try {
 
+            $cleanDesc = trim($request->description);
+            $cleanSku = $request->sku ? trim($request->sku) : null;
+
             // Validar que el producto no exista por descripción
-            $is_product_exists = Product::where('description', $request->description)->first();
+            $is_product_exists = Product::whereRaw('LOWER(TRIM(description)) = ?', [strtolower($cleanDesc)])->first();
             if ($is_product_exists) {
                 return response()->json([
                     'message' => 403,
@@ -363,8 +366,8 @@ class ProductController extends Controller
             }
 
             // Validar que el SKU no exista
-            if ($request->sku) {
-                $is_product_sku_exists = Product::where('sku', $request->sku)->first();
+            if ($cleanSku) {
+                $is_product_sku_exists = Product::whereRaw('LOWER(TRIM(sku)) = ?', [strtolower($cleanSku)])->first();
                 if ($is_product_sku_exists) {
                     return response()->json([
                         'message' => 403,
@@ -492,8 +495,9 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
 
-            if ($request->description && $request->description !== $product->description) {
-                $is_product_exists = Product::where('description', $request->description)
+            if ($request->description && trim($request->description) !== $product->description) {
+                $cleanDesc = trim($request->description);
+                $is_product_exists = Product::whereRaw('LOWER(TRIM(description)) = ?', [strtolower($cleanDesc)])
                     ->where('id', '!=', $id)
                     ->first();
                 if ($is_product_exists) {
@@ -504,8 +508,9 @@ class ProductController extends Controller
                 }
             }
 
-            if ($request->sku && $request->sku !== $product->sku) {
-                $is_product_sku_exists = Product::where('sku', $request->sku)
+            if ($request->sku && trim($request->sku) !== $product->sku) {
+                $cleanSku = trim($request->sku);
+                $is_product_sku_exists = Product::whereRaw('LOWER(TRIM(sku)) = ?', [strtolower($cleanSku)])
                     ->where('id', '!=', $id)
                     ->first();
                 if ($is_product_sku_exists) {

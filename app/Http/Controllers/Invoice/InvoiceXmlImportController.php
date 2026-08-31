@@ -133,27 +133,39 @@ class InvoiceXmlImportController extends Controller
                 }
             }
 
-            $supplier = Supplier::firstOrCreate(
-                [
-                    'tax_id' => (string) $xml->infoTributaria->ruc,
-                ],
-                [
-                    'name' => (string) $xml->infoTributaria->razonSocial,
-                    'ruc' => (string) $xml->infoTributaria->ruc,
-                    'trade_name' => (string) $xml->infoTributaria->nombreComercial,
-                    'address' => (string) $xml->infoTributaria->dirMatriz,
-                    'phone' => $phone,
-                    'email' => $email,
-                ],
-            );
+            $rawRuc = trim((string) $xml->infoTributaria->ruc);
+            if (strlen($rawRuc) === 12 && !str_starts_with($rawRuc, '0')) {
+                $rawRuc = '0' . $rawRuc;
+            }
+            $rawName = strtoupper(trim((string) ($xml->infoTributaria->razonSocial ?: $xml->infoTributaria->nombreComercial)));
+            $rawTrade = strtoupper(trim((string) $xml->infoTributaria->nombreComercial));
+            $rawAddress = strtoupper(trim((string) $xml->infoTributaria->dirMatriz));
+
+            $supplier = Supplier::where('ruc', $rawRuc)
+                ->orWhere('tax_id', $rawRuc)
+                ->orWhere('ruc', ltrim($rawRuc, '0'))
+                ->orWhereRaw('LOWER(TRIM(name)) = ?', [strtolower($rawName)])
+                ->first();
+
+            if (!$supplier) {
+                $supplier = Supplier::create([
+                    'tax_id' => $rawRuc,
+                    'name' => $rawName,
+                    'ruc' => $rawRuc,
+                    'trade_name' => $rawTrade,
+                    'address' => $rawAddress,
+                    'phone' => $phone ? trim($phone) : null,
+                    'email' => $email ? strtolower(trim($email)) : null,
+                ]);
+            }
 
             // Si el proveedor ya existía pero no tenía teléfono o correo y los encontramos en este XML, actualizarlos
             $updatedData = [];
             if (empty($supplier->phone) && !empty($phone)) {
-                $updatedData['phone'] = $phone;
+                $updatedData['phone'] = trim($phone);
             }
             if (empty($supplier->email) && !empty($email)) {
-                $updatedData['email'] = $email;
+                $updatedData['email'] = strtolower(trim($email));
             }
             if (!empty($updatedData)) {
                 $supplier->update($updatedData);
@@ -313,29 +325,63 @@ class InvoiceXmlImportController extends Controller
 
     public function checkDuplicate(Request $request)
     {
-        $accessKey = $request->get('access_key');
-        $invoiceNumber = $request->get('invoice_number');
-        $supplierRuc = $request->get('supplier_ruc');
+        $accessKey = trim($request->get('access_key', ''));
+        $invoiceNumber = trim($request->get('invoice_number', ''));
+        $supplierRuc = trim($request->get('supplier_ruc', ''));
         $supplierId = $request->get('supplier_id');
 
         $duplicate = null;
 
-        if (!empty($accessKey)) {
+        // 1. Buscar por Clave de Acceso exacta
+        if (!empty($accessKey) && strlen($accessKey) >= 10 && !str_contains($accessKey, 'e+')) {
             $duplicate = Invoice::with(['supplier', 'invoice_items'])
                 ->where('access_key', $accessKey)
                 ->first();
         }
 
+        // 2. Si no se encontró por clave de acceso, buscar por número de factura y proveedor
         if (!$duplicate && !empty($invoiceNumber)) {
-            $query = Invoice::with(['supplier', 'invoice_items'])->where('invoice_number', $invoiceNumber);
-            if (!empty($supplierId)) {
-                $query->where('supplier_id', $supplierId);
-            } elseif (!empty($supplierRuc)) {
-                $query->whereHas('supplier', function ($q) use ($supplierRuc) {
-                    $q->where('ruc', $supplierRuc);
-                });
+            $cleanSecuencial = ltrim($invoiceNumber, '0');
+            if (empty($cleanSecuencial)) {
+                $cleanSecuencial = '0';
             }
-            $duplicate = $query->first();
+            $paddedSecuencial = str_pad($cleanSecuencial, 9, '0', STR_PAD_LEFT);
+
+            $query = Invoice::with(['supplier', 'invoice_items'])
+                ->where(function ($q) use ($invoiceNumber, $cleanSecuencial, $paddedSecuencial) {
+                    $q->where('invoice_number', $invoiceNumber)
+                      ->orWhere('invoice_number', $paddedSecuencial)
+                      ->orWhere('invoice_number', 'LIKE', "%{$paddedSecuencial}")
+                      ->orWhere('invoice_number', 'LIKE', "%{$cleanSecuencial}");
+                });
+
+            // Normalizar variaciones de RUC (con y sin cero inicial)
+            $rucsToMatch = [];
+            if (!empty($supplierRuc)) {
+                $rucsToMatch[] = $supplierRuc;
+                $rucsToMatch[] = ltrim($supplierRuc, '0');
+                $rucsToMatch[] = str_pad($supplierRuc, 13, '0', STR_PAD_LEFT);
+            }
+
+            // Buscar todos los IDs de proveedores que coincidan
+            $supplierIds = [];
+            if (!empty($supplierId) && is_numeric($supplierId)) {
+                $supplierIds[] = (int)$supplierId;
+            }
+            if (!empty($rucsToMatch)) {
+                $matchingSupIds = Supplier::whereIn('ruc', $rucsToMatch)
+                    ->orWhereIn('tax_id', $rucsToMatch)
+                    ->pluck('id')
+                    ->toArray();
+                $supplierIds = array_unique(array_merge($supplierIds, $matchingSupIds));
+            }
+
+            if (!empty($supplierIds)) {
+                $query->whereIn('supplier_id', $supplierIds);
+                $duplicate = $query->first();
+            } else {
+                $duplicate = $query->first();
+            }
         }
 
         if ($duplicate) {
