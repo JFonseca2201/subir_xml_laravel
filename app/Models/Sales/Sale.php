@@ -138,4 +138,20 @@ class Sale extends Model
     {
         return !is_null($this->converted_to_sale_id);
     }
+
+    /**
+     * Notas de crédito emitidas para esta venta/factura.
+     */
+    public function creditNotes()
+    {
+        return $this->hasMany(CreditNote::class, 'sale_id');
+    }
+
+    /**
+     * Última nota de crédito emitida para esta venta/factura.
+     */
+    public function creditNote()
+    {
+        return $this->hasOne(CreditNote::class, 'sale_id')->latestOfMany();
+    }
 }

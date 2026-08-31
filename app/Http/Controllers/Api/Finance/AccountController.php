@@ -29,6 +29,8 @@ class AccountController extends Controller
             'is_system' => 'boolean',
         ]);
 
+        $validated['saldo_actual'] = $validated['initial_balance'] ?? 0;
+
         $account = Account::create($validated);
 
         return response()->json($account, 201);

@@ -35,11 +35,14 @@ use App\Http\Controllers\Api\MaintenanceReminderController;
 use App\Http\Controllers\ExcelImportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Api\Sale\RepuestosReposicionController;
+use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\IncomeProductController;
 use App\Http\Controllers\Invoice\InvoiceFileController;
 use App\Http\Controllers\ParallelTransactionController;
 use App\Http\Controllers\Purchases\PurchaseManualController;
+use App\Http\Controllers\Purchases\SupplierReconciliationController;
+use App\Http\Controllers\Sales\CreditNoteController;
 use App\Http\Controllers\SparePartRequestController;
 use App\Http\Controllers\Supplier\PedidoDistribuidorController;
 use App\Http\Controllers\UnitTypeController;
@@ -108,11 +111,11 @@ Route::group(
         Route::put('/invoice-items/{id}', [InvoiceXmlImportController::class, 'updateType']);
 
         // ============= RUTAS DE CONCILIACIÓN Y SALDOS A FAVOR DE PROVEEDORES ==============
-        Route::get('supplier-reconciliation/pending-invoices/{supplierId}', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'getPendingInvoices']);
-        Route::get('supplier-reconciliation/credit-balances/{supplierId}', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'getAvailableCredits']);
-        Route::post('supplier-reconciliation/reconcile-payment', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'reconcilePayment']);
-        Route::get('supplier-credit-balances', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'indexCredits']);
-        Route::post('supplier-credit-balances/{id}/refund', [\App\Http\Controllers\Purchases\SupplierReconciliationController::class, 'refundCredit']);
+        Route::get('supplier-reconciliation/pending-invoices/{supplierId}', [SupplierReconciliationController::class, 'getPendingInvoices']);
+        Route::get('supplier-reconciliation/credit-balances/{supplierId}', [SupplierReconciliationController::class, 'getAvailableCredits']);
+        Route::post('supplier-reconciliation/reconcile-payment', [SupplierReconciliationController::class, 'reconcilePayment']);
+        Route::get('supplier-credit-balances', [SupplierReconciliationController::class, 'indexCredits']);
+        Route::post('supplier-credit-balances/{id}/refund', [SupplierReconciliationController::class, 'refundCredit']);
 
         // ============= RUTAS DE PARTNERS ==============
         Route::post('partners/index', [PartnerController::class, 'index']);
@@ -223,6 +226,13 @@ Route::group(
         Route::get('sales/{id}/ride',              [SaleController::class, 'descargarRide']);
         Route::post('sales/{id}/sri/enviar-email', [SaleController::class, 'enviarEmail']);
 
+        // ============= RUTAS DE NOTAS DE CRÉDITO (SRI COMPROBANTE 04) ==========
+        Route::get('credit-notes',                [CreditNoteController::class, 'index']);
+        Route::post('credit-notes',               [CreditNoteController::class, 'store']);
+        Route::get('credit-notes/{id}',           [CreditNoteController::class, 'show']);
+        Route::post('credit-notes/{id}/resend',   [CreditNoteController::class, 'resendSri']);
+        Route::get('credit-notes/{id}/xml',       [CreditNoteController::class, 'descargarXml']);
+        Route::get('credit-notes/{id}/ride',      [CreditNoteController::class, 'descargarRide']);
 
         // ============= RUTAS DE DEVOLUCIONES ==========
         Route::get('returns', [ProductReturnController::class, 'index']);
@@ -297,11 +307,11 @@ Route::group(
         Route::patch('maintenance-reminders/{id}/status', [MaintenanceReminderController::class, 'updateStatus']);
 
         // ============= RUTAS DE RESPALDO DOCUMENTAL Y ADJUNTOS (COMPROBANTES) ==========
-        Route::get('attachments', [\App\Http\Controllers\AttachmentController::class, 'index']);
-        Route::post('attachments/upload', [\App\Http\Controllers\AttachmentController::class, 'upload']);
-        Route::get('attachments/{id}/view', [\App\Http\Controllers\AttachmentController::class, 'view']);
-        Route::get('attachments/{id}/download', [\App\Http\Controllers\AttachmentController::class, 'download']);
-        Route::delete('attachments/{id}', [\App\Http\Controllers\AttachmentController::class, 'destroy']);
+        Route::get('attachments', [AttachmentController::class, 'index']);
+        Route::post('attachments/upload', [AttachmentController::class, 'upload']);
+        Route::get('attachments/{id}/view', [AttachmentController::class, 'view']);
+        Route::get('attachments/{id}/download', [AttachmentController::class, 'download']);
+        Route::delete('attachments/{id}', [AttachmentController::class, 'destroy']);
 
         // ============= RUTAS DE GENERACIÓN DE PDFS Y RECIBOS ==========    
         Route::post('orders/{order}/generate-invoice', [InvoiceFileController::class, 'storeAndGenerate']);

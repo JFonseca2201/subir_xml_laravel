@@ -3,6 +3,7 @@
 namespace App\Services\SRI;
 
 use App\Models\Sales\Sale;
+use App\Models\Sales\CreditNote;
 use App\Models\Config\Sucursale;
 use XMLWriter;
 
@@ -248,6 +249,191 @@ class XmlGeneratorService
         $xml->endDocument();
 
         return $xml->outputMemory();
+    }
+
+    /**
+     * Genera el XML de Nota de Crédito electrónica según el esquema SRI Ecuador v1.1.0 (Comprobante 04)
+     */
+    public function generarNotaCredito(CreditNote $creditNote, Sucursale $sucursal): string
+    {
+        $sale = $creditNote->sale;
+        $sale->loadMissing(['details.product', 'client', 'vehicle']);
+
+        $claveAcceso = $this->generarClaveAccesoNotaCredito($creditNote, $sucursal);
+        if (!$creditNote->sri_access_key) {
+            $creditNote->update(['sri_access_key' => $claveAcceso]);
+        }
+
+        $xml = new XMLWriter();
+        $xml->openMemory();
+        $xml->setIndent(true);
+        $xml->setIndentString('  ');
+        $xml->startDocument('1.0', 'UTF-8');
+
+        $xml->startElement('notaCredito');
+        $xml->writeAttribute('id', 'comprobante');
+        $xml->writeAttribute('version', '1.1.0');
+
+        // ─── infoTributaria ─────────────────────────────────────────────
+        $ambiente = (string) ($sucursal->ambiente ?? env('SRI_AMBIENTE', '1'));
+        $xml->startElement('infoTributaria');
+        $xml->writeElement('ambiente',          $ambiente);
+        $xml->writeElement('tipoEmision',       $sucursal->tipo_emision ?? '1');
+        $xml->writeElement('razonSocial',       $sucursal->name);
+        $xml->writeElement('nombreComercial',   $sucursal->trade_name ?? $sucursal->name);
+        $xml->writeElement('ruc',               $sucursal->ruc);
+        $xml->writeElement('claveAcceso',       $claveAcceso);
+        $xml->writeElement('codDoc',            '04'); // 04 = Nota de Crédito
+        $xml->writeElement('estab',             $sucursal->establecimiento ?? '001');
+        $xml->writeElement('ptoEmi',            $sucursal->punto_emision ?? '001');
+        $xml->writeElement('secuencial',        $this->extraerSecuencial($claveAcceso));
+        $xml->writeElement('dirMatriz',         $sucursal->address ?? '');
+        $xml->endElement(); // infoTributaria
+
+        // ─── infoNotaCredito ────────────────────────────────────────────
+        $cliente = $sale->client;
+        $xml->startElement('infoNotaCredito');
+        $xml->writeElement('fechaEmision',              now()->format('d/m/Y'));
+        $xml->writeElement('dirEstablecimiento',        $sucursal->address ?? '');
+        $xml->writeElement('tipoIdentificacionComprador', $this->tipoDocumento($cliente->type_document, $cliente->n_document));
+        $xml->writeElement('razonSocialComprador',      $this->sanitizar($cliente->full_name ?? $cliente->name));
+        $xml->writeElement('identificacionComprador',   $cliente->n_document ?? '9999999999999');
+
+        if (!empty($sucursal->contribuyente_especial)) {
+            $xml->writeElement('contribuyenteEspecial', $sucursal->contribuyente_especial);
+        }
+
+        $xml->writeElement('obligadoContabilidad',      strtoupper($sucursal->obligado_contabilidad ?? 'NO'));
+
+        // Documento Modificado (Factura)
+        $estabFactura = str_pad($sucursal->establecimiento ?? '001', 3, '0', STR_PAD_LEFT);
+        $ptoFactura   = str_pad($sucursal->punto_emision ?? '001', 3, '0', STR_PAD_LEFT);
+        $secFactura   = str_pad($this->obtenerSecuencial($sale), 9, '0', STR_PAD_LEFT);
+        $numDocModificado = "{$estabFactura}-{$ptoFactura}-{$secFactura}";
+
+        $fechaDocSustento = $sale->service_date
+            ? $sale->service_date->format('d/m/Y')
+            : ($sale->created_at ? $sale->created_at->format('d/m/Y') : now()->format('d/m/Y'));
+
+        $xml->writeElement('codDocModificado',          '01');
+        $xml->writeElement('numDocModificado',          $numDocModificado);
+        $xml->writeElement('fechaEmisionDocSustento',   $fechaDocSustento);
+        $xml->writeElement('totalSinImpuestos',         number_format((float)$creditNote->subtotal, 2, '.', ''));
+        $xml->writeElement('valorModificacion',         number_format((float)$creditNote->total, 2, '.', ''));
+        $xml->writeElement('moneda',                    'DOLAR');
+
+        // totalConImpuestos
+        $xml->startElement('totalConImpuestos');
+        $tarifas = $this->calcularTarifas($sale);
+        foreach ($tarifas as $tarifa) {
+            $xml->startElement('totalImpuesto');
+            $xml->writeElement('codigo',                '2'); // IVA
+            $xml->writeElement('codigoPorcentaje',       $tarifa['codigoPorcentaje']);
+            $xml->writeElement('baseImponible',          number_format($tarifa['baseImponible'], 2, '.', ''));
+            $xml->writeElement('valor',                  number_format($tarifa['valor'], 2, '.', ''));
+            $xml->endElement();
+        }
+        $xml->endElement(); // totalConImpuestos
+
+        $xml->writeElement('motivo',                    $this->sanitizar($creditNote->reason ?: 'ANULACIÓN DE FACTURA'));
+        $xml->endElement(); // infoNotaCredito
+
+        // ─── detalles ───────────────────────────────────────────────────
+        $xml->startElement('detalles');
+        foreach ($sale->details as $index => $detalle) {
+            $taxRate  = (float)($detalle->tax_rate ?? 15.00);
+            $qty      = (float)($detalle->quantity ?? 1);
+            $grossPvp = $qty * (float)$detalle->price;
+            $discount = (float)($detalle->discount ?? 0);
+            $itemTotal = max(0, $grossPvp - $discount);
+
+            if ($taxRate > 0) {
+                $precioUnitarioSinImpuesto = round((float)$detalle->price / (1 + ($taxRate / 100)), 4);
+                $subtotalDetalle = round($itemTotal / (1 + ($taxRate / 100)), 2);
+                $valorImpuesto   = round($itemTotal - $subtotalDetalle, 2);
+            } else {
+                $precioUnitarioSinImpuesto = (float)$detalle->price;
+                $subtotalDetalle = $itemTotal;
+                $valorImpuesto   = 0.00;
+            }
+
+            $xml->startElement('detalle');
+            $codigoPrincipal = !empty($detalle->product?->sku)
+                ? $this->sanitizar($detalle->product->sku)
+                : ($detalle->product_id ? str_pad($detalle->product_id, 6, '0', STR_PAD_LEFT) : str_pad($index + 1, 6, '0', STR_PAD_LEFT));
+            $xml->writeElement('codigoInterno',          $codigoPrincipal);
+
+            if (!empty($detalle->product?->code_aux)) {
+                $xml->writeElement('codigoAdicional',   $this->sanitizar($detalle->product->code_aux));
+            }
+            $xml->writeElement('descripcion',            $this->sanitizar($detalle->description));
+            $xml->writeElement('cantidad',               number_format($qty, 2, '.', ''));
+            $xml->writeElement('precioUnitario',         number_format($precioUnitarioSinImpuesto, 4, '.', ''));
+            $xml->writeElement('descuento',              number_format($discount, 2, '.', ''));
+            $xml->writeElement('precioTotalSinImpuesto', number_format($subtotalDetalle, 2, '.', ''));
+
+            // Impuestos del detalle
+            $xml->startElement('impuestos');
+            $xml->startElement('impuesto');
+            $xml->writeElement('codigo',                '2');
+            $xml->writeElement('codigoPorcentaje',       $taxRate == 15 ? '4' : ($taxRate == 12 ? '2' : '0'));
+            $xml->writeElement('tarifa',                 number_format($taxRate, 2, '.', ''));
+            $xml->writeElement('baseImponible',          number_format($subtotalDetalle, 2, '.', ''));
+            $xml->writeElement('valor',                  number_format($valorImpuesto, 2, '.', ''));
+            $xml->endElement(); // impuesto
+            $xml->endElement(); // impuestos
+
+            $xml->endElement(); // detalle
+        }
+        $xml->endElement(); // detalles
+
+        // ─── infoAdicional ──────────────────────────────────────────────
+        $xml->startElement('infoAdicional');
+        if ($cliente->email) {
+            $xml->startElement('campoAdicional');
+            $xml->writeAttribute('nombre', 'EMAIL');
+            $xml->text($cliente->email);
+            $xml->endElement();
+        }
+        if ($cliente->phone) {
+            $xml->startElement('campoAdicional');
+            $xml->writeAttribute('nombre', 'TELEFONO');
+            $xml->text($cliente->phone);
+            $xml->endElement();
+        }
+        $xml->startElement('campoAdicional');
+        $xml->writeAttribute('nombre', 'FACTURA MODIFICADA');
+        $xml->text($numDocModificado);
+        $xml->endElement();
+        $xml->endElement(); // infoAdicional
+
+        $xml->endElement(); // notaCredito
+        $xml->endDocument();
+
+        return $xml->outputMemory();
+    }
+
+    /**
+     * Genera la clave de acceso de 49 dígitos para Nota de Crédito (codDoc 04).
+     */
+    public function generarClaveAccesoNotaCredito(CreditNote $creditNote, Sucursale $sucursal): string
+    {
+        $fecha          = now()->format('dmY');
+        $codDoc         = '04';
+        $ruc            = str_pad($sucursal->ruc, 13, '0', STR_PAD_LEFT);
+        $ambiente       = (string) ($sucursal->ambiente ?? env('SRI_AMBIENTE', '1'));
+        $estab          = str_pad($sucursal->establecimiento ?? '001', 3, '0', STR_PAD_LEFT);
+        $ptoEmi         = str_pad($sucursal->punto_emision ?? '001', 3, '0', STR_PAD_LEFT);
+        
+        $rawSec = preg_replace('/\D/', '', $creditNote->document_number);
+        $secuencial     = str_pad($rawSec ?: '1', 9, '0', STR_PAD_LEFT);
+        $codigoNum      = substr($secuencial, 0, 8);
+        $tipoEmision    = $sucursal->tipo_emision ?? '1';
+
+        $clave48 = $fecha . $codDoc . $ruc . $ambiente . $estab . $ptoEmi . $secuencial . $codigoNum . $tipoEmision;
+        $verificador = $this->modulo11($clave48);
+
+        return $clave48 . $verificador;
     }
 
     /**

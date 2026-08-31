@@ -72,6 +72,10 @@ class SequenceService
             if (\Illuminate\Support\Facades\Schema::hasTable('quotes')) {
                 return DB::table('quotes')->where('document_number', $candidateNumber)->exists();
             }
+        } elseif ($type === 'credit_note') {
+            if (\Illuminate\Support\Facades\Schema::hasTable('credit_notes')) {
+                return DB::table('credit_notes')->where('document_number', $candidateNumber)->exists();
+            }
         }
         return false;
     }
@@ -229,6 +233,24 @@ class SequenceService
                                 if ($val < 1000000) {
                                     $maxVal = max($maxVal, $val);
                                 }
+                            }
+                        }
+                    }
+                    return $maxVal > 0 ? $maxVal : null;
+                }
+            } elseif ($type === 'credit_note') {
+                if (\Illuminate\Support\Facades\Schema::hasTable('credit_notes')) {
+                    $numbers = DB::table('credit_notes')->pluck('document_number');
+                    $maxVal = 0;
+                    foreach ($numbers as $number) {
+                        $parsedNum = $number;
+                        if ($number && preg_match('/^(?:NC)-?(\d+)$/i', $number, $m)) {
+                            $parsedNum = $m[1];
+                        }
+                        if ($parsedNum && preg_match('/^\d+$/', $parsedNum)) {
+                            $val = (int)$parsedNum;
+                            if ($val < 1000000) {
+                                $maxVal = max($maxVal, $val);
                             }
                         }
                     }

@@ -171,6 +171,20 @@ class WorkOrderController extends Controller
     {
         $workOrder = WorkOrder::findOrFail($id);
 
+        // Verificar si la orden de trabajo ya tiene una factura o venta activa generada
+        $activeSale = \App\Models\Sales\Sale::where('work_order_id', $workOrder->id)
+            ->where('status', '!=', 'canceled')
+            ->first();
+
+        if ($activeSale) {
+            $docLabel = $activeSale->document_type === 'invoice' ? 'factura' : 'venta';
+            return response()->json([
+                'success' => false,
+                'message' => "Esta orden de trabajo ya fue procesada en la {$docLabel} #{$activeSale->document_number} y no puede ser editada.",
+                'error' => 'work_order_already_invoiced'
+            ], 422);
+        }
+
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
@@ -335,7 +349,7 @@ class WorkOrderController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'technicians', 'items.product'])
+        $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'sale', 'technicians', 'items.product'])
             ->findOrFail($id);
 
         return response()->json([

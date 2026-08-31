@@ -3,6 +3,7 @@
 namespace App\Services\SRI;
 
 use App\Models\Sales\Sale;
+use App\Models\Sales\CreditNote;
 use App\Models\Config\Sucursale;
 use App\Mail\SRI\InvoiceElectronicMail;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -141,6 +142,135 @@ class ElectronicInvoiceService
             ]);
             throw new Exception("SRI rechazó el comprobante: {$errores}");
         }
+    }
+
+    /**
+     * Procesa una Nota de Crédito electrónica (Comprobante 04).
+     *
+     * @throws Exception
+     */
+    public function procesarNotaCredito(CreditNote $creditNote): void
+    {
+        $sale = $creditNote->sale;
+        $sale->load(['details.product', 'client', 'vehicle', 'user']);
+
+        $sucursal = $this->obtenerSucursal($sale);
+        if (!empty($sucursal->ambiente)) {
+            $this->sriWs->setAmbiente((int) $sucursal->ambiente);
+        }
+
+        // Subtotales de la factura original para la NC
+        $subtotales = $this->calcularSubtotalesPorTarifa($sale);
+        $creditNote->update([
+            'subtotal_iva_15' => $subtotales['subtotal_iva_15'],
+            'subtotal_iva_0'  => $subtotales['subtotal_iva_0'],
+        ]);
+
+        // 1. Generar XML Nota de Crédito
+        $xmlString = $this->xmlGenerator->generarNotaCredito($creditNote, $sucursal);
+        $creditNote->refresh();
+        Log::info("[SRI-NC] XML generado para NC #{$creditNote->id}, Clave: {$creditNote->sri_access_key}");
+
+        // 2. Firmar XML
+        $relPath = ltrim($sucursal->firma_electronica, '/');
+        $candidates = [
+            storage_path('app/' . $relPath),
+            storage_path('app/private/' . $relPath),
+            storage_path('app/public/' . $relPath),
+            storage_path($relPath),
+            public_path('storage/' . $relPath),
+        ];
+
+        $p12Path = null;
+        foreach ($candidates as $cand) {
+            if (file_exists($cand)) {
+                $p12Path = $cand;
+                break;
+            }
+        }
+
+        if (!$p12Path) {
+            throw new Exception("Archivo de firma electrónica (.p12) no encontrado en: " . storage_path('app/' . $relPath));
+        }
+
+        $xmlFirmado = $this->firmaService->firmar($xmlString, $p12Path, $sucursal->password_firma ?? '');
+        Log::info("[SRI-NC] XML firmado para NC #{$creditNote->id}");
+
+        // 3. Guardar XML firmado
+        $fileKey = $creditNote->sri_access_key ?: ($creditNote->document_number ?: 'nc_' . $creditNote->id);
+        $xmlPath = $this->guardarArchivo($xmlFirmado, $fileKey, 'xmls', 'xml');
+        $creditNote->update([
+            'xml_path'   => $xmlPath,
+            'sri_status' => 'FIRMADA',
+        ]);
+
+        // 4. Enviar al SRI
+        $creditNote->update(['sri_status' => 'ENVIADA']);
+        $recepcion = $this->sriWs->enviarComprobante($xmlFirmado);
+        Log::info("[SRI-NC] Respuesta recepción NC #{$creditNote->id}: " . $recepcion['estado']);
+
+        if ($recepcion['estado'] !== 'RECIBIDA') {
+            $errores = implode(' | ', $recepcion['errores']);
+            if (str_contains(strtoupper($errores), 'CLAVE ACCESO REGISTRADA') || str_contains(strtoupper($errores), 'CLAVE CONSULTADA')) {
+                Log::info("[SRI-NC] Clave ya registrada en SRI para NC #{$creditNote->id}, consultando autorización existente.");
+            } else {
+                $creditNote->update([
+                    'sri_status' => 'DEVUELTA',
+                    'sri_error'  => $errores,
+                ]);
+                throw new Exception("SRI devolvió la Nota de Crédito: {$errores}");
+            }
+        }
+
+        // 5. Consultar autorización
+        sleep(3);
+        $autorizacion = $this->sriWs->autorizarComprobante($creditNote->sri_access_key);
+        $estadoAut = strtoupper($autorizacion['estado'] ?? '');
+
+        if ($estadoAut === 'AUTORIZADO' || $estadoAut === 'AUTORIZADA') {
+            $ridePath = $this->generarRideNotaCredito($creditNote, $sucursal, $autorizacion);
+
+            $creditNote->update([
+                'sri_status'             => 'AUTORIZADA',
+                'sri_authorization_date' => $autorizacion['fechaAutorizacion'],
+                'sri_error'              => null,
+                'pdf_path'               => $ridePath,
+            ]);
+
+            // Marcar factura original como ANULADA formalmente
+            $sale->update(['status' => 'canceled', 'payment_status' => 'canceled']);
+
+            Log::info("[SRI-NC] Nota de Crédito #{$creditNote->id} AUTORIZADA. Clave: {$creditNote->sri_access_key}");
+
+        } elseif (str_contains($estadoAut, 'PROCESO')) {
+            Log::warning("[SRI-NC] NC #{$creditNote->id} aún EN_PROCESO en el SRI.");
+            $creditNote->update(['sri_status' => 'ENVIADA']);
+        } else {
+            $errores = implode(' | ', $autorizacion['errores']);
+            $creditNote->update([
+                'sri_status' => 'RECHAZADA',
+                'sri_error'  => $errores,
+            ]);
+            throw new Exception("SRI rechazó la Nota de Crédito: {$errores}");
+        }
+    }
+
+    /**
+     * Genera el RIDE (PDF) de la Nota de Crédito electrónica.
+     */
+    public function generarRideNotaCredito(CreditNote $creditNote, Sucursale $sucursal, array $autorizacion): string
+    {
+        $creditNote->loadMissing(['sale.details.product', 'sale.client', 'sale.vehicle']);
+
+        $pdf = Pdf::loadView('pdf.ride_nc', [
+            'creditNote'   => $creditNote,
+            'sucursal'     => $sucursal,
+            'autorizacion' => $autorizacion,
+        ])->setPaper('A4', 'portrait');
+
+        $content = $pdf->output();
+        $fileKey = $creditNote->sri_access_key ?: ($creditNote->document_number ?: 'nc_' . $creditNote->id);
+        return $this->guardarArchivo($content, $fileKey, 'rides', 'pdf');
     }
 
     /**
