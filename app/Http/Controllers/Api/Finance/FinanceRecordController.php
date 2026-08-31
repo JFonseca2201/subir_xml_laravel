@@ -156,11 +156,12 @@ class FinanceRecordController extends Controller
      */
     private function getPaymentMethod($accountId): string
     {
-        return match ($accountId) {
-            1 => 'cash',
-            2, 3 => 'transfer',
-            default => 'cash'
-        };
+        $account = Account::find($accountId);
+        if ($account && ($account->type === 'bank' || !empty($account->bank_name))) {
+            return 'transfer';
+        }
+
+        return 'cash';
     }
 
     /**

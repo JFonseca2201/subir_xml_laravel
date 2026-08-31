@@ -110,11 +110,8 @@ class FinanceRecord extends Model
      */
     public function applyPaymentMethodRules(): void
     {
-        if ($this->account_id == self::ACCOUNT_CASH) {
-            $this->payment_method = 'cash';
-        }
-        elseif (in_array($this->account_id, [self::ACCOUNT_PICHINCHA, self::ACCOUNT_GUAYAQUIL])) {
-            $this->payment_method = 'transfer';
+        if ($this->account) {
+            $this->payment_method = ($this->account->type === 'bank' || !empty($this->account->bank_name)) ? 'transfer' : 'cash';
         }
     }
 
@@ -131,12 +128,7 @@ class FinanceRecord extends Model
      */
     public function getAccountLabelAttribute(): string
     {
-        return match ($this->account_id) {
-                self::ACCOUNT_CASH => 'Efectivo/Caja chica',
-                self::ACCOUNT_PICHINCHA => 'Banco Pichincha',
-                self::ACCOUNT_GUAYAQUIL => 'Banco Guayaquil',
-                default => 'Desconocida',
-            };
+        return $this->account?->name ?? 'Desconocida';
     }
 
     /**

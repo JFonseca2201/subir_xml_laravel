@@ -223,76 +223,8 @@ class SaleDispatchService
                 $newSale->technicians()->sync($quote->technicians->pluck('id'));
             }
 
-            if ($request->payment_status !== 'pending' && !$this->financeService->isTestEnvironmentInvoice($newSale)) {
-                $financeRecord = FinanceRecord::create([
-                    'type' => FinanceRecord::TYPE_INCOME,
-                    'amount' => $total,
-                    'description' => 'Venta: ' . $newDocType . ' - ' . $newDocNumber,
-                    'invoice_number' => $newDocNumber,
-                    'user_id' => $quote->user_id,
-                    'entry_date' => now()->toDateString(),
-                ]);
-
-                if ($request->has('payment_distributions') && is_array($request->payment_distributions)) {
-                    foreach ($request->payment_distributions as $distribution) {
-                        PaymentDistribution::create([
-                            'finance_record_id' => $financeRecord->id,
-                            'account_id' => $distribution['account_id'],
-                            'amount' => $distribution['amount'],
-                            'payment_method' => $distribution['payment_method'],
-                        ]);
-
-                        $account = Account::find($distribution['account_id']);
-                        if ($account) {
-                            $account->updateBalance($distribution['amount'], FinanceRecord::TYPE_INCOME);
-                        }
-
-                        $newSale->registerMovement(
-                            $distribution['account_id'],
-                            'income',
-                            $distribution['amount'],
-                            'Venta: ' . $newDocType . ' - ' . $newDocNumber . ' - ' . $distribution['payment_method'],
-                            now()->toDateString(),
-                            [
-                                'document_type' => $newDocType,
-                                'document_number' => $newDocNumber,
-                                'payment_method' => $distribution['payment_method'],
-                                'finance_record_id' => $financeRecord->id,
-                            ]
-                        );
-                    }
-                } else {
-                    $accountId = 1;
-                    if (strtolower($request->payment_method) === 'transferencia' || strtolower($request->payment_method) === 'transfer') {
-                        $accountId = 2;
-                    }
-
-                    PaymentDistribution::create([
-                        'finance_record_id' => $financeRecord->id,
-                        'account_id' => $accountId,
-                        'amount' => $total,
-                        'payment_method' => $request->payment_method,
-                    ]);
-
-                    $account = Account::find($accountId);
-                    if ($account) {
-                        $account->updateBalance($total, FinanceRecord::TYPE_INCOME);
-                    }
-
-                    $newSale->registerMovement(
-                        $accountId,
-                        'income',
-                        $total,
-                        'Venta: ' . $newDocType . ' - ' . $newDocNumber . ' - ' . $request->payment_method,
-                        now()->toDateString(),
-                        [
-                            'document_type' => $newDocType,
-                            'document_number' => $newDocNumber,
-                            'payment_method' => $request->payment_method,
-                            'finance_record_id' => $financeRecord->id,
-                        ]
-                    );
-                }
+            if ($request->payment_status !== 'pending') {
+                $this->financeService->processFinancialRecord($newSale, $request->all(), $quote->user_id ?? 1);
             }
 
             foreach ($newSale->details as $detail) {

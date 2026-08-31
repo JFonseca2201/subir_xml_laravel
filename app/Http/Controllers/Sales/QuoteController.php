@@ -455,9 +455,10 @@ class QuoteController extends Controller
                             );
                         }
                     } else {
-                        $accountId = 1;
-                        if (strtolower($request->payment_method) === 'transferencia') {
-                            $accountId = 2;
+                        if (strtolower($request->payment_method) === 'transferencia' || strtolower($request->payment_method) === 'transfer') {
+                            $accountId = Account::where('type', 'bank')->first()?->id ?? Account::first()?->id;
+                        } else {
+                            $accountId = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id;
                         }
 
                         PaymentDistribution::create([

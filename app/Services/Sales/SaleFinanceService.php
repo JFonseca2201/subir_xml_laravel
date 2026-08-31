@@ -40,11 +40,6 @@ class SaleFinanceService
      */
     public function processFinancialRecord(Sale $sale, array $requestData = [], int $userId = 1): void
     {
-        // En ambiente de pruebas para facturas (SRI_AMBIENTE = 1), no alterar cuentas financieras ni saldos
-        if ($this->isTestEnvironmentInvoice($sale)) {
-            Log::info("[SRI Pruebas] Factura #{$sale->document_number} procesada en modo pruebas: se omiten movimientos de cuentas y saldos.");
-            return;
-        }
 
         // 1. Buscar si ya existe un registro financiero para esta venta
         $financeRecord = FinanceRecord::where('invoice_number', $sale->document_number)->first();
@@ -86,11 +81,15 @@ class SaleFinanceService
             }
         }
 
+        $primaryAccountId = !empty($requestData['payment_distributions'][0]['account_id'])
+            ? $requestData['payment_distributions'][0]['account_id']
+            : (Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id ?? 1);
+
         // 3. Crear/Actualizar el registro financiero principal
         $financeRecord->fill([
             'entry_date' => $entryDate,
             'type' => FinanceRecord::TYPE_INCOME,
-            'account_id' => 1, // Default
+            'account_id' => $primaryAccountId,
             'payment_method' => $paymentMethod,
             'amount' => $totalPaid,
             'work_order_number' => WorkOrderSaleSync::resolveFinanceWorkOrderNumber(
@@ -134,10 +133,11 @@ class SaleFinanceService
                     );
                 }
             } else {
-                // Si no hay pagos distribuidos, usar el método de pago único
-                $accountId = 1; // Default: Caja chica (Efectivo)
+                // Si no hay pagos distribuidos, usar el método de pago único y buscar la cuenta dinámicamente
                 if (strtolower($paymentMethod) === 'transferencia' || strtolower($paymentMethod) === 'transfer') {
-                    $accountId = 2; // Banco Pichincha
+                    $accountId = Account::where('type', 'bank')->first()?->id ?? Account::first()?->id;
+                } else {
+                    $accountId = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id;
                 }
 
                 PaymentDistribution::create([
