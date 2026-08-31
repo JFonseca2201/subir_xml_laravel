@@ -14,9 +14,6 @@ class WorkOrderSaleSync
         return \App\Services\SequenceService::getNextWorkOrderNumber();
     }
 
-    /**
-     * Valida que la orden esté lista y sin venta asociada.
-     */
     public static function assertReadyForInvoicing(int $workOrderId): WorkOrder
     {
         $workOrder = WorkOrder::with(['sale', 'technicians'])->findOrFail($workOrderId);
@@ -29,10 +26,14 @@ class WorkOrderSaleSync
             ], 400));
         }
 
-        if ($workOrder->sale) {
+        $activeSale = Sale::where('work_order_id', $workOrderId)
+            ->where('status', '!=', 'canceled')
+            ->first();
+
+        if ($activeSale) {
             throw new HttpResponseException(response()->json([
                 'success' => false,
-                'message' => 'Esta orden de trabajo ya tiene una venta asociada.',
+                'message' => 'Esta orden de trabajo ya tiene una venta activa asociada (' . $activeSale->document_number . ').',
                 'error' => 'work_order_already_invoiced',
             ], 400));
         }

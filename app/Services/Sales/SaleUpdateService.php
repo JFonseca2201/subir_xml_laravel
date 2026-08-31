@@ -508,16 +508,16 @@ class SaleUpdateService
     }
 
     /**
-     * Elimina una venta completa, revirtiendo stock, finanzas y secuencias.
+     * Anula una venta completa, revirtiendo stock, finanzas y liberando la orden de trabajo asociada.
      */
     public function deleteSale(Sale $sale): array
     {
-        if ($sale->document_type === 'invoice' && $sale->sri_status === 'AUTORIZADA') {
+        if ($sale->status === 'canceled') {
             return [
-                'status' => 422,
+                'status' => 400,
                 'data' => [
                     'success' => false,
-                    'message' => 'No se puede eliminar una factura que ya ha sido autorizada por el SRI.'
+                    'message' => 'Esta venta ya se encuentra anulada.'
                 ]
             ];
         }
@@ -548,7 +548,7 @@ class SaleUpdateService
                 foreach ($sale->details as $detail) {
                     if ($detail->product_id) {
                         $product = ModelsProduct::find($detail->product_id);
-                        if ($product) {
+                        if ($product && $product->item_type == 1) {
                             $product->stock += $detail->quantity;
                             $product->save();
                         }
@@ -556,18 +556,33 @@ class SaleUpdateService
                 }
             }
 
-            // 4. Eliminar detalles y la venta
-            $sale->details()->delete();
-            $sale->delete();
+            // 4. Liberar la Orden de Trabajo asociada para que pueda volver a ser facturada
+            if ($sale->work_order_id) {
+                $workOrder = WorkOrder::find($sale->work_order_id);
+                if ($workOrder) {
+                    // Si estaba como entregada por la facturación, volver a 'ready'
+                    if ($workOrder->status === 'delivered') {
+                        $workOrder->update(['status' => 'ready']);
+                    }
+                }
+            }
 
-            SequenceService::decrementNumberIfMatches($sale->document_type, $sale->document_number);
+            // 5. Marcar venta como anulada (canceled), desvincularla y ejecutar soft delete para llenar deleted_at
+            $sale->update([
+                'status' => 'canceled',
+                'payment_status' => 'pending',
+                'work_order_id' => null,
+            ]);
+
+            // Ejecuta soft delete de Eloquent para llenar el campo deleted_at
+            $sale->delete();
         });
 
         return [
             'status' => 200,
             'data' => [
                 'success' => true,
-                'message' => 'La venta ha sido eliminada correctamente de la base de datos.'
+                'message' => 'El documento ha sido anulado correctamente. Se revirtió el stock, los registros contables y la orden de trabajo quedó disponible para ser facturada nuevamente.'
             ]
         ];
     }

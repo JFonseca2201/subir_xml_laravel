@@ -286,10 +286,10 @@ class WorkOrderController extends Controller
     {
         $workOrder = WorkOrder::findOrFail($id);
 
-        if ($workOrder->sale()->exists()) {
+        if ($workOrder->sale()->where('status', '!=', 'canceled')->exists()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se puede eliminar una orden de trabajo que ya ha sido facturada o cobrada.'
+                'message' => 'No se puede eliminar una orden de trabajo que tiene una venta activa.'
             ], 400);
         }
 
@@ -368,7 +368,9 @@ class WorkOrderController extends Controller
     {
         $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items.product', 'technicians'])
             ->whereIn('status', ['ready', 'delivered'])
-            ->whereDoesntHave('sale')
+            ->whereDoesntHave('sale', function ($q) {
+                $q->where('status', '!=', 'canceled');
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 

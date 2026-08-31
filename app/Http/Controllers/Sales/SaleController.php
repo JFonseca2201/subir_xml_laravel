@@ -58,7 +58,7 @@ class SaleController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Sale::with(['client', 'vehicle', 'user', 'workOrder', 'financeRecord.paymentDistributions']);
+            $query = Sale::withTrashed()->with(['client', 'vehicle', 'user', 'workOrder', 'financeRecord.paymentDistributions']);
 
             // 1. Filtro por búsqueda general
             if ($request->has('search') && $request->search != '') {
