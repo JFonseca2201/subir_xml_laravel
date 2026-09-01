@@ -30,6 +30,20 @@ class Vehicle extends Model
         'year' => 'integer',
     ];
 
+    protected $appends = [
+        'brand_name',
+    ];
+
+    public function getBrandNameAttribute()
+    {
+        if (empty($this->brand)) {
+            return null;
+        }
+        $brands = config('vehicle_brands', []);
+        $key = is_numeric($this->brand) ? (int)$this->brand : $this->brand;
+        return $brands[$key] ?? $this->brand;
+    }
+
     // Relación para saber quién lo ingresó
     public function creator()
     {
