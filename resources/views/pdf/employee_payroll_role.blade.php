@@ -11,8 +11,13 @@
             size: A4 portrait;
         }
 
+        * {
+            font-family: 'Helvetica', Arial, sans-serif !important;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Helvetica', Arial, sans-serif !important;
             font-size: 11px;
             color: #1e293b;
             line-height: 1.4;
@@ -88,7 +93,6 @@
             font-size: 12px;
             font-weight: bold;
             color: #2563eb;
-            font-family: monospace;
         }
 
         .doc-period {
@@ -260,10 +264,9 @@
 
         .net-amount {
             font-size: 20px;
-            font-weight: 900;
+            font-weight: bold;
             color: #166534;
             text-align: right;
-            font-family: monospace;
         }
 
         /* Legal Conformity */
@@ -330,7 +333,7 @@
 
         .stamp-company {
             font-size: 9px;
-            font-weight: 900;
+            font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: #1e40af;
@@ -338,7 +341,7 @@
 
         .stamp-status {
             font-size: 13px;
-            font-weight: 900;
+            font-weight: bold;
             color: #dc2626;
             margin: 2px 0;
             letter-spacing: 0.12em;
@@ -453,11 +456,6 @@
                             <tr>
                                 <td>Comisiones / Otros Haberes</td>
                                 <td class="text-right">$0.00</td>
-                            </tr>
-                            <!-- Relleno visual -->
-                            <tr>
-                                <td style="color: transparent;">-</td>
-                                <td class="text-right" style="color: transparent;">-</td>
                             </tr>
                         </tbody>
                         <tfoot>

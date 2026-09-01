@@ -979,13 +979,41 @@ class EmployeeExpenseController extends Controller
                 $employee = $record->employee;
                 $advances = $record->advances;
 
-                // Si no tiene adelantos vinculados directos pero tiene advances_amount > 0, buscar los que se dedujeron en esa fecha
-                if ((!$advances || $advances->isEmpty()) && $record->advances_amount > 0) {
+                // Si no tiene adelantos vinculados directos en la relación
+                if (!$advances || $advances->isEmpty()) {
                     $advances = EmployeeAdvance::where('employee_id', $record->employee_id)
-                        ->where('is_deducted', true)
-                        ->where('advance_date', '<=', $record->payment_date)
-                        ->orderBy('advance_date', 'asc')
+                        ->where(function ($q) use ($record) {
+                            $q->where('employee_payment_id', $record->id)
+                                ->orWhere(function ($sub) use ($record) {
+                                    $sub->where('is_deducted', true)
+                                        ->whereBetween('updated_at', [
+                                            Carbon::parse($record->created_at)->subMinutes(10),
+                                            Carbon::parse($record->created_at)->addMinutes(10)
+                                        ]);
+                                });
+                        })
                         ->get();
+                }
+
+                // Si aún está vacío pero tiene mes definido, buscar los de ese mes
+                $monthStr = $record->payment_month;
+                if ((!$advances || $advances->isEmpty())) {
+                    $desc = strtoupper($record->description ?? '');
+                    if (!$monthStr) {
+                        if (strpos($desc, 'AGOSTO') !== false) $monthStr = '2026-08';
+                        elseif (strpos($desc, 'JULIO') !== false) $monthStr = '2026-07';
+                        elseif (strpos($desc, 'JUNIO') !== false) $monthStr = '2026-06';
+                        elseif (strpos($desc, 'MAYO') !== false) $monthStr = '2026-05';
+                    }
+
+                    if ($monthStr) {
+                        $mStart = Carbon::parse($monthStr . '-01')->startOfMonth();
+                        $mEnd = Carbon::parse($monthStr . '-01')->endOfMonth();
+                        $advances = EmployeeAdvance::where('employee_id', $record->employee_id)
+                            ->where('is_deducted', true)
+                            ->whereBetween('advance_date', [$mStart, $mEnd])
+                            ->get();
+                    }
                 }
 
                 $monthNames = [
@@ -994,7 +1022,11 @@ class EmployeeExpenseController extends Controller
                     '09' => 'SEPTIEMBRE', '10' => 'OCTUBRE', '11' => 'NOVIEMBRE', '12' => 'DICIEMBRE'
                 ];
 
-                $monthStr = $record->payment_month;
+                if (!$monthStr) {
+                    $dt = Carbon::parse($record->payment_date);
+                    $monthStr = $dt->day <= 10 ? $dt->copy()->subMonth()->format('Y-m') : $dt->format('Y-m');
+                }
+
                 if ($monthStr && strpos($monthStr, '-') !== false) {
                     $parts = explode('-', $monthStr);
                     $monthLabel = ($monthNames[$parts[1] ?? ''] ?? $parts[1]) . ' ' . ($parts[0] ?? '');
@@ -1004,9 +1036,9 @@ class EmployeeExpenseController extends Controller
                     $monthLabel = ($monthNames[$mKey] ?? '') . ' ' . $dt->year;
                 }
 
-                $baseSalary = (float) ($record->base_salary ?: ($employee->salary ?: $record->amount));
-                $advancesAmount = (float) ($record->advances_amount ?: ($advances ? $advances->sum('amount') : 0));
-                $netAmount = (float) ($record->net_amount ?: $record->amount);
+                $baseSalary = (float) ($record->base_salary > 0 ? $record->base_salary : ($employee ? $employee->salary : $record->amount));
+                $advancesAmount = (float) ($record->advances_amount > 0 ? $record->advances_amount : ($advances ? $advances->sum('amount') : 0));
+                $netAmount = (float) ($record->net_amount > 0 ? $record->net_amount : ($record->amount > 0 ? $record->amount : ($baseSalary - $advancesAmount)));
 
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.employee_payroll_role', [
                     'payment' => $record,
@@ -1029,7 +1061,7 @@ class EmployeeExpenseController extends Controller
                 ])->setPaper('a4', 'portrait');
 
                 $cleanEmpName = str_replace(' ', '_', $employeeName);
-                return $pdf->download('ROL_PAGOS_' . $cleanEmpName . '_' . ($record->payment_month ?: date('Y-m')) . '.pdf');
+                return $pdf->download('ROL_PAGOS_' . $cleanEmpName . '_' . ($monthStr ?: date('Y-m')) . '.pdf');
             }
 
             // Si es ADELANTO -> Generar Comprobante de Adelanto
