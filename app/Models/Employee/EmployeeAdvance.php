@@ -19,6 +19,7 @@ class EmployeeAdvance extends Model
 
     protected $fillable = [
         'employee_id',
+        'employee_payment_id',
         'account_id',
         'amount',
         'description',
@@ -47,6 +48,11 @@ class EmployeeAdvance extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function employeePayment()
+    {
+        return $this->belongsTo(EmployeePayment::class, 'employee_payment_id');
     }
 
     public function account()

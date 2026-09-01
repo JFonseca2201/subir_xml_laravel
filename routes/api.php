@@ -160,6 +160,7 @@ Route::group(
 
         // ============= RUTAS DE GASTOS DE EMPLEADOS ==========
         Route::get('employee-expenses', [EmployeeExpenseController::class, 'index']);
+        Route::get('employee-expenses/check-month', [EmployeeExpenseController::class, 'checkMonthPayment']);
         Route::post('employee-expenses', [EmployeeExpenseController::class, 'store']);
         Route::put('employee-expenses/{id}', [EmployeeExpenseController::class, 'update']);
         Route::delete('employee-expenses/{id}', [EmployeeExpenseController::class, 'destroy']);

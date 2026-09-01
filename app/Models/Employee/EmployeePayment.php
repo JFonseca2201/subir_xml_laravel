@@ -21,8 +21,12 @@ class EmployeePayment extends Model
         'employee_id',
         'account_id',
         'amount',
+        'base_salary',
+        'advances_amount',
+        'net_amount',
         'description',
         'payment_date',
+        'payment_month',
         'payment_method',
         'reference',
         'type',
@@ -31,6 +35,9 @@ class EmployeePayment extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'base_salary' => 'decimal:2',
+        'advances_amount' => 'decimal:2',
+        'net_amount' => 'decimal:2',
         'payment_date' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -55,6 +62,11 @@ class EmployeePayment extends Model
     public function creator()
     {
         return $this->belongsTo(User::class , 'created_by');
+    }
+
+    public function advances()
+    {
+        return $this->hasMany(EmployeeAdvance::class, 'employee_payment_id');
     }
 
     // Scope para filtrar por tipo
