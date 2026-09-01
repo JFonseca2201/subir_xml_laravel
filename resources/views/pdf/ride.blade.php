@@ -7,7 +7,8 @@
     <title>RIDE - Factura {{ $sale->document_number }}</title>
     <style>
         @page {
-            /* margin: 12px 14px 44px 14px; */
+            margin: 8mm 10mm;
+            size: letter portrait;
         }
 
         body {
@@ -18,6 +19,17 @@
             line-height: 1.25;
             padding: 0;
             margin: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
+
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
         }
 
         .container {
@@ -496,7 +508,7 @@
                             <div class="auth-label" style="margin-top: 0; margin-bottom: 1px;">CLAVE DE ACCESO</div>
                             @if (!empty($sale->sri_access_key))
                             <div style="padding: 1px 0;">
-                                {!! \App\Helpers\PdfHelper::generateBarcodeHTML($sale->sri_access_key, 22) !!}
+                                {!! \App\Helpers\PdfHelper::generateBarcodeHTML($sale->sri_access_key, 32) !!}
                             </div>
                             <div class="access-key-text">{{ $sale->sri_access_key }}</div>
                             @else
@@ -770,6 +782,16 @@
             $pdf->page_text(510, 818, $text, $font, $size, $color);
         }
     </script>
+
+    @if(request()->has('print'))
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.print();
+            }, 300);
+        });
+    </script>
+    @endif
 </body>
 
 </html>

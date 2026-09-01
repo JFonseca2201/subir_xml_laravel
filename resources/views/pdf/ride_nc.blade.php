@@ -203,7 +203,14 @@
 
                         <div class="barcode-box">
                             <span class="info-label">CLAVE DE ACCESO</span><br>
+                            @if (!empty($creditNote->sri_access_key))
+                            <div style="padding: 2px 0;">
+                                {!! \App\Helpers\PdfHelper::generateBarcodeHTML($creditNote->sri_access_key, 28) !!}
+                            </div>
                             <span class="info-val" style="font-size: 7.5px;">{{ $creditNote->sri_access_key }}</span>
+                            @else
+                            <span class="info-val" style="font-size: 7.5px;">SIN CLAVE DE ACCESO</span>
+                            @endif
                         </div>
                     </div>
                 </td>

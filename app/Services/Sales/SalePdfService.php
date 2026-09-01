@@ -111,7 +111,7 @@ class SalePdfService
             $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
         }
 
-        if ($sale->document_type === 'invoice') {
+        if ($sale->document_type === 'invoice' || !empty($sale->sri_access_key)) {
             $sucursal = Sucursale::find($sale->client->sucursale_id ?? 1) ?? Sucursale::first();
             $autorizacion = [
                 'numeroAutorizacion' => $sale->sri_access_key,

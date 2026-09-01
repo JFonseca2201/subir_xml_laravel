@@ -73,10 +73,10 @@ class PdfHelper
     }
 
     /**
-     * Genera un código de barras Code128 en HTML/CSS optimizado para DomPDF
-     * a partir de una clave de acceso de 49 dígitos.
+     * Genera un código de barras Code128 en Base64 PNG de alta precisión
+     * a partir de una clave de acceso de 49 dígitos (o cualquier código).
      */
-    public static function generateBarcodeHTML(string $code, int $height = 30): string
+    public static function generateBarcodeBase64(string $code, int $height = 36): string
     {
         if (empty($code)) {
             return '';
@@ -122,20 +122,77 @@ class PdfHelper
         $symbols[] = $checksum % 103;
         $symbols[] = 106; // Stop Code
 
-        // Renderizar barra en HTML/CSS
-        $html = '<div style="display:inline-block; font-size:0; line-height:0; white-space:nowrap; background:#fff; padding:2px;">';
+        // Si GD está disponible, generar imagen PNG real para compatibilidad absoluta en DomPDF y navegadores
+        if (extension_loaded('gd')) {
+            $moduleWidth = 2;
+            $quietZone = 10 * $moduleWidth;
+            $totalModules = 0;
+            foreach ($symbols as $sym) {
+                $pat = $patterns[$sym] ?? '111111';
+                for ($k = 0; $k < strlen($pat); $k++) {
+                    $totalModules += (int)$pat[$k];
+                }
+            }
+
+            $imgWidth = ($totalModules * $moduleWidth) + ($quietZone * 2);
+            $imgHeight = max(40, $height * 2);
+
+            $image = imagecreatetruecolor($imgWidth, $imgHeight);
+            $bg = imagecolorallocate($image, 255, 255, 255);
+            $barColor = imagecolorallocate($image, 0, 0, 0);
+            imagefilledrectangle($image, 0, 0, $imgWidth, $imgHeight, $bg);
+
+            $currentX = $quietZone;
+            foreach ($symbols as $sym) {
+                $pat = $patterns[$sym] ?? '111111';
+                $isBar = true;
+                for ($k = 0; $k < strlen($pat); $k++) {
+                    $w = (int)$pat[$k] * $moduleWidth;
+                    if ($isBar) {
+                        imagefilledrectangle($image, $currentX, 0, $currentX + $w - 1, $imgHeight, $barColor);
+                    }
+                    $currentX += $w;
+                    $isBar = !$isBar;
+                }
+            }
+
+            ob_start();
+            imagepng($image);
+            $pngData = ob_get_clean();
+            imagedestroy($image);
+
+            return 'data:image/png;base64,' . base64_encode($pngData);
+        }
+
+        // Fallback SVG
+        $x = 10;
+        $rects = '';
         foreach ($symbols as $sym) {
             $pat = $patterns[$sym] ?? '111111';
             $isBar = true;
             for ($k = 0; $k < strlen($pat); $k++) {
                 $w = (int)$pat[$k];
-                $color = $isBar ? '#000' : '#fff';
-                $html .= '<div style="display:inline-block; vertical-align:top; width:' . $w . 'px; height:' . $height . 'px; background:' . $color . ';"></div>';
+                if ($isBar) {
+                    $rects .= "<rect x=\"{$x}\" y=\"0\" width=\"{$w}\" height=\"{$height}\" fill=\"#000\"/>";
+                }
+                $x += $w;
                 $isBar = !$isBar;
             }
         }
-        $html .= '</div>';
+        $svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " . ($x + 10) . " {$height}\">{$rects}</svg>";
+        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+    }
 
-        return $html;
+    /**
+     * Genera la etiqueta HTML completa del código de barras.
+     */
+    public static function generateBarcodeHTML(string $code, int $height = 36): string
+    {
+        if (empty($code)) {
+            return '';
+        }
+
+        $base64 = self::generateBarcodeBase64($code, $height);
+        return '<img src="' . $base64 . '" alt="Código de Barras Clave SRI" style="display:block; width:100%; max-width:275px; height:' . $height . 'px; object-fit:fill; margin:0 auto;" />';
     }
 }
