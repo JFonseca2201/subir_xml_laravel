@@ -82,11 +82,13 @@ class VehicleController extends Controller
             'license_plate',
             'model',
             'brand',
+            'year',
+            'color',
             'description',
             'vehicle_type',
             'usage_type',
             'status',
-        ])->with(['client:id,name,surname,full_name,n_document']);
+        ])->with(['client:id,name,surname,full_name,n_document,email,phone,address']);
 
         // Si no se escribe texto de búsqueda pero sí hay client_id, mostrar los vehículos de ese cliente
         if ($clientId && $search === '') {
