@@ -288,7 +288,9 @@ Route::group(
         Route::get('dashboard', [DashboardController::class, 'index']);
 
         // ============= RUTAS DE GESTIÓN Y BÚSQUEDA DE REPUESTOS POR VEHÍCULO =============
+        Route::get('spare-part-requests/categories', [SparePartRequestController::class, 'categories']);
         Route::apiResource('spare-part-requests', SparePartRequestController::class);
+
 
         Route::get('parallel-transactions/pdf', [ParallelTransactionController::class, 'generatePDF']);
         Route::apiResource('parallel-transactions', ParallelTransactionController::class);
