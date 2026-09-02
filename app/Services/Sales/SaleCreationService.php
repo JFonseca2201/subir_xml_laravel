@@ -37,6 +37,40 @@ class SaleCreationService
 
         $isDraft = $request->boolean('is_draft');
 
+        // Validaciones fiscales para Facturación Electrónica SRI
+        if ($request->document_type === 'invoice' && !$isDraft && $request->client_id) {
+            $client = \App\Models\Client\Client::find($request->client_id);
+            if ($client) {
+                $docNum = trim($client->n_document ?? '');
+                $clientName = strtoupper(trim(($client->name ?? '') . ' ' . ($client->surname ?? '')));
+                $isFinalConsumer = in_array($docNum, ['9999999999999', '9999999999']) || str_contains($clientName, 'CONSUMIDOR FINAL');
+
+                if ($isFinalConsumer && (float)$request->total >= 50.00) {
+                    return [
+                        'status' => 422,
+                        'data' => [
+                            'success' => false,
+                            'message' => 'Por normativa del SRI, no se pueden emitir Facturas a Consumidor Final por montos iguales o superiores a $50.00.',
+                            'error' => 'final_consumer_limit_exceeded'
+                        ]
+                    ];
+                }
+
+                if (!$isFinalConsumer) {
+                    if (!ctype_digit($docNum) || !in_array(strlen($docNum), [10, 13])) {
+                        return [
+                            'status' => 422,
+                            'data' => [
+                                'success' => false,
+                                'message' => "La identificación del cliente ($docNum) no es válida para facturación electrónica SRI. Debe tener 10 dígitos (cédula) o 13 dígitos (RUC).",
+                                'error' => 'invalid_tax_identification'
+                            ]
+                        ];
+                    }
+                }
+            }
+        }
+
         // Validar pagos distribuidos solo si no es cotización y no es borrador
         if ($request->document_type !== 'quote' && !$isDraft) {
             if ($request->payment_status === 'pending' || $request->boolean('is_credited')) {

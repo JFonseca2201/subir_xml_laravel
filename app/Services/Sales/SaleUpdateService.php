@@ -98,6 +98,51 @@ class SaleUpdateService
 
         // Validar pagos distribuidos solo si no es cotización y no es borrador
         $docType = $request->has('document_type') ? $request->document_type : $sale->document_type;
+        $clientId = $request->has('client_id') ? $request->client_id : $sale->client_id;
+
+        // Validaciones fiscales para Facturación Electrónica SRI
+        if ($docType === 'invoice' && !$isDraft && $clientId) {
+            $client = \App\Models\Client\Client::find($clientId);
+            if ($client) {
+                $docNum = trim($client->n_document ?? '');
+                $clientName = strtoupper(trim(($client->name ?? '') . ' ' . ($client->surname ?? '')));
+                $isFinalConsumer = in_array($docNum, ['9999999999999', '9999999999']) || str_contains($clientName, 'CONSUMIDOR FINAL');
+
+                $expectedTotal = $sale->total;
+                if ($request->has('items')) {
+                    $subtotal = 0;
+                    foreach ($request->items as $item) {
+                        $subtotal += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
+                    }
+                    $taxAmount = $subtotal * 0.15;
+                    $expectedTotal = $subtotal + $taxAmount;
+                }
+
+                if ($isFinalConsumer && (float)$expectedTotal >= 50.00) {
+                    return [
+                        'status' => 422,
+                        'data' => [
+                            'success' => false,
+                            'message' => 'Por normativa del SRI, no se pueden emitir Facturas a Consumidor Final por montos iguales o superiores a $50.00.',
+                            'error' => 'final_consumer_limit_exceeded'
+                        ]
+                    ];
+                }
+
+                if (!$isFinalConsumer) {
+                    if (!ctype_digit($docNum) || !in_array(strlen($docNum), [10, 13])) {
+                        return [
+                            'status' => 422,
+                            'data' => [
+                                'success' => false,
+                                'message' => "La identificación del cliente ($docNum) no es válida para facturación electrónica SRI. Debe tener 10 dígitos (cédula) o 13 dígitos (RUC).",
+                                'error' => 'invalid_tax_identification'
+                            ]
+                        ];
+                    }
+                }
+            }
+        }
         if ($docType !== 'quote' && !$isDraft) {
             $hasDistributions = $request->has('payment_distributions');
             $isCredited = $request->has('is_credited') ? $request->boolean('is_credited') : $sale->is_credited;
