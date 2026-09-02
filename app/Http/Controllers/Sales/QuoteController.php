@@ -229,13 +229,6 @@ class QuoteController extends Controller
                 ], 400);
             }
 
-            // Validar si está anulada
-            if ($quote->status === 'canceled') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se puede editar una cotización anulada.'
-                ], 400);
-            }
 
             DB::transaction(function () use ($quote, $request) {
                 // Los precios de los items ya incluyen IVA, por lo que el total es la suma de los items
@@ -247,7 +240,7 @@ class QuoteController extends Controller
                 $subtotal = round($total / 1.15, 2);
                 $taxAmount = round($total - $subtotal, 2);
 
-                $quote->update([
+                $updateData = [
                     'client_id' => $request->client_id,
                     'vehicle_id' => $request->vehicle_id,
                     'mileage' => $request->mileage,
@@ -256,7 +249,15 @@ class QuoteController extends Controller
                     'tax_amount' => $taxAmount,
                     'total' => $total,
                     'observations' => $request->observations,
-                ]);
+                ];
+
+                if ($request->filled('status')) {
+                    $updateData['status'] = $request->status;
+                } elseif ($quote->status === 'canceled') {
+                    $updateData['status'] = 'pending';
+                }
+
+                $quote->update($updateData);
 
                 // Actualizar detalles (eliminar viejos y crear nuevos es lo más robusto)
                 $quote->details()->delete();
@@ -324,6 +325,42 @@ class QuoteController extends Controller
     }
 
     /**
+     * Update quote status (e.g. pending <-> canceled)
+     */
+    public function updateStatus(Request $request, int $id)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,canceled'
+        ]);
+
+        try {
+            $quote = Quote::findOrFail($id);
+
+            if ($quote->is_converted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede modificar el estado de una cotización ya convertida.'
+                ], 400);
+            }
+
+            $quote->update(['status' => $request->status]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $request->status === 'pending' ? 'Cotización reactivada exitosamente.' : 'Cotización anulada correctamente.',
+                'data' => $quote
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar el estado de la cotización.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Convert quote into a Sale or Invoice
      */
     public function convert(Request $request, int $id)
@@ -350,12 +387,6 @@ class QuoteController extends Controller
                 ], 400);
             }
 
-            if ($quote->status === 'canceled') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se puede convertir una cotización anulada.'
-                ], 400);
-            }
 
             $newSale = null;
 
@@ -552,12 +583,6 @@ class QuoteController extends Controller
                 ], 400);
             }
 
-            if ($quote->status === 'canceled') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se puede convertir una cotización anulada.'
-                ], 400);
-            }
 
             $workOrder = null;
 

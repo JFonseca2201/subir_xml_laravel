@@ -214,6 +214,7 @@ Route::group(
 
         // ============= RUTAS DE COTIZACIONES (INDIVIDUALES) ==========
         Route::get('quotes/next-number', [QuoteController::class, 'getNextNumber']);
+        Route::put('quotes/{id}/status', [QuoteController::class, 'updateStatus']);
         Route::resource('quotes', QuoteController::class);
         Route::post('quotes/{id}/convert', [QuoteController::class, 'convert']);
         Route::post('quotes/{id}/convert-work-order', [QuoteController::class, 'convertToWorkOrder']);
