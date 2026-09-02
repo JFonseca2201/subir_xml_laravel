@@ -13,42 +13,20 @@ class SparePartRequestController extends Controller
      */
     public function categories()
     {
-        $defaultCategories = [
-            'SUSPENSIÓN',
-            'MOTOR',
-            'FRENOS',
-            'TRANSMISIÓN',
-            'ELÉCTRICO',
-            'ACCESORIOS',
-            'CARROCERÍA',
-            'DIRECCIÓN',
-            'EMBRAGUE',
-            'ESCAPE',
-            'REFRIGERACIÓN',
-            'LUBRICACIÓN',
-            'FILTROS',
-            'AMORTIGUADOR',
-        ];
-
-        // Obtener categorías reales registradas en la base de datos
-        $requests = SparePartRequest::select('items')->get();
-        $dbCategories = [];
-        foreach ($requests as $req) {
-            if (is_array($req->items)) {
-                foreach ($req->items as $it) {
-                    if (!empty($it['category'])) {
-                        $dbCategories[] = strtoupper(trim($it['category']));
-                    }
-                }
-            }
-        }
-
-        $allCategories = array_values(array_unique(array_merge($defaultCategories, $dbCategories)));
-        sort($allCategories);
+        // Obtener exclusivamente las categorías activas registradas en el sistema
+        $categories = \App\Models\Config\ProductCategorie::where('state', 1)
+            ->orderBy('title', 'asc')
+            ->pluck('title')
+            ->map(function ($title) {
+                return strtoupper(trim($title));
+            })
+            ->filter()
+            ->unique()
+            ->values();
 
         return response()->json([
             'success' => true,
-            'data' => $allCategories,
+            'data' => $categories,
         ]);
     }
 
