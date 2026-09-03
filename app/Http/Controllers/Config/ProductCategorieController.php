@@ -26,7 +26,7 @@ class ProductCategorieController extends Controller
                     'id' => $categorie->id,
                     'title' => $categorie->title,
                     'state' => (int) $categorie->state,
-                    'imagen' => $categorie->imagen ? env('APP_URL') . 'storage/' . $categorie->imagen : null,
+                    'imagen' => $categorie->imagen ? asset('storage/' . $categorie->imagen) : null,
                     'created_at' => $categorie->created_at->format('Y-m-d h:i A'),
                 ];
             }),
@@ -75,7 +75,7 @@ class ProductCategorieController extends Controller
                 'id' => $categorie->id,
                 'title' => $categorie->title,
                 'state' => (int) $categorie->state,
-                'imagen' => $categorie->imagen ? env('APP_URL') . 'storage/' . $categorie->imagen : null,
+                'imagen' => $categorie->imagen ? asset('storage/' . $categorie->imagen) : null,
                 'created_at' => $categorie->created_at->format('Y-m-d h:i A'),
             ],
         ]);
@@ -119,7 +119,12 @@ class ProductCategorieController extends Controller
         if ($request->has('state')) {
             $data['state'] = (int)$request->state;
         }
-        if ($request->hasFile('image')) {
+        if ($request->boolean('remove_image') || $request->get('remove_image') === '1') {
+            if ($categorie->imagen) {
+                Storage::delete($categorie->imagen);
+            }
+            $data['imagen'] = null;
+        } elseif ($request->hasFile('image')) {
             if ($categorie->imagen) {
                 Storage::delete($categorie->imagen);
             }
@@ -134,7 +139,7 @@ class ProductCategorieController extends Controller
                 'id' => $categorie->id,
                 'title' => $categorie->title,
                 'state' => (int) $categorie->state,
-                'imagen' => $categorie->imagen ? env('APP_URL') . 'storage/' . $categorie->imagen : null,
+                'imagen' => $categorie->imagen ? asset('storage/' . $categorie->imagen) : null,
                 'created_at' => $categorie->created_at->format('Y-m-d h:i A'),
             ],
         ]);
