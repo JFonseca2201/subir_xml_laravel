@@ -158,8 +158,8 @@ class VehicleController extends Controller
                 'required',
                 'string',
                 'unique:vehicles,license_plate',
-                // Regex de Ecuador: soporta los 4 formatos que pusimos en Vue
-                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3})$/'
+                // Regex de Ecuador: soporta los 4 formatos de Ecuador + formatos genéricos de sin placa
+                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3}|SIN-PLACA|SIN PLACA|S\/P|S\/P-[A-Z0-9]+|SP-\d{3,4})$/i'
             ],
             'brand' => 'required',
             'model' => 'required|string|max:100',
@@ -208,16 +208,80 @@ class VehicleController extends Controller
      */
     public function show(string $id)
     {
-        $vehicle = Vehicle::with('client')->find($id);
+        $vehicle = Vehicle::with(['client', 'creator'])->find($id);
 
         if (!$vehicle) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Vehículo no encontrado'
-            ], 404);
+            return response()->json(['status' => 404, 'message' => 'No encontrado'], 404);
         }
 
-        return response()->json($vehicle);
+        return response()->json([
+            'status' => 200,
+            'vehicle' => $vehicle,
+        ]);
+    }
+
+    /**
+     * Obtener o crear vehículo por defecto (Sin Placa / Servicio General)
+     */
+    public function getDefaultVehicle(Request $request)
+    {
+        $clientId = $request->get('client_id');
+
+        // 1. Si se provee client_id, buscar si ese cliente tiene un vehículo sin placa
+        if ($clientId) {
+            $existing = Vehicle::where('client_id', $clientId)
+                ->where(function ($q) {
+                    $q->where('license_plate', 'like', '%SIN%PLACA%')
+                        ->orWhere('license_plate', 'like', '%S/P%')
+                        ->orWhere('model', 'like', '%SERVICIO GENERAL%');
+                })
+                ->with(['client:id,name,surname,full_name,n_document,email,phone,address'])
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'status' => 200,
+                    'vehicle' => $existing,
+                    'data' => $existing,
+                ]);
+            }
+        }
+
+        // 2. Buscar cualquier vehículo comodín general
+        $defaultVehicle = Vehicle::where(function ($q) {
+            $q->where('license_plate', 'SIN-PLACA')
+                ->orWhere('license_plate', 'S/P')
+                ->orWhere('model', 'like', '%SERVICIO GENERAL%');
+        })
+        ->with(['client:id,name,surname,full_name,n_document,email,phone,address'])
+        ->first();
+
+        if (!$defaultVehicle) {
+            $userId = auth()->id() ?? auth('api')->id() ?? \App\Models\User::first()?->id ?? 1;
+            $targetClientId = $clientId ?: (\App\Models\Client\Client::first()?->id ?? 1);
+
+            $defaultVehicle = Vehicle::create([
+                'user_id' => $userId,
+                'client_id' => $targetClientId,
+                'license_plate' => 'SIN-PLACA',
+                'brand' => 'GENÉRICO',
+                'model' => 'SERVICIO GENERAL / SIN PLACA',
+                'year' => (int)date('Y'),
+                'color' => 'BLANCO',
+                'vehicle_type' => 'liviano',
+                'usage_type' => 'particular',
+                'description' => 'Vehículo por defecto para servicios generales o sin placa',
+                'status' => 1,
+            ]);
+
+            $defaultVehicle->load(['client:id,name,surname,full_name,n_document,email,phone,address']);
+        }
+
+        return response()->json([
+            'status' => 200,
+            'vehicle' => $defaultVehicle,
+            'data' => $defaultVehicle,
+        ]);
     }
 
     /**
@@ -225,10 +289,23 @@ class VehicleController extends Controller
      */
     public function update(Request $request, string $id)
     {
+        $cleanPlate = strtoupper(trim((string)$request->license_plate));
         $vehicle = Vehicle::find($id);
 
         if (!$vehicle) {
-            return response()->json(['status' => 404, 'message' => 'Vehículo no encontrado'], 404);
+            return response()->json(['status' => 404, 'message' => 'No encontrado'], 404);
+        }
+
+        $exists = Vehicle::whereRaw('LOWER(TRIM(license_plate)) = ?', [strtolower($cleanPlate)])
+            ->where('id', '!=', $id)
+            ->first();
+
+        if ($exists) {
+            return response()->json([
+                'status' => 422,
+                'message' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado',
+                'errors' => ['license_plate' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado'],
+            ], 422);
         }
 
         $requestData = $request->all();
@@ -247,7 +324,7 @@ class VehicleController extends Controller
                 'required',
                 'string',
                 Rule::unique('vehicles')->ignore($id),
-                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3})$/'
+                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3}|SIN-PLACA|SIN PLACA|S\/P|S\/P-[A-Z0-9]+|SP-\d{3,4})$/i'
             ],
             'brand' => 'required',
             'model' => 'required|string|max:100',

@@ -142,6 +142,7 @@ Route::group(
         Route::get('geographic/cities/{provinceId}', [GeographicController::class, 'getCities']);
 
         // ============= RUTAS DE VEHÍCULOS ==============
+        Route::get('vehicles/default', [VehicleController::class, 'getDefaultVehicle']);
         Route::get('vehicles/search', [VehicleController::class, 'search']);
         Route::resource('vehicles', VehicleController::class);
         Route::get('vehicle-types', [VehicleController::class, 'getVehicleTypes']);
