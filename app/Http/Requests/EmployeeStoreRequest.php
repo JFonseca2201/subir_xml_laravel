@@ -43,6 +43,8 @@ class EmployeeStoreRequest extends FormRequest
             'position' => 'required|string|max:100',
             'salary' => 'required|numeric|min:0|max:99999999.99',
             'hired_at' => 'required|date|before_or_equal:today',
+            'status' => 'nullable|string|in:active,inactive,0,1',
+            'is_active' => 'nullable|boolean',
         ];
     }
 

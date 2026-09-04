@@ -128,7 +128,33 @@ class EmployeeController extends Controller
     {
         try {
             $employee = Employee::withTrashed()->findOrFail($id);
-            $employee->update($request->validated());
+            $validated = $request->validated();
+
+            // Sincronizar estado Activo / Inactivo con soft deletes
+            if ($request->has('status')) {
+                $status = $request->input('status');
+                if ($status === 'inactive' || $status === 0 || $status === '0' || $status === false) {
+                    if (!$employee->trashed()) {
+                        $employee->delete();
+                    }
+                } elseif ($status === 'active' || $status === 1 || $status === '1' || $status === true) {
+                    if ($employee->trashed()) {
+                        $employee->restore();
+                    }
+                }
+            } elseif ($request->has('is_active')) {
+                if (!$request->boolean('is_active')) {
+                    if (!$employee->trashed()) {
+                        $employee->delete();
+                    }
+                } else {
+                    if ($employee->trashed()) {
+                        $employee->restore();
+                    }
+                }
+            }
+
+            $employee->update($validated);
             $employee->load('creator:id,name,email');
 
             return response()->json([
