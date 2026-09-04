@@ -187,18 +187,26 @@ class FinanceRecordController extends Controller
         foreach ($existingDistributions as $distribution) {
             $account = Account::find($distribution->account_id);
             if ($account) {
-                // Revertir saldo original (lógica existente)
+                // Revertir saldo original
                 if ($financeRecord->type === 0) {
                     $account->updateBalance($distribution->amount, 1);
                 } else {
                     $account->updateBalance($distribution->amount, 0);
                 }
             }
-            
-            // ELIMINAR el movimiento financiero asociado a la distribución antigua
-            // Esto evita que el Dashboard muestre datos duplicados tras la edición
-            $distribution->financialMovement()->delete();
         }
+
+        // Eliminar TODOS los movimientos financieros asociados anteriores para evitar duplicados
+        $distributionIds = $financeRecord->paymentDistributions()->pluck('id');
+        if ($distributionIds->isNotEmpty()) {
+            \App\Models\Finance\FinancialMovement::where('movable_type', PaymentDistribution::class)
+                ->whereIn('movable_id', $distributionIds)
+                ->delete();
+        }
+        \App\Models\Finance\FinancialMovement::where('movable_type', FinanceRecord::class)
+            ->where('movable_id', $financeRecord->id)
+            ->delete();
+        \App\Models\Finance\FinancialMovement::where('metadata->finance_record_id', $financeRecord->id)->delete();
 
         // 2. Eliminar distribuciones existentes (Base de datos)
         $financeRecord->paymentDistributions()->delete();
@@ -225,7 +233,10 @@ class FinanceRecordController extends Controller
                     'finance_record_id' => $financeRecord->id,
                     'record_type' => (int)$data['type'],
                     'info' => 'Registro editado',
-                    'invoice' => $data['invoice_number'] ?? null
+                    'invoice' => $data['invoice_number'] ?? null,
+                    'work_order' => $data['work_order_number'] ?? null,
+                    'invoice_number' => $data['invoice_number'] ?? null,
+                    'work_order_number' => $data['work_order_number'] ?? null,
                 ]
             );
 

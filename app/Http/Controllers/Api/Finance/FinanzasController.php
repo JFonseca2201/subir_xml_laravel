@@ -338,6 +338,22 @@ class FinanzasController extends Controller
                         $movement->metadata = $metadata;
                     }
 
+                    // Resolver números de orden de trabajo y factura
+                    $woNumber = null;
+                    $invNumber = null;
+                    if (is_array($movement->metadata)) {
+                        $woNumber = $movement->metadata['work_order_number'] ?? $movement->metadata['work_order'] ?? null;
+                        $invNumber = $movement->metadata['invoice_number'] ?? $movement->metadata['invoice'] ?? $movement->metadata['document_number'] ?? null;
+                    }
+                    if (!$woNumber && $movement->movable) {
+                        $woNumber = $movement->movable->work_order_number ?? $movement->movable->financeRecord?->work_order_number ?? $movement->movable->finance_record?->work_order_number ?? null;
+                    }
+                    if (!$invNumber && $movement->movable) {
+                        $invNumber = $movement->movable->invoice_number ?? $movement->movable->document_number ?? $movement->movable->financeRecord?->invoice_number ?? $movement->movable->finance_record?->invoice_number ?? null;
+                    }
+                    $movement->work_order_number = $woNumber;
+                    $movement->invoice_number = $invNumber;
+
                     // Resolver lista de attachments consolidados
                     $rawAttachments = collect();
                     if ($movement->attachments && $movement->attachments->count() > 0) {
