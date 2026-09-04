@@ -43,6 +43,7 @@ class AttachmentController extends Controller
             'aporte' => \App\Models\Partner\AporteCapital::class,
             'aportes' => \App\Models\Partner\AporteCapital::class,
             'aporte_capital' => \App\Models\Partner\AporteCapital::class,
+            'partner_capital' => \App\Models\Partner\AporteCapital::class,
             'partner_contribution' => \App\Models\Partner\AporteCapital::class,
             'employee_payment' => \App\Models\Employee\EmployeePayment::class,
             'employee_payments' => \App\Models\Employee\EmployeePayment::class,
@@ -85,14 +86,16 @@ class AttachmentController extends Controller
         $typeCandidates = array_values(array_unique(array_filter($typeCandidates)));
 
         // 1. Búsqueda directa por modelo y id
-        $direct = Attachment::whereIn('attachable_type', $typeCandidates)
-            ->where('attachable_id', $attachableId)
-            ->get();
-        $allAttachments = $allAttachments->concat($direct);
+        if ($attachableId > 0) {
+            $direct = Attachment::whereIn('attachable_type', $typeCandidates)
+                ->where('attachable_id', $attachableId)
+                ->get();
+            $allAttachments = $allAttachments->concat($direct);
+        }
 
-        // 2. Si es FinanceRecord o FinancialMovement
-        if ($modelClass === \App\Models\Finance\FinanceRecord::class || $modelClass === \App\Models\Finance\FinancialMovement::class) {
-            // Si el ID es de un FinanceRecord, buscar adjuntos en movimientos vinculados
+        // 2. Si el modelo solicitado es FinanceRecord
+        if ($modelClass === \App\Models\Finance\FinanceRecord::class && $attachableId > 0) {
+            // Si el ID es de un FinanceRecord, buscar adjuntos en movimientos financieros vinculados a este FinanceRecord
             $linkedMovements = \App\Models\Finance\FinancialMovement::where('metadata->finance_record_id', $attachableId)->pluck('id');
             if ($linkedMovements->isNotEmpty()) {
                 $movementAtts = Attachment::whereIn('attachable_type', [\App\Models\Finance\FinancialMovement::class, 'App\Models\FinancialMovement'])
@@ -100,8 +103,10 @@ class AttachmentController extends Controller
                     ->get();
                 $allAttachments = $allAttachments->concat($movementAtts);
             }
+        }
 
-            // Si el ID es de un FinancialMovement, buscar en el FinanceRecord vinculado
+        // 3. Si el modelo solicitado es FinancialMovement
+        if ($modelClass === \App\Models\Finance\FinancialMovement::class && $attachableId > 0) {
             $movement = \App\Models\Finance\FinancialMovement::find($attachableId);
             if ($movement) {
                 $finRecordId = $movement->metadata['finance_record_id'] ?? null;
@@ -117,7 +122,7 @@ class AttachmentController extends Controller
                 }
 
                 // Si está vinculado a Sale, WorkOrder, InternalTransfer, etc.
-                if ($movement->movable_type && $movement->movable_id) {
+                if ($movement->movable_type && $movement->movable_id && $movement->movable_type !== \App\Models\Finance\PaymentDistribution::class) {
                     $movableAtts = Attachment::where('attachable_type', $movement->movable_type)
                         ->where('attachable_id', $movement->movable_id)
                         ->get();
@@ -126,13 +131,13 @@ class AttachmentController extends Controller
             }
         }
 
-        // 4. Búsqueda por identifier sólo dentro del mismo modelo
-        if (!empty($identifier) && strlen(trim($identifier)) >= 3) {
+        // 4. Búsqueda por identifier sólo dentro del mismo modelo si aún no hay adjuntos y el identificador es válido
+        if ($allAttachments->isEmpty() && !empty($identifier) && strlen(trim($identifier)) >= 4 && trim($identifier) !== '-' && trim($identifier) !== 'N/A') {
             $cleanId = trim($identifier);
-            $byIdentifier = Attachment::where('attachable_type', $modelClass)
+            $byIdentifier = Attachment::whereIn('attachable_type', $typeCandidates)
                 ->where(function ($q) use ($cleanId) {
                     $q->where('metadata->identifier', $cleanId)
-                      ->orWhere('file_name', 'like', "{$cleanId}_%");
+                      ->orWhere('metadata->document_number', $cleanId);
                 })->get();
             $allAttachments = $allAttachments->concat($byIdentifier);
         }
