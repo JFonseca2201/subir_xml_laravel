@@ -260,6 +260,7 @@ class AttachmentController extends Controller
         return response()->file($fullPath, [
             'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="' . $attachment->file_name . '"',
+            'Cache-Control' => 'public, max-age=86400, stale-while-revalidate=604800',
         ]);
     }
 
