@@ -41,6 +41,8 @@ class SupplierController extends Controller
                         'address' => $supplier->address,
                         'phone' => $supplier->phone,
                         'email' => $supplier->email,
+                        'is_active' => $supplier->is_active !== null ? (bool)$supplier->is_active : true,
+                        'status' => ($supplier->is_active !== null ? (bool)$supplier->is_active : true) ? 'active' : 'inactive',
                         'formatted_ruc' => $supplier->formatted_ruc,
                         'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                     ];
@@ -72,6 +74,8 @@ class SupplierController extends Controller
                 'address' => 'nullable|string|max:500',
                 'phone' => 'nullable|string|max:50',
                 'email' => 'nullable|email|max:255',
+                'is_active' => 'nullable',
+                'status' => 'nullable|string',
             ], [
                 'tax_id.required' => 'El campo tax_id es obligatorio',
                 'tax_id.string' => 'El campo tax_id debe ser texto',
@@ -103,7 +107,13 @@ class SupplierController extends Controller
             $data['phone'] = isset($data['phone']) ? trim($data['phone']) : null;
             $data['email'] = isset($data['email']) ? strtolower(trim($data['email'])) : null;
 
-
+            if ($request->has('status')) {
+                $data['is_active'] = in_array(strtolower((string)$request->status), ['1', 'true', 'active', 'activo']);
+            } elseif ($request->has('is_active')) {
+                $data['is_active'] = filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN);
+            } else {
+                $data['is_active'] = true;
+            }
 
             $supplier = Supplier::create($data);
 
@@ -117,6 +127,8 @@ class SupplierController extends Controller
                     'address' => $supplier->address,
                     'phone' => $supplier->phone,
                     'email' => $supplier->email,
+                    'is_active' => (bool)$supplier->is_active,
+                    'status' => $supplier->is_active ? 'active' : 'inactive',
                     'formatted_ruc' => $supplier->formatted_ruc,
                     'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                 ],
@@ -147,6 +159,8 @@ class SupplierController extends Controller
                     'address' => $supplier->address,
                     'phone' => $supplier->phone,
                     'email' => $supplier->email,
+                    'is_active' => $supplier->is_active !== null ? (bool)$supplier->is_active : true,
+                    'status' => ($supplier->is_active !== null ? (bool)$supplier->is_active : true) ? 'active' : 'inactive',
                     'formatted_ruc' => $supplier->formatted_ruc,
                     'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                 ],
@@ -179,6 +193,8 @@ class SupplierController extends Controller
                 'address' => 'nullable|string|max:500',
                 'phone' => 'nullable|string|max:50',
                 'email' => 'nullable|email|max:255',
+                'is_active' => 'nullable',
+                'status' => 'nullable|string',
             ], [
                 'tax_id.string' => 'El campo tax_id debe ser texto',
                 'tax_id.max' => 'El campo tax_id no debe exceder 255 caracteres',
@@ -219,6 +235,12 @@ class SupplierController extends Controller
                 $data['email'] = strtolower(trim($data['email']));
             }
 
+            if ($request->has('status')) {
+                $data['is_active'] = in_array(strtolower((string)$request->status), ['1', 'true', 'active', 'activo']);
+            } elseif ($request->has('is_active')) {
+                $data['is_active'] = filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN);
+            }
+
             $supplier->update($data);
 
             return response()->json([
@@ -231,6 +253,8 @@ class SupplierController extends Controller
                     'address' => $supplier->address,
                     'phone' => $supplier->phone,
                     'email' => $supplier->email,
+                    'is_active' => (bool)$supplier->is_active,
+                    'status' => $supplier->is_active ? 'active' : 'inactive',
                     'formatted_ruc' => $supplier->formatted_ruc,
                     'created_at' => optional($supplier->created_at)->format('Y-m-d H:i:s'),
                 ],

@@ -17,9 +17,11 @@ class Supplier extends Model
         'address',
         'phone',
         'email',
+        'is_active',
     ];
 
     protected $casts = [
+        'is_active' => 'boolean',
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
     ];
