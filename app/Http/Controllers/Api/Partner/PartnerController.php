@@ -29,15 +29,21 @@ class PartnerController extends Controller
 
     public function store(Request $request)
     {
-
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'identification' => 'required|unique:partners,identification|string',
             'phone' => 'nullable|string',
             'email' => 'nullable|email',
             'address' => 'nullable|string|max:255',
+            'is_active' => 'nullable|boolean',
+            'status' => 'nullable|string|in:active,inactive,0,1',
         ]);
+
+        if ($request->has('status')) {
+            $status = $request->input('status');
+            $validated['is_active'] = ($status === 'active' || $status === 1 || $status === '1');
+            unset($validated['status']);
+        }
 
         $partner = Partner::create($validated);
 
@@ -61,7 +67,15 @@ class PartnerController extends Controller
             'identification' => 'nullable|string|max:20',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:255',
+            'is_active' => 'nullable|boolean',
+            'status' => 'nullable|string|in:active,inactive,0,1',
         ]);
+
+        if ($request->has('status')) {
+            $status = $request->input('status');
+            $validated['is_active'] = ($status === 'active' || $status === 1 || $status === '1');
+            unset($validated['status']);
+        }
 
         $partner->update($validated);
 
