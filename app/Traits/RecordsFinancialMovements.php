@@ -12,8 +12,17 @@ trait RecordsFinancialMovements
      */
     public function financialMovement()
     {
-        /** @var Model $this */ // Esto le dice al editor que trate a $this como un modelo
+        /** @var Model $this */
         return $this->morphOne(FinancialMovement::class, 'movable');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany
+     */
+    public function financialMovements()
+    {
+        /** @var Model $this */
+        return $this->morphMany(FinancialMovement::class, 'movable');
     }
     /**
      * Método para registrar o actualizar el movimiento.

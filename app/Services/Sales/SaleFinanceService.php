@@ -52,15 +52,26 @@ class SaleFinanceService
                     $account->updateBalance($distribution->amount, FinanceRecord::TYPE_EXPENSE); // Restar
                 }
             }
-            // Eliminar las distribuciones y los movimientos financieros anteriores
+            // Eliminar las distribuciones anteriores
             $financeRecord->paymentDistributions()->delete();
-
-            if (method_exists($sale, 'financialMovement')) {
-                $sale->financialMovement()->delete();
-            }
         } else {
             $financeRecord = new FinanceRecord();
         }
+
+        // Eliminar TODOS los movimientos financieros anteriores vinculados a esta venta
+        \App\Models\Finance\FinancialMovement::where('movable_type', get_class($sale))
+            ->where('movable_id', $sale->id)
+            ->delete();
+
+        if ($financeRecord->id) {
+            \App\Models\Finance\FinancialMovement::where('metadata->finance_record_id', $financeRecord->id)->delete();
+        }
+
+        \App\Models\Finance\FinancialMovement::where(function ($q) use ($sale) {
+            $q->where('metadata->invoice', $sale->document_number)
+              ->orWhere('metadata->document_number', $sale->document_number)
+              ->orWhere('description', 'like', "%{$sale->document_number}%");
+        })->where('movable_type', get_class($sale))->delete();
 
         $entryDate = $sale->service_date instanceof \Carbon\Carbon
             ? $sale->service_date->format('Y-m-d')
