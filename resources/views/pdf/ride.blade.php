@@ -6,13 +6,22 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>RIDE - Factura {{ $sale->document_number }}</title>
     <style>
+        * {
+            font-family: Helvetica, Arial, sans-serif !important;
+            box-sizing: border-box;
+        }
+
         @page {
             margin: 8mm 10mm;
             size: letter portrait;
         }
 
+        body, table, th, td, tr, thead, tbody, div, span, p, strong, b, a, input, h1, h2, h3, h4, h5, h6 {
+            font-family: Helvetica, Arial, sans-serif !important;
+        }
+
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: Helvetica, Arial, sans-serif !important;
             font-size: 7.5px;
             color: #334155;
             background: #ffffff;
@@ -132,15 +141,20 @@
             font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
-            margin-top: 2px;
+            margin-top: 3px;
+            margin-bottom: 1px;
+            font-family: Helvetica, Arial, sans-serif !important;
         }
 
         .auth-value {
-            font-size: 8px;
-            color: #5c77a3ff;
+            font-family: Helvetica, Arial, sans-serif !important;
+            font-size: 7.5px;
+            color: #1e293b;
             word-break: break-all;
             margin-bottom: 3px;
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            line-height: 1.2;
         }
 
         .meta-grid {
@@ -153,6 +167,7 @@
             font-size: 7px;
             padding: 1px 0;
             color: #334155;
+            font-family: Helvetica, Arial, sans-serif !important;
         }
 
         .meta-grid strong {
@@ -169,13 +184,15 @@
         }
 
         .access-key-text {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 6.5px;
+            font-family: Helvetica, Arial, sans-serif !important;
+            font-size: 7.5px;
             letter-spacing: 0.3px;
-            color: #334155;
+            color: #1e293b;
             margin-top: 2px;
             text-align: center;
-            font-weight: 600;
+            font-weight: 700;
+            word-break: break-all;
+            line-height: 1.2;
         }
 
         /* ── CARD BOXES (CLIENT & DETAILS) ─────────────────────── */
@@ -328,19 +345,19 @@
             padding: 4px 8px;
             font-size: 8.5px;
             font-weight: 700;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+            font-family: Helvetica, Arial, sans-serif !important;
             color: #ffffff !important;
         }
 
         .tot-highlight .tot-label {
             font-weight: 700;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+            font-family: Helvetica, Arial, sans-serif !important;
             color: #ffffff !important;
         }
 
         .tot-highlight .tot-val {
             font-weight: 700;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+            font-family: Helvetica, Arial, sans-serif !important;
             color: #ffffff !important;
         }
 
@@ -605,7 +622,7 @@
                 <tr>
                     <td class="text-center">{{ $codPrincipal }}</td>
                     <td class="text-center">{{ number_format($qty, 2) }}</td>
-                    <td class="text-left" style="font-family: 'sans-serif'; font-size: 8px;">{{ $detalle->description }}</td>
+                    <td class="text-left" style="font-size: 7.5px;">{{ $detalle->description }}</td>
                     <td class="text-right">${{ number_format($unitSinImpuesto, 4) }}</td>
                     <td class="text-right">${{ number_format($discount, 2) }}</td>
                     <td class="text-right" style="font-weight: 700;">${{ number_format($subtotalItem, 2) }}</td>
@@ -688,15 +705,98 @@
                             <table class="info-table">
                                 <thead>
                                     <tr style="border-bottom: 1px solid #e2e8f0;">
-                                        <th style="text-align: left; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700;">Forma de Pago</th>
-                                        <th style="text-align: right; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700;">Total</th>
+                                        <th style="text-align: left; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700; width: 52%;">Forma de Pago</th>
+                                        <th style="text-align: right; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700; width: 24%;">Total</th>
+                                        <th style="text-align: center; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700; width: 12%;">Plazo</th>
+                                        <th style="text-align: center; font-size: 7px; padding-bottom: 2px; color: #64748b; font-weight: 700; width: 12%;">Tiempo</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    @php
+                                    $mapSriFormaPago = function($method, $account = null) {
+                                        $m = strtolower(trim((string)$method));
+                                        $accType = strtolower(trim((string)($account?->type ?? '')));
+                                        $accName = strtolower(trim((string)($account?->name ?? '')));
+
+                                        // Chequeos directos por código oficial SRI o términos
+                                        if ($m === '01' || $m === 'cash' || $m === 'efectivo' || str_contains($m, 'efectivo') || str_contains($m, 'sin utilizacion') || str_contains($m, 'sin utilización')) {
+                                            return 'SIN UTILIZACION DEL SISTEMA FINANCIERO';
+                                        }
+                                        if ($m === '16' || str_contains($m, 'debito') || str_contains($m, 'débito')) {
+                                            return 'TARJETA DE DEBITO';
+                                        }
+                                        if ($m === '17' || str_contains($m, 'dinero electronico') || str_contains($m, 'dinero electrónico')) {
+                                            return 'DINERO ELECTRONICO';
+                                        }
+                                        if ($m === '18' || str_contains($m, 'prepago')) {
+                                            return 'TARJETA PREPAGO';
+                                        }
+                                        if ($m === '19' || (str_contains($m, 'credito') && str_contains($m, 'tarjeta')) || (str_contains($m, 'crédito') && str_contains($m, 'tarjeta')) || str_contains($m, 'card') || $m === 'tarjeta') {
+                                            return 'TARJETA DE CREDITO';
+                                        }
+                                        if ($m === '15' || str_contains($m, 'compensacion') || str_contains($m, 'compensación')) {
+                                            return 'COMPENSACION DE DEUDAS';
+                                        }
+                                        if ($m === '21' || str_contains($m, 'endoso')) {
+                                            return 'ENDOSO DE TITULOS';
+                                        }
+                                        if (
+                                            $m === '20' ||
+                                            $m === 'transfer' ||
+                                            $m === 'transferencia' ||
+                                            str_contains($m, 'transfer') ||
+                                            str_contains($m, 'deposito') ||
+                                            str_contains($m, 'depósito') ||
+                                            str_contains($m, 'cheque') ||
+                                            str_contains($m, 'banco') ||
+                                            str_contains($m, 'con utilizacion') ||
+                                            str_contains($m, 'con utilización') ||
+                                            str_contains($m, 'credito') ||
+                                            str_contains($m, 'crédito') ||
+                                            $accType === 'bank' ||
+                                            str_contains($accName, 'banco') ||
+                                            str_contains($accName, 'transfer')
+                                        ) {
+                                            return 'OTROS CON UTILIZACION DEL SISTEMA FINANCIERO';
+                                        }
+
+                                        if ($accType === 'bank') {
+                                            return 'OTROS CON UTILIZACION DEL SISTEMA FINANCIERO';
+                                        }
+
+                                        return 'SIN UTILIZACION DEL SISTEMA FINANCIERO';
+                                    };
+
+                                    $formasPago = [];
+                                    if ($sale->financeRecord && $sale->financeRecord->paymentDistributions && $sale->financeRecord->paymentDistributions->count() > 0) {
+                                        foreach ($sale->financeRecord->paymentDistributions as $pd) {
+                                            $formasPago[] = [
+                                                'descripcion' => $mapSriFormaPago($pd->payment_method ?? ($pd->account->name ?? 'cash'), $pd->account ?? null),
+                                                'total' => (float)$pd->amount,
+                                                'plazo' => '0',
+                                                'tiempo' => 'días',
+                                            ];
+                                        }
+                                    }
+
+                                    if (empty($formasPago)) {
+                                        $formasPago[] = [
+                                            'descripcion' => $mapSriFormaPago($sale->payment_method ?? 'cash'),
+                                            'total' => (float)$sale->total,
+                                            'plazo' => '0',
+                                            'tiempo' => 'días',
+                                        ];
+                                    }
+                                    @endphp
+
+                                    @foreach ($formasPago as $fp)
                                     <tr>
-                                        <td style="font-size: 7.5px; font-weight: 600; color: #334155;">{{ $sale->payment_method ?? 'Sin utilización del sistema financiero' }}</td>
-                                        <td style="text-align: right; font-weight: 700; font-size: 8px; color: #1e293b;">${{ number_format((float)$sale->total, 2) }}</td>
+                                        <td style="font-family: Helvetica, Arial, sans-serif !important; font-size: 7.2px; font-weight: 700; color: #334155; text-transform: uppercase;">{{ $fp['descripcion'] }}</td>
+                                        <td style="font-family: Helvetica, Arial, sans-serif !important; text-align: right; font-weight: 700; font-size: 7.5px; color: #1e293b;">${{ number_format($fp['total'], 2) }}</td>
+                                        <td style="font-family: Helvetica, Arial, sans-serif !important; text-align: center; font-size: 7.2px; color: #475569;">{{ $fp['plazo'] }}</td>
+                                        <td style="font-family: Helvetica, Arial, sans-serif !important; text-align: center; font-size: 7.2px; color: #475569;">{{ $fp['tiempo'] }}</td>
                                     </tr>
+                                    @endforeach
                                 </tbody>
                             </table>
                         </div>
@@ -775,7 +875,7 @@
 
     <script type="text/php">
         if (isset($pdf)) {
-            $font = $fontMetrics->getFont("Helvetica, Arial, sans-serif", "bold");
+            $font = $fontMetrics->getFont("Helvetica", "bold");
             $size = 6.8;
             $color = [0.28, 0.33, 0.41]; // #475569
             $text = "Página {PAGE_NUM} de {PAGE_COUNT}";

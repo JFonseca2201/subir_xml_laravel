@@ -179,7 +179,7 @@ return [
          *
          * @var string
          */
-        'default_font' => 'serif',
+        'default_font' => 'sans-serif',
 
         /**
          * Image DPI setting

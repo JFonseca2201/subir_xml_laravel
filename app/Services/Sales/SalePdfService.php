@@ -105,6 +105,14 @@ class SalePdfService
      */
     public function generateSinglePdf(Sale $sale, Request $request)
     {
+        $sale->loadMissing([
+            'details.product',
+            'client',
+            'vehicle',
+            'workOrder.vehicle',
+            'financeRecord.paymentDistributions.account'
+        ]);
+
         $vehicleBrands = config('vehicle_brands', []);
         if ($sale->vehicle && isset($sale->vehicle->brand)) {
             $brandId = $sale->vehicle->brand;

@@ -106,12 +106,28 @@ class XmlGeneratorService
 
         // Pagos
         $xml->startElement('pagos');
-        $xml->startElement('pago');
-        $xml->writeElement('formaPago', $this->mapFormaPago($sale->payment_method));
-        $xml->writeElement('total',     number_format((float)$sale->total, 2, '.', ''));
-        $xml->writeElement('plazo',     '0');
-        $xml->writeElement('unidadTiempo', 'dias');
-        $xml->endElement(); // pago
+        $sale->loadMissing(['financeRecord.paymentDistributions.account']);
+        $pagosDist = ($sale->financeRecord && $sale->financeRecord->paymentDistributions && $sale->financeRecord->paymentDistributions->count() > 0)
+            ? $sale->financeRecord->paymentDistributions
+            : null;
+
+        if ($pagosDist) {
+            foreach ($pagosDist as $pd) {
+                $xml->startElement('pago');
+                $xml->writeElement('formaPago', $this->mapFormaPago($pd->payment_method ?? ($pd->account->name ?? 'cash'), $pd->account ?? null));
+                $xml->writeElement('total',     number_format((float)$pd->amount, 2, '.', ''));
+                $xml->writeElement('plazo',     '0');
+                $xml->writeElement('unidadTiempo', 'dias');
+                $xml->endElement(); // pago
+            }
+        } else {
+            $xml->startElement('pago');
+            $xml->writeElement('formaPago', $this->mapFormaPago($sale->payment_method));
+            $xml->writeElement('total',     number_format((float)$sale->total, 2, '.', ''));
+            $xml->writeElement('plazo',     '0');
+            $xml->writeElement('unidadTiempo', 'dias');
+            $xml->endElement(); // pago
+        }
         $xml->endElement(); // pagos
 
         $xml->endElement(); // infoFactura
@@ -591,15 +607,58 @@ class XmlGeneratorService
     /**
      * Mapea el método de pago al código SRI (tabla 24).
      */
-    private function mapFormaPago(string $method): string
+    private function mapFormaPago(?string $method, $account = null): string
     {
-        return match (strtolower($method)) {
-            'cash', 'efectivo' => '01', // SIN UTILIZACION DEL SISTEMA FINANCIERO
-            'transfer', 'transferencia' => '15', // COMPENSACIÓN DE DEUDAS
-            'card', 'tarjeta', 'tarjeta de credito', 'tarjeta de débito' => '19', // TARJETA DE CRÉDITO
-            'credit', 'credito' => '20', // OTROS CON UTILIZACION DEL SISTEMA FINANCIERO
-            default => '01',
-        };
+        $m = strtolower(trim((string)$method));
+        $accType = strtolower(trim((string)($account?->type ?? '')));
+        $accName = strtolower(trim((string)($account?->name ?? '')));
+
+        if ($m === '01' || $m === 'cash' || $m === 'efectivo' || str_contains($m, 'efectivo') || str_contains($m, 'sin utilizacion') || str_contains($m, 'sin utilización')) {
+            return '01'; // SIN UTILIZACION DEL SISTEMA FINANCIERO
+        }
+        if ($m === '16' || str_contains($m, 'debito') || str_contains($m, 'débito')) {
+            return '16'; // TARJETA DE DÉBITO
+        }
+        if ($m === '17' || str_contains($m, 'dinero electronico') || str_contains($m, 'dinero electrónico')) {
+            return '17'; // DINERO ELECTRÓNICO
+        }
+        if ($m === '18' || str_contains($m, 'prepago')) {
+            return '18'; // TARJETA PREPAGO
+        }
+        if ($m === '19' || (str_contains($m, 'credito') && str_contains($m, 'tarjeta')) || (str_contains($m, 'crédito') && str_contains($m, 'tarjeta')) || str_contains($m, 'card') || $m === 'tarjeta') {
+            return '19'; // TARJETA DE CRÉDITO
+        }
+        if ($m === '15' || str_contains($m, 'compensacion') || str_contains($m, 'compensación')) {
+            return '15'; // COMPENSACIÓN DE DEUDAS
+        }
+        if ($m === '21' || str_contains($m, 'endoso')) {
+            return '21'; // ENDOSO DE TÍTULOS
+        }
+        if (
+            $m === '20' ||
+            $m === 'transfer' ||
+            $m === 'transferencia' ||
+            str_contains($m, 'transfer') ||
+            str_contains($m, 'deposito') ||
+            str_contains($m, 'depósito') ||
+            str_contains($m, 'cheque') ||
+            str_contains($m, 'banco') ||
+            str_contains($m, 'con utilizacion') ||
+            str_contains($m, 'con utilización') ||
+            str_contains($m, 'credito') ||
+            str_contains($m, 'crédito') ||
+            $accType === 'bank' ||
+            str_contains($accName, 'banco') ||
+            str_contains($accName, 'transfer')
+        ) {
+            return '20'; // OTROS CON UTILIZACION DEL SISTEMA FINANCIERO
+        }
+
+        if ($accType === 'bank') {
+            return '20';
+        }
+
+        return '01'; // Default SIN UTILIZACION DEL SISTEMA FINANCIERO
     }
 
     /**

@@ -6,8 +6,17 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>RIDE - Nota de Crédito {{ $creditNote->document_number }}</title>
     <style>
+        * {
+            font-family: Helvetica, Arial, sans-serif !important;
+            box-sizing: border-box;
+        }
+
+        body, table, th, td, div, span, p, strong, b, a, input {
+            font-family: Helvetica, Arial, sans-serif !important;
+        }
+
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: Helvetica, Arial, sans-serif !important;
             font-size: 8px;
             color: #334155;
             background: #ffffff;
@@ -79,7 +88,6 @@
             font-weight: 700;
             color: #0f172a;
             margin-bottom: 5px;
-            font-family: monospace;
         }
 
         .info-label {
@@ -87,14 +95,17 @@
             font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
+            font-family: Helvetica, Arial, sans-serif !important;
         }
 
         .info-val {
-            font-size: 8px;
-            font-weight: 600;
+            font-family: Helvetica, Arial, sans-serif !important;
+            font-size: 7.8px;
+            font-weight: 700;
             color: #1e293b;
-            font-family: monospace;
             word-break: break-all;
+            letter-spacing: 0.3px;
+            line-height: 1.2;
         }
 
         .items-table {
@@ -140,8 +151,7 @@
 
         .totals-table .val {
             text-align: right;
-            font-family: monospace;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .total-highlight {
@@ -149,6 +159,7 @@
             color: #991b1b;
             font-size: 9px !important;
             font-weight: 800 !important;
+            font-family: Helvetica, Arial, sans-serif !important;
         }
 
         .barcode-box {
