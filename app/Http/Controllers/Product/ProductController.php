@@ -206,10 +206,14 @@ class ProductController extends Controller
                 ->orderBy('name', 'asc')
                 ->get();
 
-            $warehouses = Warehouse::where('state', 0)
+            $warehouses = Warehouse::where('state', 1)
                 ->select('id', 'name')
                 ->orderBy('name', 'asc')
                 ->get();
+
+            if ($warehouses->isEmpty()) {
+                $warehouses = Warehouse::select('id', 'name')->orderBy('name', 'asc')->get();
+            }
 
             $units = Unit::where('state', 1)
                 ->selectRaw('MIN(id) as id, name')
