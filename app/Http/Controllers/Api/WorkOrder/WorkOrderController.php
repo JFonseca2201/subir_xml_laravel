@@ -47,6 +47,8 @@ class WorkOrderController extends Controller
             'number' => 'nullable|string|unique:work_orders,number',
             'date' => 'required|date',
             'is_draft' => 'nullable|boolean',
+            'quote_id' => 'nullable|integer',
+            'quotation_id' => 'nullable|integer',
         ]);
 
         // Usar el número enviado si existe. Si no, se autogenerará dentro de la transacción.
@@ -124,10 +126,16 @@ class WorkOrderController extends Controller
                 }
             }
 
-            if ($request->has('quote_id') && $request->quote_id) {
-                \App\Models\Sales\Quote::where('id', $request->quote_id)->update([
+            $quoteId = $request->input('quote_id') ?? $request->input('quotation_id');
+            if ($quoteId) {
+                \App\Models\Sales\Quote::where('id', $quoteId)->update([
                     'converted_work_order_id' => $workOrder->id,
                     'status' => 'completed',
+                ]);
+
+                \App\Models\Sales\Sale::where('id', $quoteId)->where('document_type', 'quote')->update([
+                    'work_order_id' => $workOrder->id,
+                    'payment_status' => 'completed',
                 ]);
             }
 
