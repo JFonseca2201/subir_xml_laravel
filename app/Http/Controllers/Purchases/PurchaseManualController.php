@@ -140,9 +140,14 @@ class PurchaseManualController extends Controller
                 $isProduct = (int) $item['item_type'] === 1;
                 $itemCatId = $isProduct ? ($item['product_categorie_id'] ?? $defaultCatId) : null;
 
+                $itemCode = trim((string) $item['code']);
+                $itemCodeAux = !empty($item['code_aux']) && trim($item['code_aux']) !== '-' 
+                    ? trim($item['code_aux']) 
+                    : (!empty($itemCode) ? ('LE' . $itemCode) : null);
+
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
-                    'code' => $item['code'],
+                    'code' => $itemCode,
                     'description' => $item['description'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
@@ -157,7 +162,8 @@ class PurchaseManualController extends Controller
                 // Update or Create Product Stock solo si es producto y pertenece al inventario del taller
                 $selectedForInventory = !isset($item['selected_for_inventory']) || $item['selected_for_inventory'] === true || $item['selected_for_inventory'] === 1 || $item['selected_for_inventory'] === '1' || $item['selected_for_inventory'] === 'true';
                 if ($isProduct && $selectedForInventory) { // 1 = Producto Físico del taller
-                    $product = Product::where('sku', $item['code'])
+                    $product = Product::where('sku', $itemCode)
+                        ->orWhere('code_aux', $itemCodeAux)
                         ->orWhere('description', $item['description'])
                         ->first();
 
@@ -166,7 +172,8 @@ class PurchaseManualController extends Controller
                     if (!$product) {
                         Product::create([
                             'description' => $item['description'],
-                            'sku' => $item['code'],
+                            'sku' => $itemCode,
+                            'code_aux' => $itemCodeAux,
                             'product_categorie_id' => $itemCatId,
                             'warehouse_id' => $defaultWarehouseId,
                             'unit_id' => $defaultUnitId,
@@ -193,6 +200,9 @@ class PurchaseManualController extends Controller
                         $product->purchase_price = $item['unit_price']; // Actualiza el precio de costo a la compra más reciente
                         if (!empty($item['brand'])) {
                             $product->brand = $brand;
+                        }
+                        if (empty($product->code_aux) && !empty($itemCodeAux)) {
+                            $product->code_aux = $itemCodeAux;
                         }
                         if (!empty($item['product_categorie_id'])) {
                             $product->product_categorie_id = $item['product_categorie_id'];

@@ -81,6 +81,7 @@ GAC
 BAIC
 JAC
 Brilliance
+Lifan
 Qoros
 Wuling
 Baojun

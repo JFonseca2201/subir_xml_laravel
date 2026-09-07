@@ -710,4 +710,5 @@ return [
   656=> "JEEP JLU",
   657=> "JEEP JKU",
   658=> "JEEP JLU",
+  659=> "LIFAN",
 ];

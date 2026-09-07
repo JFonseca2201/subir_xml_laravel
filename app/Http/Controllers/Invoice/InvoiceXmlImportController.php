@@ -241,11 +241,10 @@ class InvoiceXmlImportController extends Controller
                 /** -----------------------------
                  * 6.1 VERIFICAR Y CREAR/ACTUALIZAR PRODUCTO
                  * ------------------------------*/
-                $code = (string) $item->codigoPrincipal;
+                $code = trim((string) $item->codigoPrincipal);
                 $description = (string) $item->descripcion;
 
                 // Solo procesar productos si item_type = 1
-
 
                 $invoice_items = InvoiceItem::create([
                     'invoice_id' => $invoice->id,
@@ -566,13 +565,17 @@ class InvoiceXmlImportController extends Controller
                     $realPurchasePrice = $quantity > 0 ? ($subtotal / $quantity) : 0;
                     $salePrice = $realPurchasePrice * 1.5; // Margen del 50%
 
+                    $codeAux = !empty($invoiceItem->code_aux) 
+                        ? $invoiceItem->code_aux 
+                        : (!empty($code) ? ('LE' . $code) : null);
+
                     if (!$product) {
                         // Crear nuevo producto con el costo de adquisición calculado
                         $product = Product::create([
                             'description' => $description,
                             'sku' => $code,
                             'imagen' => null,
-                            'code_aux' => '',
+                            'code_aux' => $codeAux,
                             'uses' => null,
                             'product_categorie_id' => $category,
                             'warehouse_id' => 1,
@@ -602,6 +605,9 @@ class InvoiceXmlImportController extends Controller
                         $product->price_sale = $salePrice;
                         $product->purchase_price = $realPurchasePrice;
                         $product->max_discount = (float) ($salePrice * 0.25);
+                        if (empty($product->code_aux) && !empty($codeAux)) {
+                            $product->code_aux = $codeAux;
+                        }
                         $product->save();
                         $processedCount++;
                     }

@@ -415,7 +415,7 @@ class ProductController extends Controller
                 $data['min_stock'] = 0.00;
                 $data['max_stock'] = 0.00;
                 $data['purchase_price'] = 0.00;
-                $data['warehouse_id'] = null;
+                $data['warehouse_id'] = $request->input('warehouse_id', 1) ?: 1;
                 $data['imagen'] = null;
             }
 
@@ -559,7 +559,7 @@ class ProductController extends Controller
                 $data['min_stock'] = 0.00;
                 $data['max_stock'] = 0.00;
                 $data['purchase_price'] = 0.00;
-                $data['warehouse_id'] = null;
+                $data['warehouse_id'] = $request->input('warehouse_id', 1) ?: 1;
                 $data['imagen'] = null;
 
                 // Eliminar archivo físico anterior si existía
