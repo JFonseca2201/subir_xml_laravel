@@ -41,17 +41,31 @@ class QuoteController extends Controller
         try {
             $query = Quote::with(['client', 'vehicle', 'user', 'convertedSale', 'convertedWorkOrder']);
 
-            // 1. Filtro por búsqueda (nombre, cédula del cliente, placa de vehículo o número de documento)
+            // 1. Filtro por búsqueda (nombre, cédula del cliente, placa, marca, modelo de vehículo o número de documento)
             if ($request->has('search') && $request->search != '') {
-                $searchTerm = $request->search;
-                $query->where(function ($q) use ($searchTerm) {
+                $searchTerm = trim($request->search);
+                $vehicleBrands = config('vehicle_brands', []);
+                $matchingBrandIds = [];
+                foreach ($vehicleBrands as $id => $name) {
+                    if (stripos($name, $searchTerm) !== false || stripos($searchTerm, (string) $name) !== false) {
+                        $matchingBrandIds[] = (string) $id;
+                        $matchingBrandIds[] = (int) $id;
+                    }
+                }
+
+                $query->where(function ($q) use ($searchTerm, $matchingBrandIds) {
                     $q->where('document_number', 'like', "%{$searchTerm}%")
                         ->orWhereHas('client', function ($clientQuery) use ($searchTerm) {
                             $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
                                 ->orWhere('n_document', 'like', "%{$searchTerm}%");
                         })
-                        ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
-                            $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
+                        ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm, $matchingBrandIds) {
+                            $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%")
+                                ->orWhere('model', 'like', "%{$searchTerm}%")
+                                ->orWhere('brand', 'like', "%{$searchTerm}%");
+                            if (!empty($matchingBrandIds)) {
+                                $vehicleQuery->orWhereIn('brand', array_unique($matchingBrandIds));
+                            }
                         });
                 });
             }

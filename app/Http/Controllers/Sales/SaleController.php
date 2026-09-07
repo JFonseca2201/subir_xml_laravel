@@ -63,7 +63,16 @@ class SaleController extends Controller
             // 1. Filtro por búsqueda general
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = trim($request->search);
-                $query->where(function ($q) use ($searchTerm) {
+                $vehicleBrands = config('vehicle_brands', []);
+                $matchingBrandIds = [];
+                foreach ($vehicleBrands as $id => $name) {
+                    if (stripos($name, $searchTerm) !== false || stripos($searchTerm, (string) $name) !== false) {
+                        $matchingBrandIds[] = (string) $id;
+                        $matchingBrandIds[] = (int) $id;
+                    }
+                }
+
+                $query->where(function ($q) use ($searchTerm, $matchingBrandIds) {
                     $q->where('document_number', 'like', "%{$searchTerm}%")
                         ->orWhere('work_order_number', 'like', "%{$searchTerm}%")
                         ->orWhereHas('workOrder', function ($woQuery) use ($searchTerm) {
@@ -73,8 +82,13 @@ class SaleController extends Controller
                             $clientQuery->where('full_name', 'like', "%{$searchTerm}%")
                                 ->orWhere('n_document', 'like', "%{$searchTerm}%");
                         })
-                        ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm) {
-                            $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%");
+                        ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm, $matchingBrandIds) {
+                            $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%")
+                                ->orWhere('model', 'like', "%{$searchTerm}%")
+                                ->orWhere('brand', 'like', "%{$searchTerm}%");
+                            if (!empty($matchingBrandIds)) {
+                                $vehicleQuery->orWhereIn('brand', array_unique($matchingBrandIds));
+                            }
                         });
                 });
             }

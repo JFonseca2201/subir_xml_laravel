@@ -764,9 +764,12 @@
                     <tr>
                         <th class="heading-item center">#</th>
                         <th class="heading-description">Descripción</th>
-                        <th class="heading-quantity center">Cantidad</th>
-                        <th class="heading-price right">PVP (Sin IVA)</th>
+                        <th class="heading-quantity center">Cant.</th>
+                        <th class="heading-price right">P. Unit. (Sin IVA)</th>
+                        <th class="heading-price right">Subtotal (Sin IVA)</th>
+                        @if($quote->details->some(fn($d) => ($d->discount ?? 0) > 0))
                         <th class="heading-price right">Descuento</th>
+                        @endif
                         <th class="heading-price right">IVA (15%)</th>
                         <th class="heading-subtotal right">Total (Con IVA)</th>
                     </tr>
@@ -774,15 +777,17 @@
                 <tbody>
                     @php
                     $cont = 0;
+                    $hasAnyDiscount = $quote->details->some(fn($d) => ($d->discount ?? 0) > 0);
                     @endphp
                     @foreach ($quote->details as $detail)
                     @php
-                    // Los precios en BD ya incluyen IVA, mostramos base sin IVA
-                    $displayPrice = $detail->price / 1.15;
-                    $displayDiscount = ($detail->discount ?? 0) / 1.15;
-                    $displaySubtotalNeto = ($displayPrice * $detail->quantity) - $displayDiscount;
-                    $displayIva = $displaySubtotalNeto * 0.15;
-                    $displayTotal = $displaySubtotalNeto + $displayIva;
+                    // Los precios en BD ya incluyen IVA ($detail->price)
+                    $unitPriceSinIva = $detail->price / 1.15;
+                    $subtotalItemSinIva = $unitPriceSinIva * $detail->quantity;
+                    $discountSinIva = ($detail->discount ?? 0) / 1.15;
+                    $subtotalNetoSinIva = $subtotalItemSinIva - $discountSinIva;
+                    $ivaItem = $subtotalNetoSinIva * 0.15;
+                    $totalItemConIva = ($detail->price * $detail->quantity) - ($detail->discount ?? 0);
                     @endphp
                     <tr>
                         <td class="center">{{ $cont = $cont + 1 }}</td>
@@ -794,10 +799,13 @@
                             @endif
                         </td>
                         <td class="center">{{ $detail->quantity }}</td>
-                        <td class="right">${{ number_format($displayPrice, 2) }}</td>
-                        <td class="right">${{ number_format($displayDiscount, 2) }}</td>
-                        <td class="right">${{ number_format($displayIva, 2) }}</td>
-                        <td class="right bold">${{ number_format($displayTotal, 2) }}</td>
+                        <td class="right">${{ number_format($unitPriceSinIva, 2) }}</td>
+                        <td class="right">${{ number_format($subtotalItemSinIva, 2) }}</td>
+                        @if($hasAnyDiscount)
+                        <td class="right">${{ number_format($discountSinIva, 2) }}</td>
+                        @endif
+                        <td class="right">${{ number_format($ivaItem, 2) }}</td>
+                        <td class="right bold">${{ number_format($totalItemConIva, 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>

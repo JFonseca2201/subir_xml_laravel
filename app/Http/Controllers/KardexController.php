@@ -841,7 +841,16 @@ class KardexController extends Controller
 
             // Búsqueda textual amplia
             if ($search) {
-                $query->where(function ($q) use ($search) {
+                $vehicleBrands = config('vehicle_brands', []);
+                $matchingBrandIds = [];
+                foreach ($vehicleBrands as $id => $name) {
+                    if (stripos($name, $search) !== false || stripos($search, (string) $name) !== false) {
+                        $matchingBrandIds[] = (string) $id;
+                        $matchingBrandIds[] = (int) $id;
+                    }
+                }
+
+                $query->where(function ($q) use ($search, $matchingBrandIds) {
                     $q->where('document_number', 'LIKE', "%{$search}%")
                         ->orWhere('work_order_number', 'LIKE', "%{$search}%")
                         ->orWhere('observations', 'LIKE', "%{$search}%")
@@ -852,10 +861,13 @@ class KardexController extends Controller
                                 ->orWhere('n_document', 'LIKE', "%{$search}%")
                                 ->orWhere('phone', 'LIKE', "%{$search}%");
                         })
-                        ->orWhereHas('vehicle', function ($vq) use ($search) {
+                        ->orWhereHas('vehicle', function ($vq) use ($search, $matchingBrandIds) {
                             $vq->where('license_plate', 'LIKE', "%{$search}%")
                                 ->orWhere('brand', 'LIKE', "%{$search}%")
                                 ->orWhere('model', 'LIKE', "%{$search}%");
+                            if (!empty($matchingBrandIds)) {
+                                $vq->orWhereIn('brand', array_unique($matchingBrandIds));
+                            }
                         })
                         ->orWhereHas('details', function ($dq) use ($search) {
                             $dq->where('description', 'LIKE', "%{$search}%");
@@ -1173,7 +1185,16 @@ class KardexController extends Controller
             }
 
             if ($search) {
-                $query->where(function ($q) use ($search) {
+                $vehicleBrands = config('vehicle_brands', []);
+                $matchingBrandIds = [];
+                foreach ($vehicleBrands as $id => $name) {
+                    if (stripos($name, $search) !== false || stripos($search, (string) $name) !== false) {
+                        $matchingBrandIds[] = (string) $id;
+                        $matchingBrandIds[] = (int) $id;
+                    }
+                }
+
+                $query->where(function ($q) use ($search, $matchingBrandIds) {
                     $q->where('document_number', 'LIKE', "%{$search}%")
                         ->orWhere('work_order_number', 'LIKE', "%{$search}%")
                         ->orWhere('observations', 'LIKE', "%{$search}%")
@@ -1184,10 +1205,13 @@ class KardexController extends Controller
                                 ->orWhere('n_document', 'LIKE', "%{$search}%")
                                 ->orWhere('phone', 'LIKE', "%{$search}%");
                         })
-                        ->orWhereHas('vehicle', function ($vq) use ($search) {
+                        ->orWhereHas('vehicle', function ($vq) use ($search, $matchingBrandIds) {
                             $vq->where('license_plate', 'LIKE', "%{$search}%")
                                 ->orWhere('brand', 'LIKE', "%{$search}%")
                                 ->orWhere('model', 'LIKE', "%{$search}%");
+                            if (!empty($matchingBrandIds)) {
+                                $vq->orWhereIn('brand', array_unique($matchingBrandIds));
+                            }
                         })
                         ->orWhereHas('details', function ($dq) use ($search) {
                             $dq->where('description', 'LIKE', "%{$search}%");

@@ -34,22 +34,58 @@ class VehicleController extends Controller
 
         // Búsqueda global
         if ($request->filled('search')) {
-            $search = $request->get('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('license_plate', 'like', "%$search%")
-                    ->orWhere('model', 'like', "%$search%")
-                    ->orWhere('description', 'like', "%$search%")
-                    ->orWhereHas('client', function ($q2) use ($search) {
-                        $q2->where('name', 'like', "%$search%")
-                           ->orWhere('surname', 'like', "%$search%")
-                           ->orWhere('full_name', 'like', "%$search%")
-                           ->orWhere('n_document', 'like', "%$search%");
-                    });
+            $search = trim((string) $request->get('search'));
+            $vehicleBrands = config('vehicle_brands', []);
+            $matchingBrandIds = [];
+            foreach ($vehicleBrands as $id => $name) {
+                if (stripos($name, $search) !== false || stripos($search, (string) $name) !== false) {
+                    $matchingBrandIds[] = (string) $id;
+                    $matchingBrandIds[] = (int) $id;
+                }
+            }
+
+            $query->where(function ($q) use ($search, $matchingBrandIds) {
+                $q->where('license_plate', 'like', "%{$search}%")
+                    ->orWhere('model', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('brand', 'like', "%{$search}%");
+
+                if (!empty($matchingBrandIds)) {
+                    $q->orWhereIn('brand', array_unique($matchingBrandIds));
+                }
+
+                $q->orWhereHas('client', function ($q2) use ($search) {
+                    $q2->where('name', 'like', "%{$search}%")
+                       ->orWhere('surname', 'like', "%{$search}%")
+                       ->orWhere('full_name', 'like', "%{$search}%")
+                       ->orWhere('n_document', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        // Filtro de marca específico
+        if ($request->filled('brand')) {
+            $brandVal = $request->get('brand');
+            $vehicleBrands = config('vehicle_brands', []);
+            $brandMatches = [(string) $brandVal];
+            if (is_numeric($brandVal)) {
+                $brandMatches[] = (int) $brandVal;
+            }
+            foreach ($vehicleBrands as $id => $name) {
+                if (strcasecmp($name, (string) $brandVal) === 0 || stripos($name, (string) $brandVal) !== false) {
+                    $brandMatches[] = (string) $id;
+                    $brandMatches[] = (int) $id;
+                }
+            }
+            $query->where(function ($q) use ($brandVal, $brandMatches) {
+                $q->where('brand', $brandVal)
+                  ->orWhere('brand', 'like', "%{$brandVal}%")
+                  ->orWhereIn('brand', array_unique($brandMatches));
             });
         }
 
         // Filtros exactos
-        foreach (['brand', 'year', 'color', 'vehicle_type'] as $filter) {
+        foreach (['year', 'color', 'vehicle_type'] as $filter) {
             if ($request->filled($filter)) {
                 $query->where($filter, $request->get($filter));
             }
@@ -96,16 +132,31 @@ class VehicleController extends Controller
         }
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
+            $vehicleBrands = config('vehicle_brands', []);
+            $matchingBrandIds = [];
+            foreach ($vehicleBrands as $id => $name) {
+                if (stripos($name, $search) !== false || stripos($search, (string) $name) !== false) {
+                    $matchingBrandIds[] = (string) $id;
+                    $matchingBrandIds[] = (int) $id;
+                }
+            }
+
+            $query->where(function ($q) use ($search, $matchingBrandIds) {
                 $q->where('license_plate', 'like', "%{$search}%")
                     ->orWhere('model', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhereHas('client', function ($clientQuery) use ($search) {
-                        $clientQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('surname', 'like', "%{$search}%")
-                            ->orWhere('full_name', 'like', "%{$search}%")
-                            ->orWhere('n_document', 'like', "%{$search}%");
-                    });
+                    ->orWhere('brand', 'like', "%{$search}%");
+
+                if (!empty($matchingBrandIds)) {
+                    $q->orWhereIn('brand', array_unique($matchingBrandIds));
+                }
+
+                $q->orWhereHas('client', function ($clientQuery) use ($search) {
+                    $clientQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('surname', 'like', "%{$search}%")
+                        ->orWhere('full_name', 'like', "%{$search}%")
+                        ->orWhere('n_document', 'like', "%{$search}%");
+                });
             });
         }
 

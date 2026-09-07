@@ -115,28 +115,46 @@ XML;
      */
     private function ejecutarSoapCurl(string $url, string $soapXml, string $action): string
     {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $soapXml);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: text/xml; charset=utf-8',
-            'SOAPAction: ""',
-            'Content-Length: ' . strlen($soapXml),
-        ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 35);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        $maxRetries = 3;
+        $attempt = 0;
+        $lastError = '';
+        $response = false;
+        $httpCode = 0;
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
+        while ($attempt < $maxRetries) {
+            $attempt++;
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $soapXml);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: text/xml; charset=utf-8',
+                'SOAPAction: ""',
+                'Content-Length: ' . strlen($soapXml),
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 35);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
-        if ($error) {
-            Log::error("[SRI cURL Error] Acción {$action} en {$url}: {$error}");
-            throw new Exception("Error de conexión cURL al SRI ({$action}): {$error}");
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $lastError = curl_error($ch);
+            curl_close($ch);
+
+            if (!$lastError && ($httpCode === 200 || !empty($response))) {
+                return $response ?: '';
+            }
+
+            if ($attempt < $maxRetries) {
+                sleep(2);
+            }
+        }
+
+        if ($lastError) {
+            Log::error("[SRI cURL Error] Acción {$action} en {$url}: {$lastError} tras {$maxRetries} intentos");
+            throw new Exception("Error de conexión cURL al SRI ({$action}): {$lastError}");
         }
 
         if ($httpCode !== 200 && empty($response)) {
