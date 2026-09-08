@@ -223,6 +223,7 @@ Route::group(
         Route::get('quotes/{id}/pdf', [QuoteController::class, 'generateSinglePDF']);
 
         // ============= RUTAS SRI FACTURACIÓN ELECTRÓNICA ==========
+        Route::get('sri/check-status',             [SaleController::class, 'checkSriStatus']);
         Route::post('sales/{id}/sri/reenviar',     [SaleController::class, 'reenviarSri']);
         Route::get('sales/{id}/sri/estado',        [SaleController::class, 'estadoSri']);
         Route::get('sales/{id}/xml',               [SaleController::class, 'descargarXml']);

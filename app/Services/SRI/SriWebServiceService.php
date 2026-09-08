@@ -280,4 +280,135 @@ XML;
             return $result;
         }
     }
+
+    /**
+     * Verifica la disponibilidad y conectividad con los Web Services del SRI.
+     * Realiza un sondeo HTTP cURL de los endpoints WSDL de Recepción y Autorización.
+     *
+     * @param int|null $ambiente 1 = Pruebas, 2 = Producción (opcional, por defecto el configurado)
+     * @return array
+     */
+    public function verificarConexion(?int $ambiente = null): array
+    {
+        $targetAmbiente = $ambiente !== null ? $ambiente : $this->ambiente;
+
+        $urlRecepcion = $targetAmbiente === 2
+            ? (env('SRI_URL_RECEPCION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl')
+            : (env('SRI_URL_RECEPCION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl');
+
+        $urlAutorizacion = $targetAmbiente === 2
+            ? (env('SRI_URL_AUTORIZACION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl')
+            : (env('SRI_URL_AUTORIZACION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl');
+
+        $recepcion = $this->probarEndpoint($urlRecepcion, 'Recepción de Comprobantes');
+        $autorizacion = $this->probarEndpoint($urlAutorizacion, 'Autorización de Comprobantes');
+
+        $bothOnline = $recepcion['online'] && $autorizacion['online'];
+        $noneOnline = !$recepcion['online'] && !$autorizacion['online'];
+
+        if ($bothOnline) {
+            $hasHighLatency = ($recepcion['latency_ms'] > 3500 || $autorizacion['latency_ms'] > 3500);
+            $status = $hasHighLatency ? 'LENTO' : 'OPERATIVO';
+            $message = $hasHighLatency
+                ? 'Los servicios del SRI responden pero presentan alta latencia. Los comprobantes podrían demorar en procesarse.'
+                : 'Los servicios del SRI se encuentran en línea y funcionando con normalidad.';
+        } elseif ($noneOnline) {
+            $status = 'FUERA_DE_SERVICIO';
+            $message = 'Los servidores del SRI se encuentran fuera de servicio o inaccesibles. Los comprobantes enviados saldrán con error o rechazados hasta que el SRI restablezca el servicio.';
+        } else {
+            $status = 'PARCIAL';
+            $message = 'Servicio del SRI parcialmente disponible: ' . 
+                (!$recepcion['online'] ? 'El servicio de Recepción no responde. ' : '') .
+                (!$autorizacion['online'] ? 'El servicio de Autorización no responde.' : '');
+        }
+
+        return [
+            'online'        => $bothOnline,
+            'status'        => $status, // OPERATIVO | LENTO | PARCIAL | FUERA_DE_SERVICIO
+            'message'       => $message,
+            'ambiente'      => $targetAmbiente,
+            'ambiente_name' => $targetAmbiente === 2 ? 'PRODUCCIÓN' : 'PRUEBAS',
+            'timestamp'     => now()->toIso8601String(),
+            'services'      => [
+                'recepcion'    => $recepcion,
+                'autorizacion' => $autorizacion,
+            ],
+        ];
+    }
+
+    /**
+     * Sonda un endpoint cURL específico del SRI y mide latencia y código de respuesta.
+     */
+    private function probarEndpoint(string $url, string $nombreServicio): array
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FacturacionSRI/1.0');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Accept: text/xml, application/xml, text/html, */*',
+        ]);
+
+        $response = curl_exec($ch);
+        $totalTime = curl_getinfo($ch, CURLINFO_TOTAL_TIME);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+        curl_close($ch);
+
+        $latencyMs = (int) round($totalTime * 1000);
+
+        // Determinación de estado
+        if ($curlErrno !== 0 || $httpCode === 0) {
+            return [
+                'name'         => $nombreServicio,
+                'url'          => $url,
+                'online'       => false,
+                'http_code'    => $httpCode,
+                'latency_ms'   => $latencyMs,
+                'status'       => 'CAIDO',
+                'status_label' => 'Sin Conexión',
+                'message'      => 'No se pudo conectar con el servidor del SRI (Tiempo de espera agotado o conexión rechazada).',
+                'error'        => $curlError ?: "Error de red cURL código {$curlErrno}",
+            ];
+        }
+
+        if ($httpCode >= 500) {
+            return [
+                'name'         => $nombreServicio,
+                'url'          => $url,
+                'online'       => false,
+                'http_code'    => $httpCode,
+                'latency_ms'   => $latencyMs,
+                'status'       => 'ERROR_SERVIDOR',
+                'status_label' => 'Fallo Servidor SRI',
+                'message'      => "El servidor del SRI retornó error HTTP {$httpCode}.",
+                'error'        => "Respuesta del SRI: HTTP {$httpCode}",
+            ];
+        }
+
+        // Si responde HTTP 200 (o 405/204 con contenido)
+        $isOk = ($httpCode === 200 || !empty($response));
+        $isSlow = ($latencyMs > 3500);
+
+        return [
+            'name'         => $nombreServicio,
+            'url'          => $url,
+            'online'       => $isOk,
+            'http_code'    => $httpCode,
+            'latency_ms'   => $latencyMs,
+            'status'       => $isSlow ? 'LENTO' : ($isOk ? 'OPERATIVO' : 'DEGRADADO'),
+            'status_label' => $isSlow ? 'Respuesta Lenta' : ($isOk ? 'Operativo' : 'Inestable'),
+            'message'      => $isSlow
+                ? "Operativo con respuesta lenta ({$latencyMs} ms)."
+                : "Operativo y respondiendo correctamente ({$latencyMs} ms).",
+            'error'        => null,
+        ];
+    }
 }
+

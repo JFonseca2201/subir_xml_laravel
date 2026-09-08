@@ -523,6 +523,24 @@ class SaleController extends Controller
     }
 
     /**
+     * Verifica la disponibilidad y conectividad de los servidores del SRI en tiempo real.
+     */
+    public function checkSriStatus(Request $request): JsonResponse
+    {
+        try {
+            $ambiente = $request->query('ambiente') !== null ? (int) $request->query('ambiente') : null;
+            $result = $this->sriService->checkSriStatus($ambiente);
+            return response()->json($result['data'], $result['status']);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al verificar el estado de los Web Services del SRI.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Reenviar factura al SRI.
      */
     public function reenviarSri(int $id): JsonResponse

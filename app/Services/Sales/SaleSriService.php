@@ -6,6 +6,7 @@ use App\Models\Sales\Sale;
 use App\Models\Config\Sucursale;
 use App\Jobs\ProcessElectronicInvoice;
 use App\Services\SRI\ElectronicInvoiceService;
+use App\Services\SRI\SriWebServiceService;
 use Illuminate\Support\Facades\Storage;
 use Exception;
 
@@ -176,4 +177,27 @@ class SaleSriService
             ]
         ];
     }
+
+    /**
+     * Verifica la disponibilidad y conectividad de los servidores del SRI.
+     */
+    public function checkSriStatus(?int $ambiente = null): array
+    {
+        $sucursal = Sucursale::first();
+        if ($ambiente === null) {
+            $ambiente = $sucursal && !empty($sucursal->ambiente) ? (int) $sucursal->ambiente : 1;
+        }
+
+        $service = new SriWebServiceService($ambiente);
+        $result = $service->verificarConexion($ambiente);
+
+        return [
+            'status' => 200,
+            'data' => [
+                'success' => true,
+                'data'    => $result,
+            ]
+        ];
+    }
 }
+

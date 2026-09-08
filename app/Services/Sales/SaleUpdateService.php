@@ -11,6 +11,7 @@ use App\Models\Finance\FinancialMovement;
 use App\Models\Finance\Account;
 use App\Services\SequenceService;
 use App\Services\WorkOrder\WorkOrderSaleSync;
+use App\Jobs\ProcessElectronicInvoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Exception;
@@ -38,13 +39,13 @@ class SaleUpdateService
             ];
         }
 
-        // Regla SRI: Si es factura y ya está autorizada por el SRI, no se puede editar
-        if ($sale->document_type === 'invoice' && $sale->sri_status === 'AUTORIZADA') {
+        // Regla SRI: Las facturas electrónicas ya creadas no pueden ser modificadas bajo ningún estado
+        if ($sale->document_type === 'invoice') {
             return [
                 'status' => 422,
                 'data' => [
                     'success' => false,
-                    'message' => 'Esta factura ya ha sido autorizada por el SRI y no puede ser modificada.'
+                    'message' => 'Las facturas electrónicas ya creadas no pueden ser modificadas. Si requiere corregir valores o anular, gestione una Nota de Crédito según corresponda.'
                 ]
             ];
         }
@@ -110,12 +111,11 @@ class SaleUpdateService
 
                 $expectedTotal = $sale->total;
                 if ($request->has('items')) {
-                    $subtotal = 0;
+                    $subtotalItems = 0;
                     foreach ($request->items as $item) {
-                        $subtotal += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
+                        $subtotalItems += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
                     }
-                    $taxAmount = $subtotal * 0.15;
-                    $expectedTotal = $subtotal + $taxAmount;
+                    $expectedTotal = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : $subtotalItems;
                 }
 
                 if ($isFinalConsumer && (float)$expectedTotal >= 50.00) {
@@ -147,15 +147,24 @@ class SaleUpdateService
             $hasDistributions = $request->has('payment_distributions');
             $isCredited = $request->has('is_credited') ? $request->boolean('is_credited') : $sale->is_credited;
 
-            // Recalcular el total esperado de los items
-            $finalTotal = $sale->total;
+            // Recalcular el total esperado de los items (los precios ya incluyen IVA en el sistema)
+            $rawNet = 0;
             if ($request->has('items')) {
-                $subtotal = 0;
                 foreach ($request->items as $item) {
-                    $subtotal += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
+                    $rawNet += ($item['quantity'] * $item['price']) - ($item['discount'] ?? 0);
                 }
-                $taxAmount = $docType === 'invoice' ? $subtotal * 0.15 : 0;
-                $finalTotal = $subtotal + $taxAmount;
+            } else {
+                $rawNet = (float)$sale->total;
+            }
+
+            if ($docType === 'invoice') {
+                $finalTotal = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
+                $subtotal = $request->has('subtotal') && (float)$request->subtotal > 0 ? (float)$request->subtotal : round($finalTotal / 1.15, 2);
+                $taxAmount = $request->has('tax_amount') && (float)$request->tax_amount >= 0 ? (float)$request->tax_amount : round($finalTotal - $subtotal, 2);
+            } else {
+                $finalTotal = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
+                $subtotal = $finalTotal;
+                $taxAmount = 0.00;
             }
 
             if ($hasDistributions) {
@@ -359,6 +368,15 @@ class SaleUpdateService
                 $wo = WorkOrder::find($request->work_order_id);
                 $updateData['work_order_number'] = $wo ? $wo->number : null;
             }
+
+            // Si se está convirtiendo a factura y no tiene secuencial oficial asignado
+            if ($request->has('document_type') && $request->document_type === 'invoice' && $sale->document_type !== 'invoice') {
+                $updateData['document_type'] = 'invoice';
+                if (empty($updateData['document_number']) || $updateData['document_number'] === $oldDocumentNumber) {
+                    $updateData['document_number'] = SequenceService::getNextInvoiceNumber();
+                }
+            }
+
             $sale->update($updateData + ['status' => $status]);
 
             if ($request->has('technicians')) {
@@ -486,9 +504,16 @@ class SaleUpdateService
                     }
                 }
 
-                $subtotal = $sale->details()->sum('total');
-                $taxAmount = $sale->document_type === 'invoice' ? $subtotal * 0.15 : 0;
-                $total = $subtotal + $taxAmount;
+                $rawNet = $sale->details()->sum('total');
+                if ($sale->document_type === 'invoice') {
+                    $total = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
+                    $subtotal = $request->has('subtotal') && (float)$request->subtotal > 0 ? (float)$request->subtotal : round($total / 1.15, 2);
+                    $taxAmount = $request->has('tax_amount') && (float)$request->tax_amount >= 0 ? (float)$request->tax_amount : round($total - $subtotal, 2);
+                } else {
+                    $total = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
+                    $subtotal = $total;
+                    $taxAmount = 0.00;
+                }
 
                 $sale->update([
                     'subtotal' => $subtotal,
@@ -531,11 +556,11 @@ class SaleUpdateService
         $this->reminderService->syncReplacementReminders($sale);
 
         // Despachar job SRI si es factura y aún no ha sido encolada/autorizada
-        if ($sale->document_type === 'invoice' && empty($sale->sri_status)) {
+        if ($sale->document_type === 'invoice' && (empty($sale->sri_status) || $sale->sri_status === 'CREADA')) {
             try {
                 $sale->update(['sri_status' => 'CREADA']);
                 if (env('SRI_AUTOPROCESS', true)) {
-                    \App\Jobs\SRI\ProcessElectronicInvoice::dispatch($sale->id)->onQueue('sri');
+                    ProcessElectronicInvoice::dispatch($sale->id);
                 }
             } catch (Exception $e) {
                 \Illuminate\Support\Facades\Log::error("[SRI] Error al despachar factura electrónica en actualización para venta #{$sale->id}: " . $e->getMessage());
