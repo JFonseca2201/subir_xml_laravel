@@ -56,10 +56,50 @@ class SaleSriService
     }
 
     /**
-     * Consulta en tiempo real el estado SRI de una factura electrónica.
+     * Consulta en tiempo real el estado SRI de una factura electrónica y la sincroniza si ya fue autorizada.
      */
     public function estadoSri(Sale $sale): array
     {
+        // Si no está autorizada pero ya tiene clave de acceso, consultar al SRI
+        if ($sale->document_type === 'invoice' && $sale->sri_status !== 'AUTORIZADA') {
+            $clave = $sale->sri_access_key;
+            if ($clave) {
+                try {
+                    $sucursal = Sucursale::find($sale->client->sucursale_id ?? 1) ?? Sucursale::first();
+                    $sriWs = app(SriWebServiceService::class);
+                    if (!empty($sucursal->ambiente)) {
+                        $sriWs->setAmbiente((int)$sucursal->ambiente);
+                    }
+
+                    $auth = $sriWs->autorizarComprobante($clave);
+                    $estadoAut = strtoupper($auth['estado'] ?? '');
+
+                    if ($estadoAut === 'AUTORIZADO' || $estadoAut === 'AUTORIZADA') {
+                        $ridePath = $this->electronicInvoiceService->generarRide(
+                            $sale->fresh(['details', 'client', 'vehicle', 'workOrder']),
+                            $sucursal,
+                            $auth
+                        );
+
+                        $sale->update([
+                            'sri_status'             => 'AUTORIZADA',
+                            'sri_authorization_date' => $auth['fechaAutorizacion'],
+                            'sri_error'              => null,
+                            'pdf_path'               => $ridePath,
+                        ]);
+                    } elseif ($estadoAut === 'NO_AUTORIZADO' || $estadoAut === 'NO_AUTORIZADA') {
+                        $errores = implode(' | ', $auth['errores'] ?? []);
+                        $sale->update([
+                            'sri_status' => 'RECHAZADA',
+                            'sri_error'  => $errores,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning("Error al sincronizar estado SRI para venta #{$sale->id}: " . $e->getMessage());
+                }
+            }
+        }
+
         $data = Sale::select([
             'id',
             'document_number',
@@ -77,6 +117,7 @@ class SaleSriService
             'data' => [
                 'success' => true,
                 'data'    => $data,
+                'message' => $data->sri_status === 'AUTORIZADA' ? 'Comprobante AUTORIZADO por el SRI' : "Estado SRI: {$data->sri_status}",
             ]
         ];
     }

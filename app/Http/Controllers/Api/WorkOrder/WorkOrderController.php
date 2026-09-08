@@ -308,6 +308,22 @@ class WorkOrderController extends Controller
     {
         $workOrder = WorkOrder::findOrFail($id);
 
+        // 1. Validar si la orden de trabajo tiene una Factura autorizada por el SRI
+        $hasAuthorizedInvoice = \App\Models\Sales\Sale::where(function ($q) use ($workOrder) {
+                $q->where('work_order_id', $workOrder->id)
+                  ->orWhere('work_order_number', $workOrder->number);
+            })
+            ->where('document_type', 'invoice')
+            ->whereIn('sri_status', ['AUTORIZADA', 'AUTORIZADO'])
+            ->exists();
+
+        if ($hasAuthorizedInvoice) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede eliminar la orden de trabajo porque tiene una Factura autorizada por el SRI.'
+            ], 422);
+        }
+
         if ($workOrder->sale()->where('status', '!=', 'canceled')->exists()) {
             return response()->json([
                 'success' => false,
