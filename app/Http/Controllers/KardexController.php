@@ -1363,12 +1363,51 @@ class KardexController extends Controller
                 'total_servicios' => $totalServicios,
             ];
 
+            $sucursal = \App\Models\Config\Sucursale::find(auth()->user()->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+            $logoBase64 = '';
+            $logoPath = null;
+            if ($sucursal && $sucursal->logo) {
+                $tempPath = public_path($sucursal->logo);
+                if (file_exists($tempPath)) {
+                    $logoPath = $tempPath;
+                } else {
+                    $cleanLogo = str_replace('storage/', '', $sucursal->logo);
+                    $tempPath = storage_path('app/public/' . $cleanLogo);
+                    if (file_exists($tempPath)) {
+                        $logoPath = $tempPath;
+                    }
+                }
+            }
+
+            if (!$logoPath || !file_exists($logoPath)) {
+                $candidates = [
+                    public_path('assets/img/brand/logo.png'),
+                    public_path('assets/img/brand/logo.jpeg'),
+                    public_path('assets/img/brand/logo_e.png'),
+                ];
+                foreach ($candidates as $candidate) {
+                    if (file_exists($candidate)) {
+                        $logoPath = $candidate;
+                        break;
+                    }
+                }
+            }
+
+            if ($logoPath && file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                $logoMime = ($ext === 'png') ? 'image/png' : (($ext === 'svg') ? 'image/svg+xml' : 'image/jpeg');
+                $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+            }
+
             $pdf = Pdf::loadView('kardex.pdf_kardex_client_vehicle', compact(
                 'transactions',
                 'metrics',
                 'selectedClient',
                 'selectedVehicle',
-                'dateRangeText'
+                'dateRangeText',
+                'sucursal',
+                'logoBase64'
             ))->setPaper('a4', 'landscape');
 
             return $pdf->stream('Kardex_Cliente_Vehiculo_' . date('Ymd_His') . '.pdf');

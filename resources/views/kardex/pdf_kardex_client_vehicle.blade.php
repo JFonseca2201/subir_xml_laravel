@@ -81,6 +81,41 @@
             font-size: 9px;
         }
 
+        /* Placa Automotriz Oficial y Elegante */
+        .ecuador-plate-table {
+            border-collapse: collapse;
+            background-color: #ffffff;
+            border: 2px solid #0f172a;
+            border-radius: 5px;
+            margin-left: auto;
+        }
+
+        .ecuador-plate-header {
+            background-color: #0284c7;
+            padding: 1.5px 5px;
+            border: none;
+            border-bottom: 1.5px solid #0369a1;
+        }
+
+        .ecuador-plate-code {
+            font-size: 21px;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: 3px;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .ecuador-plate-sub {
+            font-size: 5.5px;
+            font-weight: bold;
+            color: #64748b;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 1px;
+        }
+
         .kpi-table {
             margin-bottom: 10px;
         }
@@ -221,7 +256,7 @@
             color: #94a3b8;
             border-top: 1px solid #e2e8f0;
             padding-top: 3px;
-            text-align: right;
+            text-align: left;
         }
     </style>
 </head>
@@ -234,12 +269,59 @@
         // Calcular número total de columnas para colspan
         $totalCols = 7 + ($showClientCol ? 1 : 0) + ($showVehicleCol ? 1 : 0);
         $leftCols = 4 + ($showClientCol ? 1 : 0) + ($showVehicleCol ? 1 : 0);
+
+        if (!isset($sucursal)) {
+            $sucursal = \App\Models\Config\Sucursale::find(auth()->user()->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+        }
+
+        if (empty($logoBase64)) {
+            $logoBase64 = '';
+            $logoPath = null;
+            if ($sucursal && $sucursal->logo) {
+                $tempPath = public_path($sucursal->logo);
+                if (file_exists($tempPath)) {
+                    $logoPath = $tempPath;
+                } else {
+                    $cleanLogo = str_replace('storage/', '', $sucursal->logo);
+                    $tempPath = storage_path('app/public/' . $cleanLogo);
+                    if (file_exists($tempPath)) {
+                        $logoPath = $tempPath;
+                    }
+                }
+            }
+
+            if (!$logoPath || !file_exists($logoPath)) {
+                $candidates = [
+                    public_path('assets/img/brand/logo.png'),
+                    public_path('assets/img/brand/logo.jpeg'),
+                    public_path('assets/img/brand/logo_e.png'),
+                ];
+                foreach ($candidates as $candidate) {
+                    if (file_exists($candidate)) {
+                        $logoPath = $candidate;
+                        break;
+                    }
+                }
+            }
+
+            if ($logoPath && file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                $logoMime = ($ext === 'png') ? 'image/png' : (($ext === 'svg') ? 'image/svg+xml' : 'image/jpeg');
+                $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+            }
+        }
     @endphp
 
-    <!-- Encabezado Principal -->
+    <!-- Encabezado Principal con Logo de la Empresa -->
     <table class="header-table">
         <tr>
-            <td style="width: 65%;">
+            @if (!empty($logoBase64))
+                <td style="width: 22%; vertical-align: middle; padding-right: 12px;">
+                    <img src="{{ $logoBase64 }}" style="max-height: 54px; max-width: 175px; object-fit: contain;">
+                </td>
+            @endif
+            <td style="vertical-align: middle;">
                 <div class="header-title">
                     @if ($selectedClient && $selectedVehicle)
                         Reporte Kardex: {{ $selectedClient['full_name'] }}
@@ -260,9 +342,17 @@
                         Historial comercial, técnico y financiero consolidado
                     @endif
                 </div>
+                @if (!empty($sucursal))
+                    <div style="font-size: 7.5px; color: #64748b; margin-top: 3px;">
+                        <strong>{{ $sucursal->trade_name ?: $sucursal->name }}</strong>
+                        @if(!empty($sucursal->ruc)) &bull; RUC: {{ $sucursal->ruc }} @endif
+                        @if(!empty($sucursal->phone)) &bull; Telf: {{ $sucursal->phone }} @endif
+                        @if(!empty($sucursal->email)) &bull; {{ $sucursal->email }} @endif
+                    </div>
+                @endif
             </td>
-            <td style="width: 35%; text-align: right;">
-                <div style="font-size: 8px; color: #64748b;">
+            <td style="width: 25%; text-align: right; vertical-align: middle;">
+                <div style="font-size: 8px; color: #64748b; line-height: 1.4;">
                     <strong>Fecha de Emisión:</strong> {{ date('d/m/Y H:i') }}<br>
                     <strong>Período Consultado:</strong> {{ $dateRangeText }}
                 </div>
@@ -278,8 +368,8 @@
                     <td style="width: {{ $selectedVehicle ? '50%' : '100%' }}; vertical-align: top; padding-right: {{ $selectedVehicle ? '4px' : '0' }};">
                         <div class="info-box">
                             <div class="info-title">Cliente / Titular</div>
-                            <div class="info-content">{{ $selectedClient['full_name'] }}</div>
-                            <div style="font-size: 8px; color: #64748b; margin-top: 1px;">
+                            <div class="info-content" style="font-size: 11px; margin-top: 1px;">{{ $selectedClient['full_name'] }}</div>
+                            <div style="font-size: 8.5px; color: #475569; margin-top: 3px;">
                                 <strong>RUC/C.I:</strong> {{ $selectedClient['n_document'] ?: 'S/N' }} &bull;
                                 <strong>Teléfono:</strong> {{ $selectedClient['phone'] ?: 'S/N' }}
                             </div>
@@ -289,16 +379,56 @@
                 @if ($selectedVehicle)
                     <td style="width: {{ $selectedClient ? '50%' : '100%' }}; vertical-align: top; padding-left: {{ $selectedClient ? '4px' : '0' }};">
                         <div class="info-box">
-                            <div class="info-title">Vehículo / Placa Automotriz</div>
-                            <div>
-                                <span class="plate-badge">{{ $selectedVehicle['license_plate'] }}</span>
-                                <strong style="font-size: 9.5px; margin-left: 3px;">{{ $selectedVehicle['brand'] }} {{ $selectedVehicle['model'] }}</strong>
-                                <span style="font-size: 8px; color: #64748b;">(Año {{ $selectedVehicle['year'] ?: 'S/A' }})</span>
-                            </div>
-                            <div style="font-size: 8px; color: #64748b; margin-top: 1px;">
-                                <strong>Último Kilometraje:</strong> {{ $selectedVehicle['last_mileage'] ? number_format($selectedVehicle['last_mileage']) . ' km' : 'S/N' }} &bull;
-                                <strong>Color:</strong> {{ $selectedVehicle['color'] ?: 'S/E' }}
-                            </div>
+                            <table style="width: 100%; border: none; border-collapse: collapse; margin: 0; padding: 0;">
+                                <tr>
+                                    <td style="vertical-align: middle; border: none; padding: 0;">
+                                        <div class="info-title">Vehículo / Especificaciones</div>
+                                        <div style="font-size: {{ $selectedClient ? '11.5px' : '13.5px' }}; font-weight: bold; color: #0f172a; margin-top: 1px;">
+                                            {{ $selectedVehicle['brand'] }} {{ $selectedVehicle['model'] }}
+                                            @if (!empty($selectedVehicle['year']))
+                                                <span style="font-size: {{ $selectedClient ? '8.5px' : '9.5px' }}; color: #64748b; font-weight: normal;">(Año {{ $selectedVehicle['year'] }})</span>
+                                            @endif
+                                        </div>
+                                        <div style="font-size: 8px; color: #475569; margin-top: 3px; line-height: 1.35;">
+                                            <strong>Último Km:</strong> 
+                                            <span style="color: #0284c7; font-weight: bold;">{{ $selectedVehicle['last_mileage'] ? number_format($selectedVehicle['last_mileage']) . ' km' : 'S/N' }}</span>
+                                            &bull; <strong>Color:</strong> {{ $selectedVehicle['color'] ?: 'S/E' }}
+                                            @if (!empty($selectedVehicle['chassis']))
+                                                &bull; <strong>Chasis:</strong> {{ $selectedVehicle['chassis'] }}
+                                            @endif
+                                            @if (!empty($selectedVehicle['motor']))
+                                                &bull; <strong>Motor:</strong> {{ $selectedVehicle['motor'] }}
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td style="width: {{ $selectedClient ? '145px' : '180px' }}; text-align: right; vertical-align: middle; border: none; padding: 0 0 0 8px;">
+                                        <!-- Placa Automotriz Oficial a la Derecha -->
+                                        <table class="ecuador-plate-table" align="right" style="width: {{ $selectedClient ? '140px' : '175px' }};">
+                                            <tr>
+                                                <td class="ecuador-plate-header">
+                                                    <table style="width: 100%; border-collapse: collapse; border: none;">
+                                                        <tr>
+                                                            <td style="border: none; padding: 0; text-align: left; font-size: 5px; color: #ffffff; line-height: 1;">&#9679;</td>
+                                                            <td style="border: none; padding: 0; text-align: center; font-size: 6px; font-weight: 900; color: #ffffff; letter-spacing: 1.5px; line-height: 1;">ECUADOR</td>
+                                                            <td style="border: none; padding: 0; text-align: right; font-size: 5px; color: #ffffff; line-height: 1;">&#9679;</td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="background-color: #ffffff; padding: {{ $selectedClient ? '2px 4px 1px 4px' : '3px 6px 1px 6px' }}; text-align: center; border: none;">
+                                                    <div class="ecuador-plate-code" style="font-size: {{ $selectedClient ? '17px' : '21px' }};">
+                                                        {{ $selectedVehicle['license_plate'] }}
+                                                    </div>
+                                                    <div class="ecuador-plate-sub">
+                                                        TRANSPORTE TERRESTRE
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
                     </td>
                 @endif
@@ -467,8 +597,18 @@
     </table>
 
     <div class="footer-note">
-        Kardex Generado automáticamente por el Sistema &bull; Página 1 de 1
+        Kardex Generado automáticamente por el Sistema
     </div>
+
+    <script type="text/php">
+        if (isset($pdf)) {
+            $font = $fontMetrics->getFont("Helvetica", "normal");
+            $size = 7.5;
+            $color = [0.58, 0.64, 0.72]; // #94a3b8
+            $text = "Página " . $PAGE_NUM . " de " . $PAGE_COUNT;
+            $pdf->page_text(745, 580, $text, $font, $size, $color);
+        }
+    </script>
 
 </body>
 
