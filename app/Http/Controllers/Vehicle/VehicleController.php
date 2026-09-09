@@ -228,7 +228,7 @@ class VehicleController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'status' => 422,
-                'message' => 'Datos inválidos',
+                'message' => $validator->errors()->first(),
                 'errors' => $validator->errors(),
             ], 422);
         }
@@ -390,6 +390,7 @@ class VehicleController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'status' => 422,
+                'message' => $validator->errors()->first(),
                 'errors' => $validator->errors(),
             ], 422);
         }

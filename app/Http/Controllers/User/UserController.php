@@ -105,6 +105,7 @@ class UserController extends Controller
                 return response()->json(
                     [
                         'status' => 422,
+                        'message' => $validator->errors()->first(),
                         'errors' => $validator->errors(),
                     ],
                     422,
@@ -235,6 +236,7 @@ class UserController extends Controller
                 return response()->json(
                     [
                         'status' => 422,
+                        'message' => $validator->errors()->first(),
                         'errors' => $validator->errors(),
                     ],
                     422,

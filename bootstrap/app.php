@@ -27,7 +27,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json(
@@ -35,6 +34,19 @@ return Application::configure(basePath: dirname(__DIR__))
                         'message' => $e->getMessage(),
                     ],
                     401,
+                );
+            }
+        });
+
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
+            if ($request->is('api/*') || $request->wantsJson()) {
+                return response()->json(
+                    [
+                        'status' => 422,
+                        'message' => $e->validator->errors()->first(),
+                        'errors' => $e->validator->errors(),
+                    ],
+                    422,
                 );
             }
         });

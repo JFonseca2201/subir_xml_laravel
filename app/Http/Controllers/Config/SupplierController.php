@@ -94,6 +94,7 @@ class SupplierController extends Controller
             if ($validator->fails()) {
                 return response()->json([
                     'status' => 422,
+                    'message' => $validator->errors()->first(),
                     'errors' => $validator->errors(),
                 ], 422);
             }
@@ -134,9 +135,17 @@ class SupplierController extends Controller
                 ],
             ], 201);
         } catch (\Throwable $th) {
+            $msg = $th->getMessage();
+            if (str_contains($msg, 'Duplicate entry') || str_contains($msg, '1062')) {
+                if (str_contains($msg, 'ruc') || str_contains($msg, 'tax_id')) {
+                    $msg = 'El RUC ya está registrado';
+                } else {
+                    $msg = 'Ya existe un proveedor registrado con estos datos';
+                }
+            }
             return response()->json([
                 'status' => 500,
-                'message' => $th->getMessage(),
+                'message' => $msg,
             ], 500);
         }
     }
@@ -210,6 +219,7 @@ class SupplierController extends Controller
             if ($validator->fails()) {
                 return response()->json([
                     'status' => 422,
+                    'message' => $validator->errors()->first(),
                     'errors' => $validator->errors(),
                 ], 422);
             }
@@ -265,9 +275,17 @@ class SupplierController extends Controller
                 'message' => 'Proveedor no encontrado',
             ], 404);
         } catch (\Throwable $th) {
+            $msg = $th->getMessage();
+            if (str_contains($msg, 'Duplicate entry') || str_contains($msg, '1062')) {
+                if (str_contains($msg, 'ruc') || str_contains($msg, 'tax_id')) {
+                    $msg = 'El RUC ya está registrado';
+                } else {
+                    $msg = 'Ya existe un proveedor registrado con estos datos';
+                }
+            }
             return response()->json([
                 'status' => 500,
-                'message' => $th->getMessage(),
+                'message' => $msg,
             ], 500);
         }
     }
@@ -312,9 +330,13 @@ class SupplierController extends Controller
                 'message' => 'Proveedor no encontrado',
             ], 404);
         } catch (\Throwable $th) {
+            $msg = $th->getMessage();
+            if (str_contains($msg, 'foreign key constraint') || str_contains($msg, '1451')) {
+                $msg = 'No se puede eliminar el proveedor porque tiene compras o registros asociados';
+            }
             return response()->json([
                 'status' => 500,
-                'message' => $th->getMessage(),
+                'message' => $msg,
             ], 500);
         }
     }
