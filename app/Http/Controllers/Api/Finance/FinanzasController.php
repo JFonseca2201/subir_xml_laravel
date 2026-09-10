@@ -11,39 +11,88 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Models\Config\Sucursale;
 
+use App\Models\WorkOrder\WorkOrder;
+
 class FinanzasController extends Controller
 {
     //
     public function getDashboardData()
     {
-        // 1. Obtener movimientos recientes con sus relaciones
-        $movements = FinancialMovement::with(['movable'])
+        // 1. Obtener movimientos recientes con sus relaciones completas
+        $movements = FinancialMovement::with([
+            'account',
+            'movable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    \App\Models\Sales\Sale::class => ['client', 'vehicle', 'workOrder'],
+                    \App\Models\Finance\PaymentDistribution::class => ['financeRecord', 'account'],
+                    \App\Models\Finance\FinanceRecord::class => ['user'],
+                    \App\Models\Purchases\Purchase::class => ['provider'],
+                ]);
+            }
+        ])
             ->orderBy('entry_date', 'desc')
             ->orderBy('created_at', 'desc')
-            ->take(15)
+            ->take(40)
             ->get();
 
         // 2. Calcular resumen del mes actual
         $startOfMonth = now()->startOfMonth();
         $endOfMonth = now()->endOfMonth();
 
+        $monthlyIncome = (float) FinancialMovement::where('type', 'income')
+            ->whereBetween('entry_date', [$startOfMonth, $endOfMonth])
+            ->sum('amount');
+
+        $monthlyExpense = (float) FinancialMovement::where('type', 'expense')
+            ->whereBetween('entry_date', [$startOfMonth, $endOfMonth])
+            ->sum('amount');
+
+        $currentBalance = (float) FinancialMovement::where('type', 'income')->sum('amount') -
+            FinancialMovement::where('type', 'expense')->sum('amount');
+
         $summary = [
-            'monthlyIncome' => (float) FinancialMovement::where('type', 'income')
-                ->whereBetween('entry_date', [$startOfMonth, $endOfMonth])
-                ->sum('amount'),
-
-            'monthlyExpense' => (float) FinancialMovement::where('type', 'expense')
-                ->whereBetween('entry_date', [$startOfMonth, $endOfMonth])
-                ->sum('amount'),
-
-            // El balance actual se puede calcular restando totales o sumando todo
-            'currentBalance' => (float) FinancialMovement::where('type', 'income')->sum('amount') -
-                FinancialMovement::where('type', 'expense')->sum('amount')
+            'monthlyIncome' => $monthlyIncome,
+            'monthlyExpense' => $monthlyExpense,
+            'currentBalance' => $currentBalance,
+            'incomeCount' => FinancialMovement::where('type', 'income')->whereBetween('entry_date', [$startOfMonth, $endOfMonth])->count(),
+            'expenseCount' => FinancialMovement::where('type', 'expense')->whereBetween('entry_date', [$startOfMonth, $endOfMonth])->count(),
         ];
+
+        // 3. Resumen y métricas de Órdenes de Trabajo (Work Orders)
+        $workOrdersStats = [
+            'in_progress' => WorkOrder::whereIn('status', ['received', 'in_progress', 'diagnosis'])->count(),
+            'ready_to_invoice' => WorkOrder::whereIn('status', ['ready', 'delivered'])
+                ->whereDoesntHave('sale', function ($q) {
+                    $q->where('status', '!=', 'canceled');
+                })->count(),
+            'total_month' => WorkOrder::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count(),
+        ];
+
+        // 4. Lista de órdenes de trabajo activas / en proceso / listas
+        $activeWorkOrders = WorkOrder::with(['client', 'vehicle', 'items', 'sale'])
+            ->whereIn('status', ['received', 'in_progress', 'diagnosis', 'ready'])
+            ->orderBy('created_at', 'desc')
+            ->take(8)
+            ->get()
+            ->map(function ($wo) {
+                $total = $wo->items->sum(function ($item) {
+                    return ($item->quantity * $item->unit_price) - ($item->discount ?? 0);
+                });
+                $wo->calculated_total = $total;
+                return $wo;
+            });
+
+        // 5. Resumen de Cuentas / Cajas
+        $accountsSummary = Account::where('is_active', true)
+            ->orderBy('type', 'desc')
+            ->get();
 
         return response()->json([
             'movements' => $movements,
-            'summary' => $summary
+            'summary' => $summary,
+            'workOrdersStats' => $workOrdersStats,
+            'activeWorkOrders' => $activeWorkOrders,
+            'accountsSummary' => $accountsSummary,
         ]);
     }
 

@@ -106,31 +106,17 @@ class ClientController extends Controller
     public function store(Request $request)
     {
         $this->normalizeRequest($request);
+
         $exists = Client::where('n_document', $request->get('n_document'))->first();
         if ($exists) {
+            $existingName = $exists->full_name ?: trim($exists->name . ' ' . $exists->surname);
+            $msg = 'El número de documento ya se encuentra registrado con el cliente: ' . $existingName;
             return response()->json([
                 'status' => 422,
-                'message' => 'El número de documento ya existe',
-                'errors' => ['n_document' => 'El número de documento ya existe'],
+                'message' => $msg,
+                'errors' => ['n_document' => [$msg]],
             ], 422);
         }
-        /*  $exists = Client::where('email', $request->get('email'))->first();
-        if ($exists) {
-            return response()->json([
-                'status' => 422,
-                'message' => 'El correo electrónico ya existe',
-                'errors' => ['email' => 'El correo electrónico ya existe'],
-            ], 422);
-        }
-        $exists = Client::where('phone', $request->get('phone'))->first();
-        if ($exists) {
-            return response()->json([
-                'status' => 422,
-                'message' => 'El número de teléfono ya existe',
-                'errors' => ['phone' => 'El número de teléfono ya existe'],
-            ], 422);
-        } */
-        // Moved full_name existence check to after fullName generation
 
         $validator = Validator::make($request->all(), [
             'type_client' => 'required|integer|in:1,2',
@@ -185,16 +171,18 @@ class ClientController extends Controller
             'provincia' => 'nullable|string|max:100',
             'distrito' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:500',
-        ]);
+        ], $this->validationMessages(), $this->validationAttributes());
 
         if ($validator->fails()) {
+            $allErrors = $validator->errors()->all();
+            $errorMessage = count($allErrors) > 0 ? implode(' | ', $allErrors) : 'Error de validación en los datos del cliente.';
+
             return response()->json([
                 'status' => 422,
-                'message' => 'Error de validación',
+                'message' => $errorMessage,
                 'errors' => $validator->errors(),
             ], 422);
         }
-
 
         // Procesar según el tipo de cliente
         $typeClient = $request->get('type_client');
@@ -207,19 +195,23 @@ class ClientController extends Controller
         } else {
             // Cliente company: usar full_name directamente
             $fullName = $request->get('full_name');
-            $name = null;
+            $name = $fullName;
             $surname = null;
         }
 
         // Validate uniqueness of the generated full_name
-        $exists = Client::where('full_name', $fullName)->first();
-        if ($exists) {
+        $existsName = Client::where('full_name', $fullName)->first();
+        if ($existsName) {
+            $msg = 'Ya existe un cliente registrado con el nombre "' . $fullName . '"';
             return response()->json([
                 'status' => 422,
-                'message' => 'El cliente ya existe',
-                'errors' => ['full_name' => 'El cliente ya existe en otro registro'],
+                'message' => $msg,
+                'errors' => ['full_name' => [$msg]],
             ], 422);
         }
+
+        $userId = $request->get('user_id') ?: (auth('api')->id() ?: 1);
+        $sucursaleId = $request->get('sucursale_id') ?: 1;
 
         $client = Client::create([
             'name' => $name,
@@ -231,8 +223,8 @@ class ClientController extends Controller
             'type_document' => $request->get('type_document'),
             'n_document' => $request->get('n_document'),
             'birth_date' => $request->get('birth_date'),
-            'user_id' => $request->get('user_id'),
-            'sucursale_id' => $request->get('sucursale_id', 1),
+            'user_id' => $userId,
+            'sucursale_id' => $sucursaleId,
             'state' => $request->get('state', 1),
             'gender' => $request->get('gender'),
             'ubigeo_region' => $request->get('ubigeo_region'),
@@ -287,12 +279,46 @@ class ClientController extends Controller
 
         $this->normalizeRequest($request);
 
+        $existsDoc = Client::where('n_document', $request->get('n_document'))->where('id', '!=', $id)->first();
+        if ($existsDoc) {
+            $existingName = $existsDoc->full_name ?: trim($existsDoc->name . ' ' . $existsDoc->surname);
+            $msg = 'El número de documento ya se encuentra registrado con otro cliente: ' . $existingName;
+            return response()->json([
+                'status' => 422,
+                'message' => $msg,
+                'errors' => ['n_document' => [$msg]],
+            ], 422);
+        }
+
+        $typeClient = $request->get('type_client', $client->type_client);
+        if ($typeClient == 1) {
+            $fullName = trim($request->get('name', $client->name) . ' ' . $request->get('surname', $client->surname));
+            $name = $request->get('name', $client->name);
+            $surname = $request->get('surname', $client->surname);
+        } else {
+            $fullName = $request->get('full_name', $client->full_name);
+            $name = $fullName;
+            $surname = null;
+        }
+
+        if ($fullName) {
+            $existsName = Client::where('full_name', $fullName)->where('id', '!=', $id)->first();
+            if ($existsName) {
+                $msg = 'Ya existe otro cliente registrado con el nombre "' . $fullName . '"';
+                return response()->json([
+                    'status' => 422,
+                    'message' => $msg,
+                    'errors' => ['full_name' => [$msg]],
+                ], 422);
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
             'surname' => ['exclude_if:type_client,2', 'nullable', 'string', 'max:255', 'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\']+$/u'],
-            'full_name' => 'required|string|max:255|unique:clients,full_name,' . $id,
+            'full_name' => 'nullable|string|max:255|unique:clients,full_name,' . $id,
             'phone' => ['required', 'string', 'max:20', 'regex:/^[0-9+\-\s()]+$/'],
-            'email' => 'nullable|email|max:255' . $id,
+            'email' => 'nullable|email|max:255',
             'type_client' => 'nullable|string|max:50',
             'type_document' => 'nullable|string|max:10',
             'n_document' => [
@@ -340,29 +366,32 @@ class ClientController extends Controller
             'provincia' => 'nullable|string|max:100',
             'distrito' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:500',
-        ]);
+        ], $this->validationMessages(), $this->validationAttributes());
 
         if ($validator->fails()) {
+            $allErrors = $validator->errors()->all();
+            $errorMessage = count($allErrors) > 0 ? implode(' | ', $allErrors) : 'Error de validación en los datos del cliente.';
+
             return response()->json([
                 'status' => 422,
-                'message' => 'Error de validación',
+                'message' => $errorMessage,
                 'errors' => $validator->errors(),
             ], 422);
         }
 
         $client->update([
-            'name' => $request->get('name'),
-            'surname' => $request->get('surname'),
-            'full_name' => $request->get('full_name'),
+            'name' => $name,
+            'surname' => $surname,
+            'full_name' => $fullName,
             'phone' => $request->get('phone'),
             'email' => $request->get('email'),
-            'type_client' => $request->get('type_client'),
+            'type_client' => $typeClient,
             'type_document' => $request->get('type_document'),
             'n_document' => $request->get('n_document'),
             'birth_date' => $request->get('birth_date'),
-            'user_id' => $request->get('user_id'),
-            'sucursale_id' => $request->get('sucursale_id'),
-            'state' => $request->get('state'),
+            'user_id' => $request->get('user_id', $client->user_id),
+            'sucursale_id' => $request->get('sucursale_id', $client->sucursale_id),
+            'state' => $request->get('state', $client->state),
             'gender' => $request->get('gender'),
             'ubigeo_region' => $request->get('ubigeo_region'),
             'ubigeo_provincia' => $request->get('ubigeo_provincia'),
@@ -402,9 +431,87 @@ class ClientController extends Controller
         ]);
     }
 
+    /**
+     * Mensajes personalizados para validación.
+     */
+    private function validationMessages()
+    {
+        return [
+            'required' => 'El campo :attribute es obligatorio.',
+            'required_if' => 'El campo :attribute es obligatorio cuando el tipo de cliente es empresa.',
+            'string' => 'El campo :attribute debe ser una cadena de texto.',
+            'max' => 'El campo :attribute no debe superar los :max caracteres.',
+            'min' => 'El campo :attribute debe tener al menos :min caracteres.',
+            'integer' => 'El campo :attribute debe ser un número entero.',
+            'in' => 'El valor seleccionado para :attribute no es válido.',
+            'exists' => 'El valor seleccionado para :attribute no existe en el sistema.',
+            'unique' => 'El :attribute ya se encuentra registrado.',
+            'email' => 'El correo electrónico ingresado no tiene un formato válido.',
+            'date' => 'La fecha ingresada en :attribute no tiene un formato válido.',
+            'name.regex' => 'Los nombres solo deben contener letras y espacios.',
+            'surname.regex' => 'Los apellidos solo deben contener letras y espacios.',
+            'phone.regex' => 'El teléfono debe contener solo números o caracteres telefónicos válidos (+ -).',
+            'phone.max' => 'El teléfono no debe superar los 20 caracteres.',
+        ];
+    }
+
+    /**
+     * Nombres de atributos amigables para validación.
+     */
+    private function validationAttributes()
+    {
+        return [
+            'type_client' => 'tipo de cliente',
+            'name' => 'nombres',
+            'surname' => 'apellidos',
+            'full_name' => 'razón social / nombre completo',
+            'phone' => 'teléfono',
+            'email' => 'correo electrónico',
+            'type_document' => 'tipo de documento',
+            'n_document' => 'número de documento',
+            'birth_date' => 'fecha de nacimiento',
+            'user_id' => 'usuario',
+            'sucursale_id' => 'sucursal',
+            'state' => 'estado',
+            'gender' => 'género',
+            'ubigeo_region' => 'código de región',
+            'ubigeo_provincia' => 'código de provincia',
+            'ubigeo_distrito' => 'código de cantón / ciudad',
+            'region' => 'región',
+            'provincia' => 'provincia',
+            'distrito' => 'cantón / ciudad',
+            'address' => 'dirección',
+        ];
+    }
+
     private function normalizeRequest(Request $request)
     {
         $input = $request->all();
+
+        // Convertir strings vacíos o cadenas 'null' a NULL para campos opcionales
+        $nullableFields = [
+            'birth_date',
+            'email',
+            'gender',
+            'ubigeo_region',
+            'ubigeo_provincia',
+            'ubigeo_distrito',
+            'region',
+            'provincia',
+            'distrito',
+            'address',
+            'user_id',
+            'sucursale_id',
+        ];
+
+        foreach ($nullableFields as $field) {
+            if (isset($input[$field])) {
+                $val = is_string($input[$field]) ? trim($input[$field]) : $input[$field];
+                if ($val === '' || $val === 'null' || $val === 'undefined') {
+                    $input[$field] = null;
+                }
+            }
+        }
 
         // Si es compañía (type_client = 2), remover name y surname de la validación
         if (isset($input['type_client']) && (int)$input['type_client'] === 2) {
