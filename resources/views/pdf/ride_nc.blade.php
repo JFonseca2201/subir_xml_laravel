@@ -11,18 +11,23 @@
             box-sizing: border-box;
         }
 
+        @page {
+            margin: 12mm 14mm 10mm 14mm;
+            size: letter portrait;
+        }
+
         body, table, th, td, div, span, p, strong, b, a, input {
             font-family: Helvetica, Arial, sans-serif !important;
         }
 
         body {
             font-family: Helvetica, Arial, sans-serif !important;
-            font-size: 8px;
-            color: #334155;
+            font-size: 8.8px;
+            color: #1e293b;
             background: #ffffff;
             line-height: 1.25;
             padding: 0;
-            margin: 10px;
+            margin: 0;
         }
 
         .container {
@@ -34,49 +39,62 @@
 
         .layout-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
-            margin-bottom: 8px;
+            margin-bottom: 7px;
+        }
+
+        .layout-table td {
+            padding: 0;
+            margin: 0;
         }
 
         .card-panel {
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            padding: 9px 10px;
             background: #ffffff;
+            padding: 4px 8px;
             box-sizing: border-box;
+            height: 180px;
         }
 
         .card-panel-shaded {
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            padding: 8px 10px;
             background: #f8fafc;
+            padding: 6px 8px;
             box-sizing: border-box;
+            height: 180px;
         }
 
         .company-title {
-            font-size: 10px;
+            font-size: 12.5px;
             font-weight: 700;
-            color: #1e293b;
+            color: #0f172a;
             text-transform: uppercase;
+            letter-spacing: 0.3px;
             margin-bottom: 2px;
         }
 
         .company-detail {
-            font-size: 8px;
-            color: #475569;
+            font-size: 9.2px;
+            color: #334155;
             margin-bottom: 2px;
+            line-height: 1.35;
         }
 
         .doc-ruc {
-            font-size: 14px;
+            font-size: 17px;
             font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 2px;
+            color: #0f172a;
+            letter-spacing: 0.4px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 2px;
+            margin-bottom: 3px;
         }
 
         .doc-type {
-            font-size: 13px;
+            font-size: 13.5px;
             font-weight: 800;
             color: #dc2626;
             letter-spacing: 0.5px;
@@ -84,25 +102,27 @@
         }
 
         .doc-num {
-            font-size: 10px;
+            font-size: 10.5px;
             font-weight: 700;
             color: #0f172a;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
 
         .info-label {
-            font-size: 7.5px;
+            font-size: 8.5px;
             font-weight: 700;
-            color: #64748b;
+            color: #475569;
             text-transform: uppercase;
+            margin-top: 2px;
+            margin-bottom: 1px;
             font-family: Helvetica, Arial, sans-serif !important;
         }
 
         .info-val {
             font-family: Helvetica, Arial, sans-serif !important;
-            font-size: 7.8px;
+            font-size: 9px;
             font-weight: 700;
-            color: #1e293b;
+            color: #0f172a;
             word-break: break-all;
             letter-spacing: 0.3px;
             line-height: 1.2;
@@ -110,54 +130,66 @@
 
         .items-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             margin-top: 6px;
-            margin-bottom: 8px;
+            margin-bottom: 7px;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            overflow: hidden;
         }
 
         .items-table th {
-            background-color: #f1f5f9;
-            color: #1e293b;
-            font-size: 7.5px;
+            background-color: #475569;
+            color: #ffffff;
+            font-size: 8px;
             font-weight: 700;
             text-transform: uppercase;
-            padding: 4px 6px;
-            border: 1px solid #cbd5e1;
+            padding: 5px 6px;
+            border: none;
             text-align: left;
         }
 
         .items-table td {
-            padding: 4px 6px;
-            border: 1px solid #e2e8f0;
-            font-size: 8px;
+            padding: 4.5px 6px;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            border-left: none;
+            border-right: none;
+            font-size: 8.5px;
+            color: #1e293b;
         }
 
         .totals-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
         }
 
         .totals-table td {
-            padding: 3px 6px;
+            padding: 3px 7px;
             border: 1px solid #cbd5e1;
-            font-size: 8px;
+            font-size: 8.5px;
         }
 
         .totals-table .lbl {
             font-weight: 700;
             background: #f8fafc;
-            width: 60%;
+            color: #475569;
+            width: 58%;
         }
 
         .totals-table .val {
             text-align: right;
             font-weight: 700;
+            color: #0f172a;
+            width: 42%;
         }
 
         .total-highlight {
             background: #fee2e2 !important;
             color: #991b1b;
-            font-size: 9px !important;
+            font-size: 9.5px !important;
             font-weight: 800 !important;
             font-family: Helvetica, Arial, sans-serif !important;
         }
@@ -177,21 +209,30 @@
         <table class="layout-table">
             <tr>
                 <!-- Columna Izquierda: Emisor -->
-                <td style="width: 50%; vertical-align: top; padding-right: 4px;">
+                <td style="width: 49.4%; vertical-align: top;">
                     <div class="card-panel">
-                        <div class="company-title">{{ $sucursal->name }}</div>
-                        <div class="company-detail"><strong>Nombre Comercial:</strong> {{ $sucursal->trade_name ?? $sucursal->name }}</div>
-                        <div class="company-detail"><strong>Dirección Matriz:</strong> {{ $sucursal->address }}</div>
-                        <div class="company-detail"><strong>Obligado a Llevar Contabilidad:</strong> {{ strtoupper($sucursal->obligado_contabilidad ?? 'NO') }}</div>
-                        @if(!empty($sucursal->contribuyente_especial))
-                            <div class="company-detail"><strong>Contribuyente Especial Nro:</strong> {{ $sucursal->contribuyente_especial }}</div>
-                        @endif
+                        <table style="width: 100%; height: 170px; border-collapse: collapse; border: none;">
+                            <tr>
+                                <td style="vertical-align: middle; padding: 0; border: none;">
+                                    <div class="company-title">{{ $sucursal->name }}</div>
+                                    <div class="company-detail"><strong>Nombre Comercial:</strong> {{ $sucursal->trade_name ?? $sucursal->name }}</div>
+                                    <div class="company-detail"><strong>Dirección Matriz:</strong> {{ $sucursal->address }}</div>
+                                    <div class="company-detail"><strong>Obligado a Llevar Contabilidad:</strong> {{ strtoupper($sucursal->obligado_contabilidad ?? 'NO') }}</div>
+                                    @if(!empty($sucursal->contribuyente_especial))
+                                        <div class="company-detail"><strong>Contribuyente Especial Nro:</strong> {{ $sucursal->contribuyente_especial }}</div>
+                                    @endif
+                                </td>
+                            </tr>
+                        </table>
                     </div>
                 </td>
 
+                <!-- Espaciador Central -->
+                <td style="width: 1.2%;"></td>
+
                 <!-- Columna Derecha: Clave y SRI -->
-                <td style="width: 50%; vertical-align: top; padding-left: 4px;">
-                    <div class="card-panel">
+                <td style="width: 49.4%; vertical-align: top;">
+                    <div class="card-panel-shaded">
                         <div class="doc-ruc">R.U.C.: {{ $sucursal->ruc }}</div>
                         <div class="doc-type">NOTA DE CRÉDITO</div>
                         <div class="doc-num">No. {{ $sucursal->establecimiento ?? '001' }}-{{ $sucursal->punto_emision ?? '001' }}-{{ str_pad(preg_replace('/\D/', '', $creditNote->document_number), 9, '0', STR_PAD_LEFT) }}</div>
@@ -216,11 +257,11 @@
                             <span class="info-label">CLAVE DE ACCESO</span><br>
                             @if (!empty($creditNote->sri_access_key))
                             <div style="padding: 2px 0;">
-                                {!! \App\Helpers\PdfHelper::generateBarcodeHTML($creditNote->sri_access_key, 28) !!}
+                                {!! \App\Helpers\PdfHelper::generateBarcodeHTML($creditNote->sri_access_key, 25) !!}
                             </div>
-                            <span class="info-val" style="font-size: 7.5px;">{{ $creditNote->sri_access_key }}</span>
+                            <span class="info-val" style="font-size: 8px;">{{ $creditNote->sri_access_key }}</span>
                             @else
-                            <span class="info-val" style="font-size: 7.5px;">SIN CLAVE DE ACCESO</span>
+                            <span class="info-val" style="font-size: 8px;">SIN CLAVE DE ACCESO</span>
                             @endif
                         </div>
                     </div>
@@ -268,12 +309,12 @@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 12%;">Código</th>
+                    <th style="width: 14%; padding-left: 8px;">Código</th>
                     <th style="width: 8%; text-align: center;">Cant.</th>
-                    <th style="width: 45%;">Descripción</th>
+                    <th style="width: 43%;">Descripción</th>
                     <th style="width: 11%; text-align: right;">P. Unitario</th>
                     <th style="width: 10%; text-align: right;">Descuento</th>
-                    <th style="width: 14%; text-align: right;">Precio Total</th>
+                    <th style="width: 14%; text-align: right; padding-right: 8px;">Precio Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -287,23 +328,23 @@
                         $pUnit = round((float)$detail->price / (1 + ($rate / 100)), 4);
                     @endphp
                     <tr>
-                        <td style="font-family: monospace;">{{ $detail->product?->sku ?: str_pad($index + 1, 4, '0', STR_PAD_LEFT) }}</td>
+                        <td style="padding-left: 8px; font-weight: 600;">{{ $detail->product?->sku ?: str_pad($index + 1, 4, '0', STR_PAD_LEFT) }}</td>
                         <td style="text-align: center; font-weight: 600;">{{ number_format($qty, 2) }}</td>
                         <td>{{ $detail->description }}</td>
-                        <td style="text-align: right; font-family: monospace;">${{ number_format($pUnit, 4) }}</td>
-                        <td style="text-align: right; font-family: monospace;">${{ number_format($disc, 2) }}</td>
-                        <td style="text-align: right; font-family: monospace; font-weight: 600;">${{ number_format($sub, 2) }}</td>
+                        <td style="text-align: right;">${{ number_format($pUnit, 4) }}</td>
+                        <td style="text-align: right;">${{ number_format($disc, 2) }}</td>
+                        <td style="text-align: right; font-weight: 600; padding-right: 8px;">${{ number_format($sub, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <!-- ── PIE: INFORMACIÓN ADICIONAL Y TOTALES ── -->
+        <!-- ── PIE: INFORMACIÓN ADICIONAL Y TOTALES (2 COLUMNAS DE IGUAL DIMENSIÓN) ── -->
         <table class="layout-table">
             <tr>
                 <!-- Columna Izquierda: Info Adicional -->
-                <td style="width: 55%; vertical-align: top; padding-right: 4px;">
-                    <div class="card-panel">
+                <td style="width: 49.4%; vertical-align: top;">
+                    <div class="card-panel" style="min-height: 140px;">
                         <div class="info-label" style="margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">
                             Información Adicional
                         </div>
@@ -322,8 +363,11 @@
                     </div>
                 </td>
 
+                <!-- Espaciador Central -->
+                <td style="width: 1.2%;"></td>
+
                 <!-- Columna Derecha: Cuadro de Totales -->
-                <td style="width: 45%; vertical-align: top; padding-left: 4px;">
+                <td style="width: 49.4%; vertical-align: top;">
                     <table class="totals-table">
                         <tr>
                             <td class="lbl">SUBTOTAL 15%:</td>
@@ -346,7 +390,7 @@
                             <td class="val">${{ number_format((float)$creditNote->tax_amount, 2) }}</td>
                         </tr>
                         <tr class="total-highlight">
-                            <td class="lbl total-highlight">VALOR TOTAL MODIFICACIÓN:</td>
+                            <td class="lbl total-highlight">VALOR TOTAL:</td>
                             <td class="val total-highlight">${{ number_format((float)$creditNote->total, 2) }}</td>
                         </tr>
                     </table>
