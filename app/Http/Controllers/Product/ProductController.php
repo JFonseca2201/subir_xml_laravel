@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Product;
 
 use App\Exports\Product\ProductDownloadExcel;
+use App\Exports\Product\ProductStandardDownloadExcel;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Product\ProductCollection;
 use App\Http\Resources\Product\ProductResource;
@@ -11,6 +12,8 @@ use App\Models\Config\Unit;
 use App\Models\Config\Warehouse;
 use App\Models\Supplier\Supplier;
 use App\Models\Product\Product;
+use App\Models\Config\Sucursale;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -276,23 +279,44 @@ class ProductController extends Controller
     }
     public function download_excel(Request $request)
     {
-
         try {
-            // Obtener parámetros de búsqueda
+            // Obtener parámetros de búsqueda y formato
+            $format = $request->get('format', 'category'); // 'category' o 'standard'
             $search = $request->get('search', '');
             $categorie_id = $request->get('categorie_id');
             $warehouse_id = $request->get('warehouse_id');
             $unit_id = $request->get('unit_id');
             $disponibilidad = $request->get('disponibilidad');
             $is_gift = $request->get('is_gift');
+            $supplier_id = $request->get('supplier_id');
 
-            // Aplicar filtros usando el scope
+            // Aplicar filtros usando el scope - EXCLUIR SERVICIOS DE TALLER (item_type != 2)
             $products = Product::with(['categorie', 'warehouse', 'unit', 'supplier'])
-                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift)
-                ->orderBy('id', 'desc')
+                ->where('item_type', '!=', 2)
+                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id)
+                ->orderBy('product_categorie_id', 'asc')
+                ->orderBy('description', 'asc')
                 ->get();
 
-            return Excel::download(new ProductDownloadExcel($products), 'products.xlsx');
+            if ($format === 'standard') {
+                return Excel::download(
+                    new ProductStandardDownloadExcel($products),
+                    'productos_formato_estandar_' . date('Y-m-d') . '.xlsx'
+                );
+            }
+
+            // Agrupar productos por nombre de categoría para reporte categorizado
+            $groupedProducts = $products->groupBy(function ($product) {
+                return $product->categorie ? mb_strtoupper(trim($product->categorie->title), 'UTF-8') : 'SIN CATEGORÍA';
+            })->sortKeys();
+
+            $totalProducts = $products->count();
+            $totalStock = (float) $products->sum('stock');
+
+            return Excel::download(
+                new ProductDownloadExcel($groupedProducts, $totalProducts, $totalStock),
+                'reporte_productos_por_categoria_' . date('Y-m-d') . '.xlsx'
+            );
         } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
@@ -301,6 +325,65 @@ class ProductController extends Controller
             ], 500);
         }
     }
+
+
+
+    public function download_pdf(Request $request)
+    {
+        try {
+            $search = $request->get('search', '');
+            $categorie_id = $request->get('categorie_id');
+            $warehouse_id = $request->get('warehouse_id');
+            $unit_id = $request->get('unit_id');
+            $disponibilidad = $request->get('disponibilidad');
+            $is_gift = $request->get('is_gift');
+            $supplier_id = $request->get('supplier_id');
+
+            // Aplicar filtros usando el scope - EXCLUIR SERVICIOS DE TALLER (item_type != 2)
+            $products = Product::with(['categorie', 'warehouse', 'unit', 'supplier'])
+                ->where('item_type', '!=', 2)
+                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id)
+                ->orderBy('product_categorie_id', 'asc')
+                ->orderBy('description', 'asc')
+                ->get();
+
+            // Agrupar productos por nombre de categoría
+            $groupedProducts = $products->groupBy(function ($product) {
+                return $product->categorie ? mb_strtoupper(trim($product->categorie->title), 'UTF-8') : 'SIN CATEGORÍA';
+            })->sortKeys();
+
+            $sucursal = Sucursale::first();
+
+            $totalProducts = $products->count();
+            $totalStock = (float) $products->sum('stock');
+            $totalCategories = $groupedProducts->count();
+
+            $selectedCategory = $categorie_id ? ProductCategorie::find($categorie_id) : null;
+            $selectedWarehouse = $warehouse_id ? Warehouse::find($warehouse_id) : null;
+
+            $pdf = Pdf::loadView('product.product_pdf_by_category', compact(
+                'groupedProducts',
+                'products',
+                'sucursal',
+                'totalProducts',
+                'totalStock',
+                'totalCategories',
+                'search',
+                'selectedCategory',
+                'selectedWarehouse'
+            ))->setPaper('letter', 'portrait');
+
+            return $pdf->stream('reporte_productos_por_categoria_' . date('Y-m-d_His') . '.pdf');
+        } catch (\Throwable $th) {
+            Log::error('Error al generar PDF de productos por categoría: ' . $th->getMessage());
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error al generar el reporte PDF',
+                'error' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
     public function import_excel(Request $request)
     {
         $request->validate([

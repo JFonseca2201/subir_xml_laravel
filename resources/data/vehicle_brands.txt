@@ -82,6 +82,7 @@ BAIC
 JAC
 Brilliance
 Lifan
+Shineray
 Qoros
 Wuling
 Baojun

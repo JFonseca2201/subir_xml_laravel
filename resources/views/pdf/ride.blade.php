@@ -237,13 +237,14 @@
         }
 
         .card-header {
-            background: #475569;
-            color: #ffffff;
+            background: #e2e8f0;
+            color: #0f172a;
             padding: 4px 10px;
             font-size: 9px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.4px;
+            border-bottom: 1px solid #cbd5e1;
         }
 
         .card-body {
@@ -287,14 +288,17 @@
         }
 
         .items-table thead th {
-            background: #475569;
-            color: #ffffff;
+            background: #e2e8f0;
+            color: #0f172a;
             font-size: 8px;
             font-weight: 700;
             text-transform: uppercase;
             padding: 5px 6px;
             letter-spacing: 0.3px;
-            border: none;
+            border-bottom: 1px solid #cbd5e1;
+            border-top: none;
+            border-left: none;
+            border-right: none;
         }
 
         .items-table tbody td {
@@ -371,8 +375,9 @@
         }
 
         .tot-highlight {
-            background: #475569 !important;
-            color: #ffffff !important;
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+            border-top: 1px solid #cbd5e1 !important;
         }
 
         .tot-highlight td {
@@ -380,19 +385,19 @@
             font-size: 10.5px;
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #ffffff !important;
+            color: #0f172a !important;
         }
 
         .tot-highlight .tot-label {
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #ffffff !important;
+            color: #0f172a !important;
         }
 
         .tot-highlight .tot-val {
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #ffffff !important;
+            color: #0f172a !important;
         }
 
         /* ── FOOTER ─────────────────────────────────────────────── */
@@ -786,10 +791,10 @@
                             <table class="info-table">
                                 <thead>
                                     <tr style="border-bottom: 1px solid #cbd5e1;">
-                                        <th style="text-align: left; font-size: 7.8px; padding-bottom: 2px; color: #475569; font-weight: 700; width: 48%;">Forma de Pago</th>
-                                        <th style="text-align: right; font-size: 7.8px; padding-bottom: 2px; color: #475569; font-weight: 700; width: 24%;">Total</th>
-                                        <th style="text-align: center; font-size: 7.8px; padding-bottom: 2px; color: #475569; font-weight: 700; width: 14%;">Plazo</th>
-                                        <th style="text-align: center; font-size: 7.8px; padding-bottom: 2px; color: #475569; font-weight: 700; width: 14%;">Tiempo</th>
+                                        <th style="text-align: left; font-size: 7.8px; padding-bottom: 2px; color: #0f172a; font-weight: 700; width: 48%;">Forma de Pago</th>
+                                        <th style="text-align: right; font-size: 7.8px; padding-bottom: 2px; color: #0f172a; font-weight: 700; width: 24%;">Total</th>
+                                        <th style="text-align: center; font-size: 7.8px; padding-bottom: 2px; color: #0f172a; font-weight: 700; width: 14%;">Plazo</th>
+                                        <th style="text-align: center; font-size: 7.8px; padding-bottom: 2px; color: #0f172a; font-weight: 700; width: 14%;">Tiempo</th>
                                     </tr>
                                 </thead>
                                 <tbody>
