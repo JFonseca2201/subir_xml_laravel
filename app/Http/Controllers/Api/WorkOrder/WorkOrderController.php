@@ -28,6 +28,7 @@ class WorkOrderController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $isDraft = $request->boolean('is_draft');
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
@@ -37,7 +38,7 @@ class WorkOrderController extends Controller
             'observations' => 'nullable|string',
             'technicians' => 'nullable|array',
             'technicians.*' => 'exists:employees,id',
-            'items' => 'nullable|array',
+            'items' => $isDraft ? 'nullable|array' : 'required|array|min:1',
             'items.*.product_id' => 'nullable|exists:products,id',
             'items.*.description' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
@@ -49,7 +50,11 @@ class WorkOrderController extends Controller
             'is_draft' => 'nullable|boolean',
             'quote_id' => 'nullable|integer',
             'quotation_id' => 'nullable|integer',
+        ], [
+            'items.required' => 'Debe agregar al menos un producto o servicio a la orden de trabajo.',
+            'items.min' => 'Debe agregar al menos un producto o servicio a la orden de trabajo.',
         ]);
+
 
         // Usar el número enviado si existe. Si no, se autogenerará dentro de la transacción.
         if ($request->filled('number')) {
@@ -193,6 +198,7 @@ class WorkOrderController extends Controller
             ], 422);
         }
 
+        $isDraft = $request->boolean('is_draft');
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'vehicle_id' => 'nullable|exists:vehicles,id',
@@ -202,7 +208,7 @@ class WorkOrderController extends Controller
             'observations' => 'nullable|string',
             'technicians' => 'nullable|array',
             'technicians.*' => 'exists:employees,id',
-            'items' => 'nullable|array',
+            'items' => $isDraft ? 'nullable|array' : 'required|array|min:1',
             'items.*.product_id' => 'nullable|exists:products,id',
             'items.*.description' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
@@ -211,9 +217,13 @@ class WorkOrderController extends Controller
             'items.*.type' => 'required|in:product,service',
             'date' => 'required|date',
             'is_draft' => 'nullable|boolean',
+        ], [
+            'items.required' => 'Debe agregar al menos un producto o servicio a la orden de trabajo.',
+            'items.min' => 'Debe agregar al menos un producto o servicio a la orden de trabajo.',
         ]);
 
         $validated['status'] = $request->boolean('is_draft') ? 'draft' : 'received';
+
 
         if (!$request->boolean('is_draft')) {
             // Validar stock antes de actualizar (restando la cantidad que ya estaba asignada previamente a esta orden)

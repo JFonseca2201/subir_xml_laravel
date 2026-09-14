@@ -83,6 +83,7 @@ JAC
 Brilliance
 Lifan
 Shineray
+DFSK
 Qoros
 Wuling
 Baojun
