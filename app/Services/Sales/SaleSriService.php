@@ -60,6 +60,9 @@ class SaleSriService
      */
     public function estadoSri(Sale $sale): array
     {
+        $syncError = null;
+        $errorSource = null;
+
         // Si no está autorizada pero ya tiene clave de acceso, consultar al SRI
         if ($sale->document_type === 'invoice' && $sale->sri_status !== 'AUTORIZADA') {
             $clave = $sale->sri_access_key;
@@ -89,14 +92,30 @@ class SaleSriService
                         ]);
                     } elseif ($estadoAut === 'NO_AUTORIZADO' || $estadoAut === 'NO_AUTORIZADA') {
                         $errores = implode(' | ', $auth['errores'] ?? []);
+                        $errorSource = 'SRI';
+                        $syncError = $errores;
                         $sale->update([
                             'sri_status' => 'RECHAZADA',
                             'sri_error'  => $errores,
                         ]);
+                        \Illuminate\Support\Facades\Log::warning("[SRI] Factura #{$sale->id} RECHAZADA por el SRI: {$errores}");
+                    } else {
+                        if (!empty($auth['errores'])) {
+                            $errores = implode(' | ', $auth['errores']);
+                            $errorSource = 'SRI';
+                            $syncError = $errores;
+                        }
                     }
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::warning("Error al sincronizar estado SRI para venta #{$sale->id}: " . $e->getMessage());
+                    $errorSource = 'LOCAL_SYSTEM';
+                    $syncError = $e->getMessage();
+                    \Illuminate\Support\Facades\Log::error("[SRI Sync Error] Error interno al sincronizar estado SRI para venta #{$sale->id}: " . $e->getMessage(), [
+                        'trace' => $e->getTraceAsString(),
+                    ]);
                 }
+            } else {
+                $errorSource = 'LOCAL_SYSTEM';
+                $syncError = 'La factura aún no cuenta con una Clave de Acceso generada.';
             }
         }
 
@@ -115,9 +134,11 @@ class SaleSriService
         return [
             'status' => 200,
             'data' => [
-                'success' => true,
-                'data'    => $data,
-                'message' => $data->sri_status === 'AUTORIZADA' ? 'Comprobante AUTORIZADO por el SRI' : "Estado SRI: {$data->sri_status}",
+                'success'      => true,
+                'data'         => $data,
+                'error_source' => $errorSource,
+                'sync_error'   => $syncError,
+                'message'      => $data->sri_status === 'AUTORIZADA' ? 'Comprobante AUTORIZADO por el SRI' : "Estado SRI: {$data->sri_status}",
             ]
         ];
     }

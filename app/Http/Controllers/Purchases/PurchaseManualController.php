@@ -145,13 +145,24 @@ class PurchaseManualController extends Controller
                     ? trim($item['code_aux']) 
                     : (!empty($itemCode) ? ('LE' . $itemCode) : null);
 
+                $itemQty = (float) $item['quantity'];
+                $itemUnitPrice = (float) $item['unit_price'];
+                $itemSubtotal = (float) $item['subtotal'];
+
+                // Si por alguna razón unit_price viene en 0 o vacío pero hay subtotal y cantidad
+                if ($itemUnitPrice <= 0 && $itemQty > 0 && $itemSubtotal > 0) {
+                    $itemUnitPrice = round($itemSubtotal / $itemQty, 4);
+                }
+
+                $salePrice = round($itemUnitPrice * 1.55, 2);
+
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
                     'code' => $itemCode,
                     'description' => $item['description'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'subtotal' => $item['subtotal'],
+                    'quantity' => $itemQty,
+                    'unit_price' => $itemUnitPrice,
+                    'subtotal' => $itemSubtotal,
                     'discount' => $item['discount'] ?? 0,
                     'tax' => $item['tax'],
                     'total' => $item['total'],
@@ -178,14 +189,14 @@ class PurchaseManualController extends Controller
                             'warehouse_id' => $defaultWarehouseId,
                             'unit_id' => $defaultUnitId,
                             'supplier_id' => $supplierId,
-                            'price' => $item['unit_price'] * 1.55,
-                            'price_sale' => $item['unit_price'] * 1.55,
-                            'purchase_price' => $item['unit_price'],
+                            'price' => $itemUnitPrice,
+                            'price_sale' => $salePrice,
+                            'purchase_price' => $itemUnitPrice,
                             'tax_rate' => 15, // Asumiendo IVA general
                             'max_discount' => 0,
                             'discount_percentage' => 0,
                             'brand' => $brand,
-                            'stock' => $item['quantity'],
+                            'stock' => $itemQty,
                             'item_type' => $item['item_type'],
                             'min_stock' => 1,
                             'max_stock' => 5,
@@ -196,8 +207,10 @@ class PurchaseManualController extends Controller
                         ]);
                     } else {
                         // Incrementar el stock y actualizar el costo y marca/categoría si aplica
-                        $product->stock += $item['quantity'];
-                        $product->purchase_price = $item['unit_price']; // Actualiza el precio de costo a la compra más reciente
+                        $product->stock += $itemQty;
+                        $product->price = $itemUnitPrice;
+                        $product->purchase_price = $itemUnitPrice; // Actualiza el precio de costo a la compra más reciente
+                        $product->price_sale = $salePrice;
                         if (!empty($item['brand'])) {
                             $product->brand = $brand;
                         }

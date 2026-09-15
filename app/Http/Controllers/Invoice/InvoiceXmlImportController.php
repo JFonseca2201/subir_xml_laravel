@@ -224,8 +224,16 @@ class InvoiceXmlImportController extends Controller
                 // Datos base
                 $item_type = (int) $request->item_type;
                 $quantity = (float) $item->cantidad;
+                if ($quantity <= 0) $quantity = 1;
                 $unitPrice = (float) $item->precioUnitario;
                 $subtotal = (float) $item->precioTotalSinImpuesto;
+
+                if ($unitPrice <= 0 && $quantity > 0 && $subtotal > 0) {
+                    $unitPrice = round($subtotal / $quantity, 4);
+                }
+                if ($subtotal <= 0 && $quantity > 0 && $unitPrice > 0) {
+                    $subtotal = round(($quantity * $unitPrice) - $lineDiscount, 4);
+                }
 
                 // Impuestos por ítem
                 $itemTax = 0;
