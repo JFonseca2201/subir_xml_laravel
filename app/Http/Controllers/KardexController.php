@@ -739,9 +739,19 @@ class KardexController extends Controller
             'App\Models\Employee\EmployeeExpense' => 'pago_sueldo',
             'App\Models\Employee\EmployeePayment' => 'pago_sueldo',
             'App\Models\Employee\EmployeeAdvance' => 'adelanto',
+            'App\Models\EmployeeExpense' => 'pago_sueldo',
+            'App\Models\EmployeePayment' => 'pago_sueldo',
+            'App\Models\EmployeeAdvance' => 'adelanto',
+            'App\Models\Partner\AporteCapital' => 'aporte_capital',
+            'App\Models\AporteCapital' => 'aporte_capital',
+            'App\Models\Partner\PartnerContribution' => 'aporte_capital',
+            'App\Models\PartnerContribution' => 'aporte_capital',
             'App\Models\Finance\FinanceRecord' => 'gasto_general',
+            'App\Models\FinanceRecord' => 'gasto_general',
             'App\Models\Finance\PaymentDistribution' => 'compra_inventario',
+            'App\Models\PaymentDistribution' => 'compra_inventario',
             'App\Models\Sales\ProductReturn' => 'devolucion',
+            'App\Models\ProductReturn' => 'devolucion',
         ];
 
         return $mapping[$movableType] ?? 'gasto_general';
@@ -760,9 +770,19 @@ class KardexController extends Controller
             'App\Models\Employee\EmployeeExpense' => 'NÓMINA',
             'App\Models\Employee\EmployeePayment' => 'NÓMINA',
             'App\Models\Employee\EmployeeAdvance' => 'ADELANTO',
+            'App\Models\EmployeeExpense' => 'NÓMINA',
+            'App\Models\EmployeePayment' => 'NÓMINA',
+            'App\Models\EmployeeAdvance' => 'ADELANTO',
+            'App\Models\Partner\AporteCapital' => 'APORTE CAPITAL',
+            'App\Models\AporteCapital' => 'APORTE CAPITAL',
+            'App\Models\Partner\PartnerContribution' => 'APORTE CAPITAL',
+            'App\Models\PartnerContribution' => 'APORTE CAPITAL',
             'App\Models\Finance\FinanceRecord' => 'GASTO',
+            'App\Models\FinanceRecord' => 'GASTO',
             'App\Models\Finance\PaymentDistribution' => 'COMPRA',
+            'App\Models\PaymentDistribution' => 'COMPRA',
             'App\Models\Sales\ProductReturn' => 'DEVOLUCIÓN',
+            'App\Models\ProductReturn' => 'DEVOLUCIÓN',
         ];
 
         $concepto = $mapping[$movableType] ?? 'GASTO';
@@ -771,6 +791,15 @@ class KardexController extends Controller
         if ($concepto === 'GASTO' && !empty($description)) {
             if (stripos($description, 'logística') !== false || stripos($description, 'logistica') !== false) {
                 return 'LOGÍSTICA';
+            }
+            if (stripos($description, 'aporte') !== false) {
+                return 'APORTE CAPITAL';
+            }
+            if (stripos($description, 'nómina') !== false || stripos($description, 'nomina') !== false || stripos($description, 'sueldo') !== false) {
+                return 'NÓMINA';
+            }
+            if (stripos($description, 'adelanto') !== false) {
+                return 'ADELANTO';
             }
         }
 
@@ -1514,6 +1543,352 @@ class KardexController extends Controller
         } catch (\Throwable $e) {
             \Log::error('Error en vehiclesSelector: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Exportar Reporte General de Kardex en PDF
+     */
+    public function generateGeneralKardexPDF(Request $request)
+    {
+        try {
+            $search = $request->get('search', '');
+            $movimientoTipo = $request->get('movimiento_tipo');
+            $startDate = $request->get('start_date');
+            $endDate = $request->get('end_date');
+
+            if (!$startDate || !$endDate) {
+                $startDate = now()->startOfMonth()->format('Y-m-d');
+                $endDate = now()->endOfMonth()->format('Y-m-d');
+            }
+
+            $dateRangeText = date('d/m/Y', strtotime($startDate)) . ' al ' . date('d/m/Y', strtotime($endDate));
+
+            $query = FinancialMovement::with(['movable', 'account'])
+                ->whereBetween('entry_date', [$startDate, $endDate])
+                ->orderBy('entry_date', 'asc')
+                ->orderBy('created_at', 'asc');
+
+            if ($movimientoTipo && in_array($movimientoTipo, ['income', 'expense', 'transfer'])) {
+                $query->where('type', $movimientoTipo);
+            }
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('description', 'LIKE', '%' . $search . '%')
+                        ->orWhere(function ($subQuery) use ($search) {
+                            $subQuery->whereHasMorph('movable', ['App\Models\Sales\Sale', 'App\Models\Sale\Sale'], function ($saleQuery) use ($search) {
+                                $saleQuery->whereHas('details', function ($detailQuery) use ($search) {
+                                    $detailQuery->where('description', 'LIKE', '%' . $search . '%')
+                                        ->orWhereHas('product', function ($prodQuery) use ($search) {
+                                            $prodQuery->where('sku', 'LIKE', '%' . $search . '%')
+                                                ->orWhere('code_aux', 'LIKE', '%' . $search . '%')
+                                                ->orWhere('description', 'LIKE', '%' . $search . '%');
+                                        });
+                                });
+                            });
+                        })
+                        ->orWhere(function ($subQuery) use ($search) {
+                            $subQuery->whereHasMorph('movable', ['App\Models\Finance\PaymentDistribution', 'App\Models\PaymentDistribution'], function ($distQuery) use ($search) {
+                                $distQuery->whereHas('financeRecord', function ($recordQuery) use ($search) {
+                                    $recordQuery->whereIn('invoice_number', function ($invoiceQuery) use ($search) {
+                                        $invoiceQuery->select('invoice_number')
+                                            ->from('invoices')
+                                            ->whereIn('id', function ($itemSubQuery) use ($search) {
+                                                $itemSubQuery->select('invoice_id')
+                                                    ->from('invoice_items')
+                                                    ->where('description', 'LIKE', '%' . $search . '%')
+                                                    ->orWhere('code', 'LIKE', '%' . $search . '%');
+                                            });
+                                    });
+                                });
+                            });
+                        });
+                });
+            }
+
+            $movimientos = $query->get();
+
+            $movimientos->loadMorph('movable', [
+                'App\Models\Sales\Sale' => ['details.product'],
+                'App\Models\Sale\Sale' => ['details.product'],
+                'App\Models\Finance\PaymentDistribution' => ['financeRecord']
+            ]);
+
+            $invoiceNumbers = [];
+            foreach ($movimientos as $m) {
+                if ($m->movable_type === 'App\Models\Finance\PaymentDistribution') {
+                    $dist = $m->movable;
+                    if ($dist && $dist->financeRecord) {
+                        $invoiceNumbers[] = $dist->financeRecord->invoice_number;
+                    }
+                }
+            }
+            $invoiceNumbers = array_unique(array_filter($invoiceNumbers));
+
+            $earliestMovementsMap = [];
+            if (!empty($invoiceNumbers)) {
+                $allMovementsForInvoices = FinancialMovement::whereHasMorph(
+                    'movable',
+                    ['App\Models\Finance\PaymentDistribution', 'App\Models\PaymentDistribution'],
+                    function ($q) use ($invoiceNumbers) {
+                        $q->whereHas('financeRecord', function ($subQ) use ($invoiceNumbers) {
+                            $subQ->whereIn('invoice_number', $invoiceNumbers);
+                        });
+                    }
+                )->get();
+
+                $groupedMovements = [];
+                foreach ($allMovementsForInvoices as $m) {
+                    $dist = $m->movable;
+                    if ($dist && $dist->financeRecord) {
+                        $invNum = $dist->financeRecord->invoice_number;
+                        $groupedMovements[$invNum][] = $m;
+                    }
+                }
+
+                foreach ($groupedMovements as $invNum => $movs) {
+                    usort($movs, function ($a, $b) {
+                        $dateA = $a->entry_date->format('Y-m-d');
+                        $dateB = $b->entry_date->format('Y-m-d');
+                        if ($dateA === $dateB) {
+                            return $a->id <=> $b->id;
+                        }
+                        return strcmp($dateA, $dateB);
+                    });
+                    $earliestMovementsMap[$invNum] = $movs[0]->id;
+                }
+            }
+
+            $movimientosFormateados = [];
+            foreach ($movimientos as $movimiento) {
+                $conceptoTipo = $this->getConceptoTipo($movimiento->movable_type);
+
+                if ($movimiento->movable_type === 'App\Models\Sales\Sale' || $movimiento->movable_type === 'App\Models\Sale\Sale') {
+                    $sale = $movimiento->movable;
+                    if ($sale && $sale->relationLoaded('details') && $sale->details->isNotEmpty()) {
+                        foreach ($sale->details as $detail) {
+                            if ($search) {
+                                $matchesSearch = stripos($detail->description, $search) !== false ||
+                                    ($detail->product && (
+                                        stripos($detail->product->sku, $search) !== false ||
+                                        stripos($detail->product->code_aux, $search) !== false ||
+                                        stripos($detail->product->description, $search) !== false
+                                    ));
+                                $matchesGeneral = stripos($movimiento->description, $search) !== false;
+                                if (!$matchesSearch && !$matchesGeneral) {
+                                    continue;
+                                }
+                            }
+
+                            $codigo = null;
+                            if ($detail->product) {
+                                $codigo = $detail->product->sku ?: $detail->product->code_aux;
+                            }
+                            $concepto = $codigo ?: 'VENTA';
+
+                            $movimientosFormateados[] = [
+                                'fecha' => $movimiento->entry_date->format('d/m/Y'),
+                                'movimiento_tipo' => 'entrada',
+                                'concepto' => $concepto,
+                                'descripcion' => $detail->description,
+                                'cantidad' => (float) $detail->quantity,
+                                'precio_unitario' => (float) $detail->price,
+                                'monto_financiero' => (float) $detail->total,
+                                'account_name' => $movimiento->account ? $movimiento->account->name : 'N/A',
+                            ];
+                        }
+                        continue;
+                    }
+                }
+
+                if ($movimiento->movable_type === 'App\Models\Finance\PaymentDistribution') {
+                    $distribution = $movimiento->movable;
+                    if ($distribution && $distribution->financeRecord) {
+                        $invoiceNumber = $distribution->financeRecord->invoice_number;
+                        $isEarliest = isset($earliestMovementsMap[$invoiceNumber]) && $earliestMovementsMap[$invoiceNumber] == $movimiento->id;
+
+                        if ($isEarliest) {
+                            $invoice = \App\Models\Invoice\Invoice::with('invoice_items')
+                                ->where('invoice_number', $invoiceNumber)
+                                ->first();
+
+                            if ($invoice && $invoice->invoice_items->isNotEmpty()) {
+                                $paymentAmount = (float) $movimiento->amount;
+                                $invoiceTotal = (float) $invoice->total;
+                                $scaleFactor = $invoiceTotal > 0 ? ($paymentAmount / $invoiceTotal) : 1.0;
+
+                                foreach ($invoice->invoice_items as $item) {
+                                    if ($search) {
+                                        $matchesSearch = stripos($item->description, $search) !== false ||
+                                            stripos($item->code, $search) !== false;
+                                        $matchesGeneral = stripos($movimiento->description, $search) !== false;
+                                        if (!$matchesSearch && !$matchesGeneral) {
+                                            continue;
+                                        }
+                                    }
+
+                                    $codigo = $item->code;
+                                    $concepto = $codigo ?: 'COMPRA';
+                                    $scaledAmount = (float) ($item->total * $scaleFactor);
+
+                                    $movimientosFormateados[] = [
+                                        'fecha' => $movimiento->entry_date->format('d/m/Y'),
+                                        'movimiento_tipo' => 'salida',
+                                        'concepto' => $concepto,
+                                        'descripcion' => $item->description,
+                                        'cantidad' => (float) $item->quantity,
+                                        'precio_unitario' => (float) $item->unit_price,
+                                        'monto_financiero' => $scaledAmount,
+                                        'account_name' => $movimiento->account ? $movimiento->account->name : 'N/A',
+                                    ];
+                                }
+                                continue;
+                            }
+                        } else {
+                            if ($search) {
+                                $matchesSearch = stripos($movimiento->description, $search) !== false ||
+                                    stripos($invoiceNumber, $search) !== false;
+                                if (!$matchesSearch) {
+                                    continue;
+                                }
+                            }
+
+                            $movimientosFormateados[] = [
+                                'fecha' => $movimiento->entry_date->format('d/m/Y'),
+                                'movimiento_tipo' => 'salida',
+                                'concepto' => 'PAGO COMPRA',
+                                'descripcion' => $movimiento->description ?: ('Pago de factura de compra #' . $invoiceNumber),
+                                'cantidad' => null,
+                                'precio_unitario' => null,
+                                'monto_financiero' => (float) $movimiento->amount,
+                                'account_name' => $movimiento->account ? $movimiento->account->name : 'N/A',
+                            ];
+                            continue;
+                        }
+                    }
+                }
+
+                $concepto = $this->getConceptoDisplay($movimiento->movable_type, $movimiento->description);
+
+                if ($movimiento->type === 'transfer' || $movimiento->movable_type === 'App\Models\Finance\InternalTransfer') {
+                    $toAccountId = $movimiento->metadata['to_account'] ?? null;
+                    $toAccountName = null;
+                    if ($toAccountId) {
+                        $toAccount = \App\Models\Finance\Account::find($toAccountId);
+                        $toAccountName = $toAccount ? $toAccount->name : 'Cuenta Destino';
+                    }
+
+                    $movimientosFormateados[] = [
+                        'fecha' => $movimiento->entry_date->format('d/m/Y'),
+                        'movimiento_tipo' => 'salida',
+                        'concepto' => 'TRANSFERENCIA (SALIDA)',
+                        'descripcion' => $movimiento->description . ' (Hacia: ' . $toAccountName . ')',
+                        'cantidad' => null,
+                        'precio_unitario' => null,
+                        'monto_financiero' => (float) $movimiento->amount,
+                        'account_name' => $movimiento->account ? $movimiento->account->name : 'N/A',
+                    ];
+
+                    $movimientosFormateados[] = [
+                        'fecha' => $movimiento->entry_date->format('d/m/Y'),
+                        'movimiento_tipo' => 'entrada',
+                        'concepto' => 'TRANSFERENCIA (INGRESO)',
+                        'descripcion' => $movimiento->description . ' (Desde: ' . ($movimiento->account ? $movimiento->account->name : 'Desconocido') . ')',
+                        'cantidad' => null,
+                        'precio_unitario' => null,
+                        'monto_financiero' => (float) $movimiento->amount,
+                        'account_name' => $toAccountName ?: 'N/A',
+                    ];
+                    continue;
+                }
+
+                $movimientosFormateados[] = [
+                    'fecha' => $movimiento->entry_date->format('d/m/Y'),
+                    'movimiento_tipo' => $movimiento->type === 'income' ? 'entrada' : 'salida',
+                    'concepto' => $concepto,
+                    'descripcion' => $movimiento->description,
+                    'cantidad' => null,
+                    'precio_unitario' => null,
+                    'monto_financiero' => (float) $movimiento->amount,
+                    'account_name' => $movimiento->account ? $movimiento->account->name : 'N/A',
+                ];
+            }
+
+            // Calcular saldos acumulados
+            $saldoAcum = 0.0;
+            $totalIngresos = 0.0;
+            $totalEgresos = 0.0;
+
+            foreach ($movimientosFormateados as &$item) {
+                $monto = (float) ($item['monto_financiero'] ?? 0);
+                if ($item['movimiento_tipo'] === 'entrada') {
+                    $totalIngresos += $monto;
+                    $saldoAcum += $monto;
+                } else {
+                    $totalEgresos += $monto;
+                    $saldoAcum -= $monto;
+                }
+                $item['saldo_acumulado'] = $saldoAcum;
+            }
+            unset($item);
+
+            $metrics = [
+                'total_ingresos' => $totalIngresos,
+                'total_egresos' => $totalEgresos,
+                'saldo_neto' => $totalIngresos - $totalEgresos,
+                'total_movimientos' => count($movimientosFormateados),
+            ];
+
+            $sucursal = \App\Models\Config\Sucursale::find(auth()->user()->sucursale_id ?? 1) ?? \App\Models\Config\Sucursale::first();
+            $logoBase64 = '';
+            $logoPath = null;
+            if ($sucursal && $sucursal->logo) {
+                $tempPath = public_path($sucursal->logo);
+                if (file_exists($tempPath)) {
+                    $logoPath = $tempPath;
+                } else {
+                    $cleanLogo = str_replace('storage/', '', $sucursal->logo);
+                    $tempPath = storage_path('app/public/' . $cleanLogo);
+                    if (file_exists($tempPath)) {
+                        $logoPath = $tempPath;
+                    }
+                }
+            }
+
+            if (!$logoPath || !file_exists($logoPath)) {
+                $candidates = [
+                    public_path('assets/img/brand/logo.png'),
+                    public_path('assets/img/brand/logo.jpeg'),
+                    public_path('assets/img/brand/logo_e.png'),
+                ];
+                foreach ($candidates as $candidate) {
+                    if (file_exists($candidate)) {
+                        $logoPath = $candidate;
+                        break;
+                    }
+                }
+            }
+
+            if ($logoPath && file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                $logoMime = ($ext === 'png') ? 'image/png' : (($ext === 'svg') ? 'image/svg+xml' : 'image/jpeg');
+                $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+            }
+
+            $pdf = Pdf::loadView('kardex.pdf_kardex_general', compact(
+                'movimientosFormateados',
+                'metrics',
+                'dateRangeText',
+                'sucursal',
+                'logoBase64'
+            ))->setPaper('a4', 'landscape');
+
+            return $pdf->stream('Kardex_General_' . date('Ymd_His') . '.pdf');
+        } catch (\Throwable $e) {
+            \Log::error('Error al generar PDF de Kardex General: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['status' => 'error', 'message' => 'Error al generar el PDF de Kardex General: ' . $e->getMessage()], 500);
         }
     }
 }
