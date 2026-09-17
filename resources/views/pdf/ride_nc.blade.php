@@ -140,13 +140,13 @@
         }
 
         .items-table th {
-            background-color: #e2e8f0;
-            color: #0f172a;
+            background-color: #748191;
+            color: #ffffff;
             font-size: 8px;
             font-weight: 700;
             text-transform: uppercase;
             padding: 5px 6px;
-            border-bottom: 1px solid #cbd5e1;
+            border-bottom: 1px solid #5c6877;
             border-top: none;
             border-left: none;
             border-right: none;

@@ -237,14 +237,14 @@
         }
 
         .card-header {
-            background: #e2e8f0;
-            color: #0f172a;
+            background: #748191;
+            color: #ffffff;
             padding: 4px 10px;
             font-size: 9px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            border-bottom: 1px solid #cbd5e1;
+            border-bottom: 1px solid #5c6877;
         }
 
         .card-body {
@@ -288,14 +288,14 @@
         }
 
         .items-table thead th {
-            background: #e2e8f0;
-            color: #0f172a;
+            background: #748191;
+            color: #ffffff;
             font-size: 8px;
             font-weight: 700;
             text-transform: uppercase;
             padding: 5px 6px;
             letter-spacing: 0.3px;
-            border-bottom: 1px solid #cbd5e1;
+            border-bottom: 1px solid #5c6877;
             border-top: none;
             border-left: none;
             border-right: none;
@@ -375,9 +375,9 @@
         }
 
         .tot-highlight {
-            background: #e2e8f0 !important;
-            color: #0f172a !important;
-            border-top: 1px solid #cbd5e1 !important;
+            background: #748191 !important;
+            color: #ffffff !important;
+            border-top: 1px solid #5c6877 !important;
         }
 
         .tot-highlight td {
@@ -385,19 +385,19 @@
             font-size: 10.5px;
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #0f172a !important;
+            color: #ffffff !important;
         }
 
         .tot-highlight .tot-label {
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #0f172a !important;
+            color: #ffffff !important;
         }
 
         .tot-highlight .tot-val {
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #0f172a !important;
+            color: #ffffff !important;
         }
 
         /* ── FOOTER ─────────────────────────────────────────────── */
