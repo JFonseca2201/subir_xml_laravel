@@ -257,6 +257,7 @@ class PurchaseManualController extends Controller
                     'invoice_number' => $request->invoice_number,
                     'description' => $desc,
                     'user_id' => auth()->id() ?? 1,
+                    'entry_date' => $issueDate->toDateString(),
                 ]);
 
                 $financeRecord->save();
@@ -275,7 +276,7 @@ class PurchaseManualController extends Controller
                     'expense',
                     $expenseAmount,
                     $financeRecord->description,
-                    Carbon::now('America/Guayaquil')->format('Y-m-d'),
+                    $issueDate->toDateString(),
                     [
                         'finance_record_id' => $financeRecord->id,
                         'record_type' => 1, // expense

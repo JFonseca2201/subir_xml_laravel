@@ -90,11 +90,29 @@ class Product extends Model
     public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id = null)
     {
         if ($search) {
-            $query->where(function ($q) use ($search) {
+            $cleanSearch = str_replace(['-', ' ', '_', '.'], '', $search);
+            $words = array_filter(explode(' ', preg_replace('/\s+/', ' ', $search)));
+
+            $query->where(function ($q) use ($search, $cleanSearch, $words) {
                 $q->where('description', 'like', '%' . $search . '%')
                     ->orWhere('sku', 'like', '%' . $search . '%')
                     ->orWhere('code_aux', 'like', '%' . $search . '%')
-                    ->orWhere('uses', 'like', '%' . $search . '%');
+                    ->orWhere('uses', 'like', '%' . $search . '%')
+                    ->orWhere('brand', 'like', '%' . $search . '%');
+
+                if (strlen($cleanSearch) >= 2) {
+                    $q->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(sku, '-', ''), ' ', ''), '_', ''), '.', '') LIKE ?", ["%{$cleanSearch}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(code_aux, '-', ''), ' ', ''), '_', ''), '.', '') LIKE ?", ["%{$cleanSearch}%"])
+                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(description, '-', ''), ' ', ''), '_', ''), '.', '') LIKE ?", ["%{$cleanSearch}%"]);
+                }
+
+                if (count($words) > 1) {
+                    $q->orWhere(function ($subQ) use ($words) {
+                        foreach ($words as $word) {
+                            $subQ->where('description', 'like', '%' . $word . '%');
+                        }
+                    });
+                }
             });
         }
         if ($categorie_id) {

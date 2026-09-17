@@ -111,7 +111,13 @@ class FinanceRecord extends Model
     public function applyPaymentMethodRules(): void
     {
         if ($this->account) {
-            $this->payment_method = ($this->account->type === 'bank' || !empty($this->account->bank_name)) ? 'transfer' : 'cash';
+            if ($this->account->type === 'cash' || strtolower(trim((string) $this->account->code)) === 'caja_chica') {
+                $this->payment_method = 'cash';
+            } elseif ($this->account->type === 'bank') {
+                $this->payment_method = 'transfer';
+            } else {
+                $this->payment_method = (!empty($this->account->bank_name) && strtolower(trim($this->account->bank_name)) !== 'efectivo') ? 'transfer' : 'cash';
+            }
         }
     }
 

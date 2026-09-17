@@ -439,29 +439,60 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         try {
-
-            $cleanDesc = trim($request->description);
+            $cleanDesc = trim($request->description ?? '');
             $cleanSku = $request->sku ? trim($request->sku) : null;
-
-            // Validar que el producto no exista por descripción
-            $is_product_exists = Product::whereRaw('LOWER(TRIM(description)) = ?', [strtolower($cleanDesc)])->first();
-            if ($is_product_exists) {
-                return response()->json([
-                    'message' => 403,
-                    'message_text' => 'EL NOMBRE DEL PRODUCTO YA EXISTE',
-                ]);
-            }
 
             // Validar que el SKU no exista
             if ($cleanSku) {
                 $is_product_sku_exists = Product::whereRaw('LOWER(TRIM(sku)) = ?', [strtolower($cleanSku)])->first();
                 if ($is_product_sku_exists) {
+                    $skuMessage = "El código (SKU) '{$cleanSku}' ya existe en la base de datos (asignado a: {$is_product_sku_exists->description}).";
                     return response()->json([
-                        'message' => 403,
-                        'message_text' => 'EL CÓDIGO ÚNICO DEL PRODUCTO YA EXISTE',
-                    ]);
+                        'status' => 422,
+                        'message' => $skuMessage,
+                        'message_text' => $skuMessage,
+                        'errors' => [
+                            'sku' => ["El código (SKU) '{$cleanSku}' ya existe en la base de datos."]
+                        ]
+                    ], 422);
                 }
             }
+
+            // Validar que el producto no exista por descripción
+            if (!empty($cleanDesc)) {
+                $is_product_exists = Product::whereRaw('LOWER(TRIM(description)) = ?', [strtolower($cleanDesc)])->first();
+                if ($is_product_exists) {
+                    $descMessage = "El nombre/descripción '{$cleanDesc}' ya existe en la base de datos (SKU: {$is_product_exists->sku}).";
+                    return response()->json([
+                        'status' => 422,
+                        'message' => $descMessage,
+                        'message_text' => $descMessage,
+                        'errors' => [
+                            'description' => ["El nombre del producto ya existe en la base de datos."]
+                        ]
+                    ], 422);
+                }
+            }
+
+            $customMessages = [
+                'description.required' => 'La descripción o nombre del producto es obligatoria.',
+                'description.max' => 'La descripción no puede superar los 500 caracteres.',
+                'sku.unique' => "El código (SKU) ingresado ya existe en la base de datos.",
+                'sku.max' => 'El código SKU no puede superar los 50 caracteres.',
+                'product_categorie_id.required' => 'Debe seleccionar una categoría para el producto.',
+                'product_categorie_id.exists' => 'La categoría seleccionada no es válida.',
+                'price.required' => 'El precio de venta es obligatorio.',
+                'price.numeric' => 'El precio debe ser un valor numérico.',
+                'price_sale.required' => 'El precio de venta al público es obligatorio.',
+                'purchase_price.required_if' => 'El costo/precio de compra es obligatorio para productos físicos.',
+                'stock.required_if' => 'El stock inicial es obligatorio para productos físicos.',
+                'min_stock.required_if' => 'El stock mínimo es obligatorio para productos físicos.',
+                'max_stock.required_if' => 'El stock máximo es obligatorio para productos físicos.',
+                'tax_rate.required' => 'El porcentaje de IVA es obligatorio.',
+                'is_taxable.required' => 'Debe especificar si el producto grava IVA.',
+                'imagen.image' => 'El archivo seleccionado debe ser una imagen válida (PNG, JPG, WEBP).',
+                'imagen.max' => 'La imagen no puede superar los 2MB de peso.',
+            ];
 
             // Validar campos requeridos
             $data = $request->validate([
@@ -489,7 +520,7 @@ class ProductController extends Controller
                 'notes' => 'nullable|string|max:2000',
                 'state' => 'required|integer|in:1,2',
                 'imagen' => 'nullable|image|max:2048',
-            ]);
+            ], $customMessages);
 
             // Sanitizar valores si es servicio (item_type = 2)
 
@@ -531,15 +562,18 @@ class ProductController extends Controller
             Log::info('Final response prepared:', $response);
             return response()->json($response);
         } catch (\Illuminate\Validation\ValidationException $e) {
+            $allErrors = $e->validator->errors()->all();
+            $firstError = count($allErrors) > 0 ? $allErrors[0] : 'Error de validación en los datos';
             return response()->json([
                 'status' => 422,
-                'message' => 'Error de validación',
+                'message' => $firstError,
+                'message_text' => $firstError,
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Throwable $th) {
             return response()->json([
                 'status' => 500,
-                'message' => 'Error al crear el producto',
+                'message' => 'Error al crear el producto: ' . $th->getMessage(),
                 'error' => $th->getMessage(),
             ], 500);
         }
@@ -582,31 +616,61 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
 
-            if ($request->description && trim($request->description) !== $product->description) {
-                $cleanDesc = trim($request->description);
-                $is_product_exists = Product::whereRaw('LOWER(TRIM(description)) = ?', [strtolower($cleanDesc)])
-                    ->where('id', '!=', $id)
-                    ->first();
-                if ($is_product_exists) {
-                    return response()->json([
-                        'message' => 403,
-                        'message_text' => 'EL NOMBRE DEL PRODUCTO YA EXISTE',
-                    ]);
-                }
-            }
-
-            if ($request->sku && trim($request->sku) !== $product->sku) {
-                $cleanSku = trim($request->sku);
+            $cleanSku = $request->sku ? trim($request->sku) : null;
+            if ($cleanSku && $cleanSku !== $product->sku) {
                 $is_product_sku_exists = Product::whereRaw('LOWER(TRIM(sku)) = ?', [strtolower($cleanSku)])
                     ->where('id', '!=', $id)
                     ->first();
                 if ($is_product_sku_exists) {
+                    $skuMessage = "El código (SKU) '{$cleanSku}' ya existe en la base de datos (asignado a: {$is_product_sku_exists->description}).";
                     return response()->json([
-                        'message' => 403,
-                        'message_text' => 'EL CÓDIGO ÚNICO DEL PRODUCTO YA EXISTE',
-                    ]);
+                        'status' => 422,
+                        'message' => $skuMessage,
+                        'message_text' => $skuMessage,
+                        'errors' => [
+                            'sku' => ["El código (SKU) '{$cleanSku}' ya existe en la base de datos."]
+                        ]
+                    ], 422);
                 }
             }
+
+            $cleanDesc = $request->description ? trim($request->description) : null;
+            if ($cleanDesc && $cleanDesc !== $product->description) {
+                $is_product_exists = Product::whereRaw('LOWER(TRIM(description)) = ?', [strtolower($cleanDesc)])
+                    ->where('id', '!=', $id)
+                    ->first();
+                if ($is_product_exists) {
+                    $descMessage = "El nombre/descripción '{$cleanDesc}' ya existe en otro producto (SKU: {$is_product_exists->sku}).";
+                    return response()->json([
+                        'status' => 422,
+                        'message' => $descMessage,
+                        'message_text' => $descMessage,
+                        'errors' => [
+                            'description' => ["El nombre del producto ya existe en la base de datos."]
+                        ]
+                    ], 422);
+                }
+            }
+
+            $customMessages = [
+                'description.required' => 'La descripción o nombre del producto es obligatoria.',
+                'description.max' => 'La descripción no puede superar los 500 caracteres.',
+                'sku.unique' => "El código (SKU) ingresado ya existe en la base de datos.",
+                'sku.max' => 'El código SKU no puede superar los 50 caracteres.',
+                'product_categorie_id.required' => 'Debe seleccionar una categoría para el producto.',
+                'product_categorie_id.exists' => 'La categoría seleccionada no es válida.',
+                'price.required' => 'El precio de venta es obligatorio.',
+                'price.numeric' => 'El precio debe ser un valor numérico.',
+                'price_sale.required' => 'El precio de venta al público es obligatorio.',
+                'purchase_price.required_if' => 'El costo/precio de compra es obligatorio para productos físicos.',
+                'stock.required_if' => 'El stock inicial es obligatorio para productos físicos.',
+                'min_stock.required_if' => 'El stock mínimo es obligatorio para productos físicos.',
+                'max_stock.required_if' => 'El stock máximo es obligatorio para productos físicos.',
+                'tax_rate.required' => 'El porcentaje de IVA es obligatorio.',
+                'is_taxable.required' => 'Debe especificar si el producto grava IVA.',
+                'imagen.image' => 'El archivo seleccionado debe ser una imagen válida (PNG, JPG, WEBP).',
+                'imagen.max' => 'La imagen no puede superar los 2MB de peso.',
+            ];
 
             $data = $request->validate([
                 'description' => 'required|string|max:500',
@@ -633,7 +697,7 @@ class ProductController extends Controller
                 'notes' => 'nullable|string|max:2000',
                 'state' => 'required|integer|in:1,2',
                 'imagen' => 'nullable|image|max:2048',
-            ]);
+            ], $customMessages);
 
             // Sanitizar valores si es servicio (item_type = 2)
 
@@ -677,21 +741,26 @@ class ProductController extends Controller
                 'product' => new ProductResource($product),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
+            $allErrors = $e->validator->errors()->all();
+            $firstError = count($allErrors) > 0 ? $allErrors[0] : 'Error de validación en los datos';
             return response()->json([
                 'status' => 422,
-                'message' => 'Error de validación',
+                'message' => $firstError,
+                'message_text' => $firstError,
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'message' => 404,
+                'status' => 404,
+                'message' => 'Producto no encontrado',
                 'message_text' => 'Producto no encontrado',
                 'error' => 'El producto con ID ' . $id . ' no existe',
             ], 404);
         } catch (\Throwable $th) {
             return response()->json([
-                'message' => 500,
-                'message_text' => 'Error al actualizar el producto',
+                'status' => 500,
+                'message' => 'Error al actualizar el producto: ' . $th->getMessage(),
+                'message_text' => 'Error al actualizar el producto: ' . $th->getMessage(),
                 'error' => $th->getMessage(),
             ], 500);
         }
