@@ -564,14 +564,24 @@ class InvoiceXmlImportController extends Controller
                 $subtotal = $invoiceItem->subtotal; // Subtotal sin IVA, con descuentos aplicados
 
                 if ($item_type == 1) {
-                    // Buscar producto por SKU o descripción
-                    $product = Product::where('sku', $code)
-                        ->orWhere('description', $description)
+                    // Buscar producto por SKU o descripción (incluyendo soft-deleted)
+                    $product = Product::withTrashed()
+                        ->where(function ($q) use ($code, $description) {
+                            $q->where('sku', $code);
+                            if (!empty($description)) {
+                                $q->orWhere('description', $description);
+                            }
+                        })
                         ->first();
 
                     // Calcular precio real de adquisición y venta
                     $realPurchasePrice = $quantity > 0 ? ($subtotal / $quantity) : 0;
                     $salePrice = $realPurchasePrice * 1.5; // Margen del 50%
+
+                    // Descuento máximo permitido: 50% de la ganancia
+                    $profit = max(0.0, $salePrice - $realPurchasePrice);
+                    $maxDiscount = round($profit * 0.50, 2);
+                    $discountPercentage = $salePrice > 0 ? round(($maxDiscount / $salePrice) * 100, 2) : 0.0;
 
                     $codeAux = !empty($invoiceItem->code_aux) 
                         ? $invoiceItem->code_aux 
@@ -593,8 +603,8 @@ class InvoiceXmlImportController extends Controller
                             'price_sale' => $salePrice,
                             'purchase_price' => $realPurchasePrice,
                             'tax_rate' => 15,
-                            'max_discount' => (float) ($salePrice * 0.25),
-                            'discount_percentage' => 25,
+                            'max_discount' => $maxDiscount,
+                            'discount_percentage' => $discountPercentage,
                             'brand' => 'SM',
                             'stock' => $quantity,
                             'item_type' => $item_type,
@@ -607,12 +617,20 @@ class InvoiceXmlImportController extends Controller
                         ]);
                         $processedCount++;
                     } else {
+                        // Si el producto estaba en la papelera (SoftDeletes), restaurarlo
+                        if ($product->trashed()) {
+                            $product->restore();
+                            $product->stock = 0;
+                        }
+
                         // Actualizar producto existente (stock y precios en base a última compra)
                         $product->stock += $quantity;
+                        $product->state = 1;
                         $product->price = $realPurchasePrice;
                         $product->price_sale = $salePrice;
                         $product->purchase_price = $realPurchasePrice;
-                        $product->max_discount = (float) ($salePrice * 0.25);
+                        $product->max_discount = $maxDiscount;
+                        $product->discount_percentage = $discountPercentage;
                         if (empty($product->code_aux) && !empty($codeAux)) {
                             $product->code_aux = $codeAux;
                         }

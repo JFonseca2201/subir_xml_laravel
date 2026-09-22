@@ -17,6 +17,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ProductController extends Controller
@@ -500,7 +501,7 @@ class ProductController extends Controller
             // Validar campos requeridos
             $data = $request->validate([
                 'description' => 'required|string|max:500',
-                'sku' => 'nullable|string|max:50|unique:products,sku',
+                'sku' => ['nullable', 'string', 'max:50', Rule::unique('products', 'sku')->whereNull('deleted_at')],
                 'code_aux' => 'nullable|string|max:100',
                 'uses' => 'nullable|string|max:255',
                 'product_categorie_id' => 'required|integer|exists:product_categories,id',
@@ -541,9 +542,16 @@ class ProductController extends Controller
                 unset($data['imagen']);
             }
 
-            // Crear el producto
+            // Crear o restaurar el producto si estaba en papelera
             Log::info('Creating product with data:', $data);
-            $product = Product::create($data);
+            $existingProduct = !empty($data['sku']) ? Product::onlyTrashed()->where('sku', $data['sku'])->first() : null;
+            if ($existingProduct) {
+                $existingProduct->restore();
+                $existingProduct->update($data);
+                $product = $existingProduct;
+            } else {
+                $product = Product::create($data);
+            }
             Log::info('Product created successfully:', ['id' => $product->id, 'description' => $product->description]);
 
             // Manejar la imagen si se envía
@@ -677,7 +685,7 @@ class ProductController extends Controller
 
             $data = $request->validate([
                 'description' => 'required|string|max:500',
-                'sku' => 'nullable|string|max:50|unique:products,sku,' . $id,
+                'sku' => ['nullable', 'string', 'max:50', Rule::unique('products', 'sku')->ignore($id)->whereNull('deleted_at')],
                 'code_aux' => 'nullable|string|max:100',
                 'uses' => 'nullable|string|max:255',
                 'product_categorie_id' => 'required|integer|exists:product_categories,id',

@@ -154,7 +154,14 @@ class PurchaseManualController extends Controller
                     $itemUnitPrice = round($itemSubtotal / $itemQty, 4);
                 }
 
-                $salePrice = round($itemUnitPrice * 1.55, 2);
+                // Costo real unitario de adquisición sin IVA (considerando descuentos aplicados en la línea)
+                $realPurchasePrice = $itemQty > 0 ? round($itemSubtotal / $itemQty, 4) : $itemUnitPrice;
+                $salePrice = round($realPurchasePrice * 1.55, 2);
+
+                // Descuento máximo permitido: 50% de la ganancia (margen de utilidad)
+                $profit = max(0.0, $salePrice - $realPurchasePrice);
+                $maxDiscount = round($profit * 0.50, 2);
+                $discountPercentage = $salePrice > 0 ? round(($maxDiscount / $salePrice) * 100, 2) : 0.0;
 
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
@@ -173,9 +180,16 @@ class PurchaseManualController extends Controller
                 // Update or Create Product Stock solo si es producto y pertenece al inventario del taller
                 $selectedForInventory = !isset($item['selected_for_inventory']) || $item['selected_for_inventory'] === true || $item['selected_for_inventory'] === 1 || $item['selected_for_inventory'] === '1' || $item['selected_for_inventory'] === 'true';
                 if ($isProduct && $selectedForInventory) { // 1 = Producto Físico del taller
-                    $product = Product::where('sku', $itemCode)
-                        ->orWhere('code_aux', $itemCodeAux)
-                        ->orWhere('description', $item['description'])
+                    $product = Product::withTrashed()
+                        ->where(function ($query) use ($itemCode, $itemCodeAux, $item) {
+                            $query->where('sku', $itemCode);
+                            if (!empty($itemCodeAux) && $itemCodeAux !== '-') {
+                                $query->orWhere('code_aux', $itemCodeAux);
+                            }
+                            if (!empty($item['description'])) {
+                                $query->orWhere('description', $item['description']);
+                            }
+                        })
                         ->first();
 
                     $brand = !empty($item['brand']) ? trim($item['brand']) : 'Genérico';
@@ -189,12 +203,12 @@ class PurchaseManualController extends Controller
                             'warehouse_id' => $defaultWarehouseId,
                             'unit_id' => $defaultUnitId,
                             'supplier_id' => $supplierId,
-                            'price' => $itemUnitPrice,
+                            'price' => $realPurchasePrice,
                             'price_sale' => $salePrice,
-                            'purchase_price' => $itemUnitPrice,
+                            'purchase_price' => $realPurchasePrice,
                             'tax_rate' => 15, // Asumiendo IVA general
-                            'max_discount' => 0,
-                            'discount_percentage' => 0,
+                            'max_discount' => $maxDiscount,
+                            'discount_percentage' => $discountPercentage,
                             'brand' => $brand,
                             'stock' => $itemQty,
                             'item_type' => $item['item_type'],
@@ -206,11 +220,20 @@ class PurchaseManualController extends Controller
                             'state' => 1,
                         ]);
                     } else {
-                        // Incrementar el stock y actualizar el costo y marca/categoría si aplica
+                        // Si el producto estaba en papelera (SoftDeletes), restaurarlo y reiniciar stock
+                        if ($product->trashed()) {
+                            $product->restore();
+                            $product->stock = 0;
+                        }
+
+                        // Incrementar el stock y actualizar el costo, PVP, margen de descuento y marca/categoría si aplica
                         $product->stock += $itemQty;
-                        $product->price = $itemUnitPrice;
-                        $product->purchase_price = $itemUnitPrice; // Actualiza el precio de costo a la compra más reciente
+                        $product->state = 1;
+                        $product->price = $realPurchasePrice;
+                        $product->purchase_price = $realPurchasePrice; // Actualiza el precio de costo real a la compra más reciente
                         $product->price_sale = $salePrice;
+                        $product->max_discount = $maxDiscount;
+                        $product->discount_percentage = $discountPercentage;
                         if (!empty($item['brand'])) {
                             $product->brand = $brand;
                         }

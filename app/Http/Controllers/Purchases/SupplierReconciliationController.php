@@ -390,33 +390,50 @@ class SupplierReconciliationController extends Controller
 
                 $account = Account::findOrFail($request->account_id);
 
+                // Determinar método de pago (cash o transfer)
+                $paymentMethod = ($account->type === 'cash' || strtolower(trim((string) $account->code)) === 'caja_chica') ? 'cash' : 'transfer';
+
                 // 1. Acreditar el dinero en la cuenta
                 $account->updateBalance($refundAmount, FinanceRecord::TYPE_INCOME);
 
                 // 2. Crear FinanceRecord de ingreso
+                $supplierName = $credit->supplier ? ($credit->supplier->trade_name ?? $credit->supplier->name) : ('Proveedor #' . $credit->supplier_id);
                 $financeRecord = FinanceRecord::create([
                     'type' => FinanceRecord::TYPE_INCOME,
+                    'account_id' => $account->id,
+                    'payment_method' => $paymentMethod,
                     'amount' => $refundAmount,
-                    'description' => "Devolución de saldo a favor de proveedor: {$credit->supplier->name}",
+                    'description' => "Devolución de saldo a favor de proveedor: {$supplierName}" . ($request->notes ? " ({$request->notes})" : ""),
                     'invoice_number' => 'DEV-CRED-' . $credit->id,
                     'user_id' => auth()->id() ?? 1,
                     'entry_date' => now()->toDateString(),
                 ]);
 
-                PaymentDistribution::create([
+                // 3. Crear distribución de pago
+                $distribution = PaymentDistribution::create([
                     'finance_record_id' => $financeRecord->id,
                     'account_id' => $account->id,
                     'amount' => $refundAmount,
-                    'payment_method' => 'Transferencia / Devolución',
-                    'metadata' => [
-                        'supplier_credit_balance_id' => $credit->id,
-                        'supplier_id' => $credit->supplier_id,
-                    ],
+                    'payment_method' => $paymentMethod,
                 ]);
 
-                // 3. Actualizar el saldo restante
-                $newUsed = (float) $credit->used_amount + $refundAmount;
-                $newRemaining = max(0.0, (float) $credit->amount - $newUsed);
+                // 4. Registrar movimiento financiero
+                $distribution->registerMovement(
+                    $account->id,
+                    'income',
+                    $refundAmount,
+                    $financeRecord->description,
+                    now()->toDateString(),
+                    [
+                        'finance_record_id' => $financeRecord->id,
+                        'supplier_credit_balance_id' => $credit->id,
+                        'supplier_id' => $credit->supplier_id,
+                    ]
+                );
+
+                // 5. Actualizar el saldo restante
+                $newUsed = round((float) $credit->used_amount + $refundAmount, 2);
+                $newRemaining = max(0.0, round((float) $credit->amount - $newUsed, 2));
                 $newStatus = $newRemaining <= 0.001 ? 'refunded' : 'partially_used';
 
                 $credit->update([
@@ -435,9 +452,15 @@ class SupplierReconciliationController extends Controller
                 'data' => $result,
             ], 200);
         } catch (Exception $e) {
+            Log::error('Error al procesar reembolso de saldo a favor:', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error al procesar el reembolso del saldo.',
+                'message' => 'Error al procesar el reembolso del saldo: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
             ], 500);
         }
