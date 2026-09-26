@@ -359,7 +359,7 @@ class WorkOrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = WorkOrder::with(['client', 'vehicle', 'user', 'sale', 'items.product', 'technicians']);
+        $query = WorkOrder::with(['client', 'vehicle', 'user', 'sale', 'items.product', 'technicians', 'advances.account']);
 
         // Filtrar por estado si se proporciona
         if ($request->has('status')) {
@@ -384,7 +384,7 @@ class WorkOrderController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'sale', 'technicians', 'items.product'])
+        $workOrder = WorkOrder::with(['client', 'vehicle', 'user', 'sale', 'technicians', 'items.product', 'advances.account', 'advances.user'])
             ->findOrFail($id);
 
         return response()->json([
@@ -406,7 +406,7 @@ class WorkOrderController extends Controller
 
         return response()->json([
             'message' => 'Estado de la orden de trabajo actualizado exitosamente',
-            'data' => $workOrder->load(['client', 'vehicle', 'user'])
+            'data' => $workOrder->load(['client', 'vehicle', 'user', 'advances'])
         ]);
     }
 
@@ -415,7 +415,7 @@ class WorkOrderController extends Controller
      */
     public function getReadyToInvoice(): JsonResponse
     {
-        $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items.product', 'technicians'])
+        $readyOrders = WorkOrder::with(['client', 'vehicle', 'user', 'items.product', 'technicians', 'advances.account'])
             ->whereIn('status', ['ready', 'delivered'])
             ->whereDoesntHave('sale', function ($q) {
                 $q->where('status', '!=', 'canceled');

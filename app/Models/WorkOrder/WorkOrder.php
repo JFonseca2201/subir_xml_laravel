@@ -95,4 +95,41 @@ class WorkOrder extends Model
     {
         return $this->belongsToMany(Employee::class, 'work_order_technicians');
     }
+
+    /**
+     * Anticipos o abonos registrados para esta orden de trabajo.
+     */
+    public function advances()
+    {
+        return $this->hasMany(WorkOrderAdvance::class, 'work_order_id')->orderBy('advance_date', 'asc');
+    }
+
+    /**
+     * Total calculado de los items de la orden de trabajo.
+     */
+    public function getTotalAmountAttribute()
+    {
+        return (float) $this->items->sum(function ($item) {
+            $qty = (float) $item->quantity;
+            $price = (float) $item->unit_price;
+            $disc = (float) ($item->discount ?? 0);
+            return max(0, ($qty * $price) - $disc);
+        });
+    }
+
+    /**
+     * Total de anticipos/abonos realizados a la orden de trabajo.
+     */
+    public function getTotalAdvancesAttribute()
+    {
+        return (float) $this->advances->sum('amount');
+    }
+
+    /**
+     * Saldo pendiente de cobro.
+     */
+    public function getBalanceDueAttribute()
+    {
+        return max(0, $this->total_amount - $this->total_advances);
+    }
 }

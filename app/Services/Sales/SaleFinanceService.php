@@ -79,6 +79,11 @@ class SaleFinanceService
 
         $paymentMethod = $requestData['payment_method'] ?? $sale->payment_method ?? 'Efectivo';
 
+        // 🔍 Verificar si la orden de trabajo vinculada ya tenía anticipos/abonos previos
+        $linkedWorkOrder = $sale->work_order_id ? \App\Models\WorkOrder\WorkOrder::with('advances')->find($sale->work_order_id) : null;
+        $totalAdvances = $linkedWorkOrder ? (float) $linkedWorkOrder->total_advances : 0.0;
+        $balanceToCollectToday = max(0, (float) $sale->total - $totalAdvances);
+
         $totalPaid = 0;
         if ($sale->payment_status === 'pending') {
             $totalPaid = 0;
@@ -86,15 +91,20 @@ class SaleFinanceService
             $totalPaid = collect($requestData['payment_distributions'])->sum('amount');
         } else {
             if ($sale->payment_status === 'paid') {
-                $totalPaid = $sale->total;
+                $totalPaid = $totalAdvances > 0 ? $balanceToCollectToday : (float) $sale->total;
             } else {
-                $totalPaid = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : $sale->total;
+                $totalPaid = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : ($totalAdvances > 0 ? $balanceToCollectToday : (float) $sale->total);
             }
         }
 
         $primaryAccountId = !empty($requestData['payment_distributions'][0]['account_id'])
             ? $requestData['payment_distributions'][0]['account_id']
             : (Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id ?? 1);
+
+        $financeDescription = 'Venta: ' . $sale->document_type . ' - ' . $sale->document_number;
+        if ($totalAdvances > 0) {
+            $financeDescription .= " (Saldo cobrado hoy tras abono previo de \${$totalAdvances})";
+        }
 
         // 3. Crear/Actualizar el registro financiero principal
         $financeRecord->fill([
@@ -108,7 +118,7 @@ class SaleFinanceService
                 $sale->document_number
             ),
             'invoice_number' => $sale->document_number,
-            'description' => 'Venta: ' . $sale->document_type . ' - ' . $sale->document_number,
+            'description' => $financeDescription,
             'user_id' => $sale->user_id ?? $userId,
         ]);
         $financeRecord->save();
@@ -133,7 +143,7 @@ class SaleFinanceService
                         $distribution['account_id'],
                         'income',
                         $distribution['amount'],
-                        'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'],
+                        'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'] . ($totalAdvances > 0 ? " (Abono previo de \${$totalAdvances})" : ''),
                         $entryDate,
                         [
                             'document_type' => $sale->document_type,
@@ -151,23 +161,25 @@ class SaleFinanceService
                     $accountId = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id;
                 }
 
+                $amountToAccount = $totalAdvances > 0 ? $balanceToCollectToday : (float) $sale->total;
+
                 PaymentDistribution::create([
                     'finance_record_id' => $financeRecord->id,
                     'account_id' => $accountId,
-                    'amount' => $sale->total,
+                    'amount' => $amountToAccount,
                     'payment_method' => $paymentMethod,
                 ]);
 
                 $account = Account::find($accountId);
                 if ($account) {
-                    $account->updateBalance($sale->total, FinanceRecord::TYPE_INCOME);
+                    $account->updateBalance($amountToAccount, FinanceRecord::TYPE_INCOME);
                 }
 
                 $sale->registerMovement(
                     $accountId,
                     'income',
-                    $sale->total,
-                    'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $paymentMethod,
+                    $amountToAccount,
+                    'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $paymentMethod . ($totalAdvances > 0 ? " (Saldo cobrado tras abono previo de \${$totalAdvances})" : ''),
                     $entryDate,
                     [
                         'document_type' => $sale->document_type,

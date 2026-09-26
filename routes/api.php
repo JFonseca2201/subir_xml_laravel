@@ -249,8 +249,11 @@ Route::group(
         Route::get('work-orders/ready-to-invoice', [WorkOrderController::class, 'getReadyToInvoice']);
         Route::put('work-orders/{id}/status', [WorkOrderController::class, 'updateStatus']);
         Route::get('work-orders/{id}/pdf', [WorkOrderController::class, 'generatePDF']);
-        Route::post('work-orders/{id}/print', [WorkOrderController::class, 'printDirect']);
         Route::resource('work-orders', WorkOrderController::class);
+        Route::get('work-orders/{id}/advances', [\App\Http\Controllers\Api\WorkOrder\WorkOrderAdvanceController::class, 'index']);
+        Route::post('work-orders/{id}/advances', [\App\Http\Controllers\Api\WorkOrder\WorkOrderAdvanceController::class, 'store']);
+        Route::delete('work-orders/{id}/advances/{advanceId}', [\App\Http\Controllers\Api\WorkOrder\WorkOrderAdvanceController::class, 'destroy']);
+        Route::get('work-orders/{id}/advances/{advanceId}/receipt', [\App\Http\Controllers\Api\WorkOrder\WorkOrderAdvanceController::class, 'printReceipt']);
 
         // ============= RUTAS DE CAJA DIARIA ================ 
         Route::get('daily-cash-counts/status', [DailyCashCountController::class, 'getStatusByDate']);
