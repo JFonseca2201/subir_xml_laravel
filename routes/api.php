@@ -254,6 +254,7 @@ Route::group(
 
         // ============= RUTAS DE CAJA DIARIA ================ 
         Route::get('daily-cash-counts/status', [DailyCashCountController::class, 'getStatusByDate']);
+        Route::get('daily-cash-counts/history', [DailyCashCountController::class, 'history']);
         Route::post('daily-cash-counts/save', [DailyCashCountController::class, 'store']);
         Route::post('daily-cash-counts/seal', [DailyCashCountController::class, 'seal']);
 

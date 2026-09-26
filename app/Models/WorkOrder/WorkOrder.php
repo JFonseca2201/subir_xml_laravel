@@ -64,11 +64,20 @@ class WorkOrder extends Model
     }
 
     /**
-     * Una orden de trabajo puede tener una venta asociada.
+     * Una orden de trabajo puede tener una venta asociada (factura o nota de venta).
+     * Se excluyen cotizaciones para que no bloqueen la facturación posterior.
      */
     public function sale()
     {
-        return $this->hasOne(Sale::class, 'work_order_id');
+        return $this->hasOne(Sale::class, 'work_order_id')->where('document_type', '!=', 'quote');
+    }
+
+    /**
+     * Cotización origen desde la cual se generó esta orden de trabajo (si aplica).
+     */
+    public function quote()
+    {
+        return $this->hasOne(Sale::class, 'work_order_id')->where('document_type', 'quote');
     }
 
     /**

@@ -159,8 +159,28 @@ class SaleUpdateService
 
             if ($docType === 'invoice') {
                 $finalTotal = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
-                $subtotal = $request->has('subtotal') && (float)$request->subtotal > 0 ? (float)$request->subtotal : round($finalTotal / 1.15, 2);
-                $taxAmount = $request->has('tax_amount') && (float)$request->tax_amount >= 0 ? (float)$request->tax_amount : round($finalTotal - $subtotal, 2);
+                if ($request->has('subtotal') && (float)$request->subtotal > 0) {
+                    $subtotal = (float)$request->subtotal;
+                    $taxAmount = $request->has('tax_amount') && (float)$request->tax_amount >= 0 ? (float)$request->tax_amount : round($finalTotal - $subtotal, 2);
+                } else {
+                    $calcSubtotal = 0;
+                    $calcTax = 0;
+                    foreach ($sale->details as $d) {
+                        $rate = (float)($d->tax_rate ?? 15.0);
+                        $itemGross = (float)$d->total;
+                        if ($rate > 0) {
+                            $base = round($itemGross / (1 + ($rate / 100)), 2);
+                            $tax = round($itemGross - $base, 2);
+                        } else {
+                            $base = $itemGross;
+                            $tax = 0.00;
+                        }
+                        $calcSubtotal += $base;
+                        $calcTax += $tax;
+                    }
+                    $subtotal = round($calcSubtotal, 2);
+                    $taxAmount = round($calcTax, 2);
+                }
             } else {
                 $finalTotal = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
                 $subtotal = $finalTotal;
@@ -507,8 +527,28 @@ class SaleUpdateService
                 $rawNet = $sale->details()->sum('total');
                 if ($sale->document_type === 'invoice') {
                     $total = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
-                    $subtotal = $request->has('subtotal') && (float)$request->subtotal > 0 ? (float)$request->subtotal : round($total / 1.15, 2);
-                    $taxAmount = $request->has('tax_amount') && (float)$request->tax_amount >= 0 ? (float)$request->tax_amount : round($total - $subtotal, 2);
+                    if ($request->has('subtotal') && (float)$request->subtotal > 0) {
+                        $subtotal = (float)$request->subtotal;
+                        $taxAmount = $request->has('tax_amount') && (float)$request->tax_amount >= 0 ? (float)$request->tax_amount : round($total - $subtotal, 2);
+                    } else {
+                        $calcSubtotal = 0;
+                        $calcTax = 0;
+                        foreach ($sale->details as $d) {
+                            $rate = (float)($d->tax_rate ?? 15.0);
+                            $itemGross = (float)$d->total;
+                            if ($rate > 0) {
+                                $base = round($itemGross / (1 + ($rate / 100)), 2);
+                                $tax = round($itemGross - $base, 2);
+                            } else {
+                                $base = $itemGross;
+                                $tax = 0.00;
+                            }
+                            $calcSubtotal += $base;
+                            $calcTax += $tax;
+                        }
+                        $subtotal = round($calcSubtotal, 2);
+                        $taxAmount = round($calcTax, 2);
+                    }
                 } else {
                     $total = $request->has('total') && (float)$request->total > 0 ? (float)$request->total : round($rawNet, 2);
                     $subtotal = $total;

@@ -50,7 +50,7 @@ class UserController extends Controller
                             'gender' => $user->gender,
                             'phone' => $user->phone,
                             'address' => $user->address,
-                            'avatar' => $user->avatar ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/') : null,
+                            'avatar' => $user->avatar ? rtrim(config('app.url', env('APP_URL', '')), '/') . '/storage/' . preg_replace('#^storage/#', '', ltrim($user->avatar, '/')) : null,
                             'type_document' => $user->type_document,
                             'status' => $user->status,
                             'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
@@ -175,7 +175,7 @@ class UserController extends Controller
                         'gender' => $user->gender,
                         'phone' => $user->phone,
                         'address' => $user->address,
-                        'avatar' => $user->avatar ? env('APP_URL') . ltrim(Storage::url($user->avatar), '/') : null,
+                        'avatar' => $user->avatar ? rtrim(config('app.url', env('APP_URL', '')), '/') . '/storage/' . preg_replace('#^storage/#', '', ltrim($user->avatar, '/')) : null,
                         'type_document' => $user->type_document,
                         'status' => $user->status,
                         'created_at' => optional($user->created_at)->format('Y-m-d H:i:s'),
@@ -304,7 +304,7 @@ class UserController extends Controller
                         'phone' => $user->phone,
                         'address' => $user->address,
                         'avatar' => $user->avatar
-                            ? env('APP_URL' . '/') . Storage::url($user->avatar)
+                            ? rtrim(config('app.url', env('APP_URL', '')), '/') . '/storage/' . preg_replace('#^storage/#', '', ltrim($user->avatar, '/'))
                             : null,
                         'type_document' => $user->type_document,
                         'status' => $user->status,
@@ -435,7 +435,7 @@ class UserController extends Controller
                     'sucursale_id' => $user->sucursale_id,
                     'phone' => $user->phone,
                     'address' => $user->address,
-                    'avatar' => $user->avatar ? env('APP_URL') . 'storage/' . $user->avatar : null,
+                    'avatar' => $user->avatar ? rtrim(config('app.url', env('APP_URL', '')), '/') . '/storage/' . preg_replace('#^storage/#', '', ltrim($user->avatar, '/')) : null,
                     'permissions' => $user->getAllPermissions()->pluck('name'),
                 ],
             ], 200);

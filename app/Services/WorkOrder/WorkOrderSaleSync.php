@@ -27,6 +27,7 @@ class WorkOrderSaleSync
         }
 
         $activeSale = Sale::where('work_order_id', $workOrderId)
+            ->where('document_type', '!=', 'quote')
             ->where('status', '!=', 'canceled')
             ->first();
 

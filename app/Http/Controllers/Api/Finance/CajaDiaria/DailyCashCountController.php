@@ -27,6 +27,11 @@ class DailyCashCountController extends Controller
             ->orderBy('count_date', 'desc')
             ->first();
 
+        // 3. Buscamos el último conteo absoluto registrado en el sistema
+        $latestOverallCount = DailyCashCount::with('user:id,name')
+            ->orderBy('count_date', 'desc')
+            ->first();
+
         // Traer los balances teóricos actuales de las cuentas correspondientes de forma resiliente
         $acc1 = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->orWhere('id', 1)->first();
         $acc2 = Account::where('name', 'like', '%pichincha%')->orWhere('bank_name', 'like', '%pichincha%')->orWhere('id', 2)->first();
@@ -47,7 +52,7 @@ class DailyCashCountController extends Controller
                 'pichincha' => $previousCount->pichincha_total,
                 'guayaquil' => $previousCount->guayaquil_total,
                 'total' => $previousCount->grand_total,
-                'origin_date' => $previousCount->count_date->format('Y-m-d'),
+                'origin_date' => $previousCount->count_date ? $previousCount->count_date->format('Y-m-d') : null,
                 'cash_details' => $previousCount->cash_details
             ] : [
                 'cash' => 0,
@@ -57,12 +62,67 @@ class DailyCashCountController extends Controller
                 'origin_date' => null,
                 'cash_details' => null
             ],
+            'latest_overall_count' => $latestOverallCount ? [
+                'id' => $latestOverallCount->id,
+                'count_date' => $latestOverallCount->count_date ? $latestOverallCount->count_date->format('Y-m-d') : null,
+                'date_formatted' => $latestOverallCount->count_date ? ucfirst($latestOverallCount->count_date->locale('es')->isoFormat('dddd DD [de] MMMM YYYY')) : null,
+                'cash_total' => (float)$latestOverallCount->cash_total,
+                'pichincha_total' => (float)$latestOverallCount->pichincha_total,
+                'guayaquil_total' => (float)$latestOverallCount->guayaquil_total,
+                'grand_total' => (float)$latestOverallCount->grand_total,
+                'is_sealed' => (bool)$latestOverallCount->is_sealed,
+                'observations' => $latestOverallCount->observations,
+                'user_name' => $latestOverallCount->user ? $latestOverallCount->user->name : 'N/A',
+                'created_at' => $latestOverallCount->created_at ? $latestOverallCount->created_at->format('d/m/Y H:i') : null,
+            ] : null,
             // 🛠️ CORRECCIÓN DEFINITIVA: Limpiamos las flechas para usar el valor numérico directo
             'system_balances' => [
                 'cash' => (float)$saldoCajaChica,
                 'pichincha' => (float)$saldoPichincha,
                 'guayaquil' => (float)$saldoGuayaquil,
             ]
+        ]);
+    }
+
+    /**
+     * Listado histórico y búsqueda de arqueos/cuadres realizados
+     */
+    public function history(Request $request)
+    {
+        $query = DailyCashCount::with('user:id,name')->orderBy('count_date', 'desc');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('count_date', 'like', "%{$search}%")
+                  ->orWhere('observations', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($u) use ($search) {
+                      $u->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($request->filled('start_date')) {
+            $query->where('count_date', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->where('count_date', '<=', $request->end_date);
+        }
+
+        $perPage = $request->input('per_page', 20);
+        $counts = $query->paginate($perPage);
+
+        $counts->getCollection()->transform(function ($item) {
+            $rawDate = $item->count_date ? (is_string($item->count_date) ? substr($item->count_date, 0, 10) : $item->count_date->format('Y-m-d')) : null;
+            $item->raw_date = $rawDate;
+            $item->date_formatted = $rawDate ? Carbon::parse($rawDate)->format('d/m/Y') : '';
+            return $item;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $counts
         ]);
     }
 

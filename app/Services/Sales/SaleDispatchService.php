@@ -176,17 +176,27 @@ class SaleDispatchService
             $newDocNumber = SequenceService::consumeNumber($newDocType);
 
             $total = 0;
+            $subtotal = 0;
+            $taxAmount = 0;
             foreach ($quote->details as $detail) {
-                $total += ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
+                $itemTotal = ($detail->quantity * $detail->price) - ($detail->discount ?? 0);
+                $total += $itemTotal;
+                $rate = (float)($detail->tax_rate ?? 15.0);
+
+                if ($newDocType === 'invoice' && $rate > 0) {
+                    $base = round($itemTotal / (1 + ($rate / 100)), 2);
+                    $tax = round($itemTotal - $base, 2);
+                } else {
+                    $base = $itemTotal;
+                    $tax = 0.00;
+                }
+                $subtotal += $base;
+                $taxAmount += $tax;
             }
 
-            if ($newDocType === 'invoice') {
-                $subtotal = round($total / 1.15, 2);
-                $taxAmount = round($total - $subtotal, 2);
-            } else {
-                $subtotal = $total;
-                $taxAmount = 0;
-            }
+            $total = round($total, 2);
+            $subtotal = round($subtotal, 2);
+            $taxAmount = round($taxAmount, 2);
 
             $newSale = Sale::create([
                 'document_type' => $newDocType,

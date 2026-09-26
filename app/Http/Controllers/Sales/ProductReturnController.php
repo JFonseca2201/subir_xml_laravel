@@ -158,32 +158,50 @@ class ProductReturnController extends Controller
                 // Necesitamos volver a cargar los detalles frescos desde la BD porque algunos fueron borrados o actualizados
                 $sale->load('details');
 
-                $subtotal = $sale->details->sum('total');
-                $taxAmount = $sale->document_type === 'invoice' ? $subtotal * 0.15 : 0;
-                $total = $subtotal + $taxAmount;
+                $calculatedSubtotal = 0;
+                $calculatedTax = 0;
+                $calculatedTotal = 0;
 
-                $sale->subtotal = $subtotal;
-                $sale->tax_amount = $taxAmount;
-                $sale->total = $total;
+                foreach ($sale->details as $detail) {
+                    $itemGross = (float)$detail->total;
+                    $rate = (float)($detail->tax_rate ?? 15.0);
+                    if ($sale->document_type === 'invoice' && $rate > 0) {
+                        $base = round($itemGross / (1 + ($rate / 100)), 2);
+                        $tax = round($itemGross - $base, 2);
+                    } else {
+                        $base = $itemGross;
+                        $tax = 0.00;
+                    }
+                    $calculatedSubtotal += $base;
+                    $calculatedTax += $tax;
+                    $calculatedTotal += $itemGross;
+                }
+
+                $sale->subtotal = round($calculatedSubtotal, 2);
+                $sale->tax_amount = round($calculatedTax, 2);
+                $sale->total = round($calculatedTotal, 2);
 
                 // 3. Lógica Financiera (Caja / Cuentas)
                 if ($request->refund_amount > 0) {
                     // Si la venta fue pagada o tiene abonos, retiramos el dinero de la cuenta
                     if (in_array($sale->payment_status, ['paid', 'partial'])) {
 
-                        $accountId = $request->account_id ?? 1; // Default a Caja Chica
+                        $defaultCashAccount = Account::where('type', 'cash')->first() ?? Account::first();
+                        $accountId = $request->account_id ?? ($defaultCashAccount?->id ?? 1);
+                        $account = Account::find($accountId);
+                        $resolvedPaymentMethod = ($account && $account->type === 'cash') ? 'cash' : 'transfer';
 
                         // Crear el registro de egreso (EXPENSE)
                         $financeRecord = FinanceRecord::create([
                             'entry_date' => now()->format('Y-m-d'),
                             'type' => FinanceRecord::TYPE_EXPENSE,
                             'account_id' => $accountId,
-                            'payment_method' => $accountId == 1 ? 'cash' : 'transfer',
+                            'payment_method' => $resolvedPaymentMethod,
                             'amount' => $request->refund_amount,
                             'work_order_number' => $sale->document_number,
                             'invoice_number' => $returnNumber,
                             'description' => 'Devolución de Venta: ' . $sale->document_number . ' - ' . $request->reason,
-                            'user_id' => $request->user_id ?? auth()->id() ?? 1,
+                            'user_id' => $request->user_id ?? auth()->id() ?? $sale->user_id ?? 1,
                         ]);
 
                         // Crear distribución de pago
@@ -191,11 +209,10 @@ class ProductReturnController extends Controller
                             'finance_record_id' => $financeRecord->id,
                             'account_id' => $accountId,
                             'amount' => $request->refund_amount,
-                            'payment_method' => $accountId == 1 ? 'cash' : 'transfer',
+                            'payment_method' => $resolvedPaymentMethod,
                         ]);
 
                         // Actualizar el saldo de la cuenta
-                        $account = Account::find($accountId);
                         if ($account) {
                             $account->updateBalance($request->refund_amount, FinanceRecord::TYPE_EXPENSE);
                         }

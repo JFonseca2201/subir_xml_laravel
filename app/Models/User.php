@@ -124,7 +124,10 @@ class User extends Authenticatable implements JWTSubject
     public function getAvatarUrlAttribute()
     {
         if ($this->avatar) {
-            return env('APP_URL') . 'storage/' . $this->avatar;
+            $baseUrl = rtrim(config('app.url', env('APP_URL', '')), '/');
+            $cleanAvatar = ltrim($this->avatar, '/');
+            $cleanAvatar = preg_replace('#^storage/#', '', $cleanAvatar);
+            return $baseUrl . '/storage/' . $cleanAvatar;
         }
         return null;
     }

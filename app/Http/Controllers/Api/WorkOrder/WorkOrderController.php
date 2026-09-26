@@ -140,7 +140,7 @@ class WorkOrderController extends Controller
 
                 \App\Models\Sales\Sale::where('id', $quoteId)->where('document_type', 'quote')->update([
                     'work_order_id' => $workOrder->id,
-                    'payment_status' => 'completed',
+                    'status' => 'completed',
                 ]);
             }
 
@@ -186,6 +186,7 @@ class WorkOrderController extends Controller
 
         // Verificar si la orden de trabajo ya tiene una factura o venta activa generada
         $activeSale = \App\Models\Sales\Sale::where('work_order_id', $workOrder->id)
+            ->where('document_type', '!=', 'quote')
             ->where('status', '!=', 'canceled')
             ->first();
 

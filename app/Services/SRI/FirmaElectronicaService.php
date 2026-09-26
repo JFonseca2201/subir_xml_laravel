@@ -20,9 +20,9 @@ class FirmaElectronicaService
             throw new Exception("Archivo de firma no encontrado: {$p12Path}");
         }
 
-        // Asegurar que openssl en Windows XAMPP esté en el PATH
+        // Asegurar que openssl en Windows XAMPP esté en el PATH si existe
         $currentPath = getenv('PATH') ?: '';
-        if (!str_contains($currentPath, 'C:\\xampp\\apache\\bin')) {
+        if (PHP_OS_FAMILY === 'Windows' && is_dir('C:\\xampp\\apache\\bin') && !str_contains($currentPath, 'C:\\xampp\\apache\\bin')) {
             putenv("PATH=C:\\xampp\\apache\\bin;C:\\xampp\\php;{$currentPath}");
             $_ENV['PATH'] = "C:\\xampp\\apache\\bin;C:\\xampp\\php;{$currentPath}";
             $_SERVER['PATH'] = "C:\\xampp\\apache\\bin;C:\\xampp\\php;{$currentPath}";
@@ -42,6 +42,30 @@ class FirmaElectronicaService
         } catch (Exception $e) {
             throw new Exception('Error al firmar electrónicamente: ' . $e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * Resuelve el comando ejecutable de OpenSSL según el sistema operativo.
+     */
+    private function getOpenSslBinary(): string
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            if (file_exists('C:\\xampp\\apache\\bin\\openssl.exe')) {
+                return '"C:\\xampp\\apache\\bin\\openssl.exe"';
+            }
+        }
+        return 'openssl';
+    }
+
+    /**
+     * Resuelve los argumentos de provider para OpenSSL 3.x si aplica.
+     */
+    private function getOpenSslProviderArgs(): string
+    {
+        if (PHP_OS_FAMILY === 'Windows' && is_dir('C:\\xampp\\php\\extras\\ssl')) {
+            return '-provider-path "C:\\xampp\\php\\extras\\ssl" -provider legacy -provider default';
+        }
+        return '-provider legacy -provider default';
     }
 
     /**
@@ -66,12 +90,15 @@ class FirmaElectronicaService
             return $modernP12;
         }
 
+        $opensslBin = $this->getOpenSslBinary();
+        $providerArgs = $this->getOpenSslProviderArgs();
+
         $tempPem = storage_path('app/temp_p12_' . uniqid() . '.pem');
-        $cmd1 = "\"C:\\xampp\\apache\\bin\\openssl.exe\" pkcs12 -in \"{$p12Path}\" -out \"{$tempPem}\" -nodes -password pass:\"{$p12Password}\" -provider-path \"C:\\xampp\\php\\extras\\ssl\" -provider legacy -provider default 2>&1";
+        $cmd1 = "{$opensslBin} pkcs12 -in \"{$p12Path}\" -out \"{$tempPem}\" -nodes -password pass:\"{$p12Password}\" {$providerArgs} 2>&1";
         shell_exec($cmd1);
 
         if (file_exists($tempPem) && filesize($tempPem) > 0) {
-            $cmd2 = "\"C:\\xampp\\apache\\bin\\openssl.exe\" pkcs12 -export -in \"{$tempPem}\" -out \"{$modernP12}\" -password pass:\"{$p12Password}\" 2>&1";
+            $cmd2 = "{$opensslBin} pkcs12 -export -in \"{$tempPem}\" -out \"{$modernP12}\" -password pass:\"{$p12Password}\" 2>&1";
             shell_exec($cmd2);
             @unlink($tempPem);
 
