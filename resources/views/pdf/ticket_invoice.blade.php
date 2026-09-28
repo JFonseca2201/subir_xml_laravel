@@ -438,28 +438,37 @@
             text-align: right;
         }
 
-        /* ─── TEXTO LATERAL VERTICAL (MARGEN DERECHO) ─── */
+        /* ─── TEXTO LATERAL VERTICAL (MARGEN DERECHO - CONFINADO A LA FACTURA) ─── */
         .lateral-watermark {
             position: absolute;
-            right: -6px;
-            top: 50%;
-            transform: rotate(-90deg) translate(0, 0);
-            transform-origin: right top;
-            font-size: 7px;
-            color: #666666;
-            letter-spacing: 0.8px;
+            right: 0px;
+            top: 2mm;
+            height: 115mm;
+            max-height: 120mm;
+            width: 14px;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6.5px;
+            color: #777777;
+            letter-spacing: 0.6px;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1;
         }
 
         /* ─── LÍNEA DE CORTE PARA SEPARAR FACTURA MANUALMENTE EN HOJA A4 ─── */
         .cut-guide-container {
-            margin-top: 12px;
+            margin-top: 8px;
             text-align: center;
             width: 100%;
             border-top: 1px dashed #9ca3af;
-            padding-top: 4px;
+            padding-top: 3px;
             color: #9ca3af;
-            font-size: 8px;
+            font-size: 7.5px;
             letter-spacing: 1px;
         }
     </style>
@@ -796,11 +805,11 @@
     <div class="lateral-watermark">
         SISTEMA POS &amp; FACTURACIÓN ELECTRÓNICA SRI / 1x1 COPIA (V) / {{ $formattedDocNumber }}
     </div>
+</div>
 
-    <!-- Guía de corte para partir la hoja A4 a la mitad manualmente -->
-    <div class="cut-guide-container">
-        - - - - - - - - - - - - - - - - - - - - - - - - - ✂ LÍNEA DE CORTE (MEDIA HOJA A4) - - - - - - - - - - - - - - - - - - - - - - - - -
-    </div>
+<!-- Guía de corte para partir la hoja A4 a la mitad manualmente -->
+<div class="cut-guide-container">
+    - - - - - - - - - - - - - - - - - - - - - - - - - ✂ LÍNEA DE CORTE (MEDIA HOJA A4) - - - - - - - - - - - - - - - - - - - - - - - - -
 </div>
 
 <script>
