@@ -94,6 +94,20 @@ class PedidoDistribuidorController extends Controller
                 });
             }
 
+            // Filtro por estado
+            if ($request->filled('status') && $request->status !== 'all') {
+                $query->where('status', $request->status);
+            }
+
+            // Filtro por rango de fechas
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $query->whereBetween('created_at', [$request->start_date . ' 00:00:00', $request->end_date . ' 23:59:59']);
+            } elseif ($request->filled('start_date')) {
+                $query->where('created_at', '>=', $request->start_date . ' 00:00:00');
+            } elseif ($request->filled('end_date')) {
+                $query->where('created_at', '<=', $request->end_date . ' 23:59:59');
+            }
+
             $pedidos = $query->orderBy('id', 'desc')->paginate(10);
 
             return response()->json([

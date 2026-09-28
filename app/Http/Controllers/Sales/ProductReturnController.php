@@ -25,10 +25,32 @@ class ProductReturnController extends Controller
 
             if ($request->has('search') && $request->search != '') {
                 $searchTerm = $request->search;
-                $query->where('return_number', 'like', "%{$searchTerm}%")
-                    ->orWhereHas('sale', function ($q) use ($searchTerm) {
-                        $q->where('document_number', 'like', "%{$searchTerm}%");
-                    });
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('return_number', 'like', "%{$searchTerm}%")
+                        ->orWhere('reason', 'like', "%{$searchTerm}%")
+                        ->orWhereHas('sale', function ($subQ) use ($searchTerm) {
+                            $subQ->where('document_number', 'like', "%{$searchTerm}%")
+                                ->orWhereHas('client', function ($clientQ) use ($searchTerm) {
+                                    $clientQ->where('name', 'like', "%{$searchTerm}%")
+                                        ->orWhere('surname', 'like', "%{$searchTerm}%")
+                                        ->orWhere('n_document', 'like', "%{$searchTerm}%");
+                                });
+                        });
+                });
+            }
+
+            // Filtro por tipo de devolución (total / parcial)
+            if ($request->filled('type') && $request->type !== 'all') {
+                $query->where('type', $request->type);
+            }
+
+            // Filtro por rango de fechas
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $query->whereBetween('created_at', [$request->start_date . ' 00:00:00', $request->end_date . ' 23:59:59']);
+            } elseif ($request->filled('start_date')) {
+                $query->where('created_at', '>=', $request->start_date . ' 00:00:00');
+            } elseif ($request->filled('end_date')) {
+                $query->where('created_at', '<=', $request->end_date . ' 23:59:59');
             }
 
             $returns = $query->orderBy('created_at', 'desc')->paginate(10);
