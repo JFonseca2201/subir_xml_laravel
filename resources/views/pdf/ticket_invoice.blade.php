@@ -6,8 +6,8 @@
     <title>Factura Ticket - {{ $sale->document_number }}</title>
     <style>
         @page {
-            size: 215.9mm 139.7mm; /* Media carta / Half Letter horizontal */
-            margin: 4mm 6mm 4mm 6mm;
+            size: A4 portrait; /* Hoja A4 en vertical */
+            margin: 6mm 8mm 6mm 8mm;
         }
 
         * {
@@ -23,17 +23,22 @@
             background-color: #ffffff;
             color: #111111;
             font-size: 10px;
-            line-height: 1.15;
-            padding: 4px;
+            line-height: 1.18;
+            padding: 0;
             width: 100%;
-            max-width: 210mm;
+            max-width: 195mm;
             margin: 0 auto;
         }
 
+        /* ─── CONTENEDOR DE MEDIA HOJA A4 VERTICAL ─── */
         .ticket-wrapper {
             position: relative;
             width: 100%;
-            padding-right: 18px; /* Espacio para el texto lateral vertical */
+            max-width: 100%;
+            min-height: 125mm;
+            max-height: 138mm; /* Asegura que la factura quede estrictamente en la mitad superior */
+            padding-right: 20px; /* Espacio para el texto lateral vertical */
+            page-break-inside: avoid;
         }
 
         /* ─── BOTONES DE PANTALLA (NO IMPRIMIR) ─── */
@@ -96,12 +101,12 @@
 
         .company-logo-col {
             width: 65px;
-            padding-right: 6px;
+            padding-right: 8px;
         }
 
         .company-logo {
-            width: 60px;
-            height: 60px;
+            width: 58px;
+            height: 58px;
             object-fit: contain;
             display: block;
         }
@@ -121,24 +126,24 @@
         }
 
         .company-info-col {
-            width: 52%;
+            width: 53%;
             padding-right: 8px;
         }
 
         .company-name {
-            font-size: 11.5px;
+            font-size: 12px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.2px;
             color: #000000;
-            margin-bottom: 1px;
-            line-height: 1.1;
+            margin-bottom: 2px;
+            line-height: 1.15;
         }
 
         .company-detail {
-            font-size: 9px;
+            font-size: 9.2px;
             color: #222222;
-            line-height: 1.18;
+            line-height: 1.2;
         }
 
         .company-detail-bold {
@@ -190,7 +195,7 @@
 
         .payment-lbl-left {
             display: table-cell;
-            font-size: 8.5px;
+            font-size: 8.8px;
             text-align: left;
             padding-right: 4px;
             color: #333;
@@ -198,7 +203,7 @@
 
         .payment-lbl {
             display: table-cell;
-            font-size: 9px;
+            font-size: 9.2px;
             font-weight: bold;
             text-align: right;
             padding-right: 6px;
@@ -218,7 +223,7 @@
             width: 100%;
             margin-top: 2px;
             margin-bottom: 3px;
-            font-size: 9px;
+            font-size: 9.2px;
             line-height: 1.2;
             letter-spacing: 0.3px;
         }
@@ -232,7 +237,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 4px;
-            font-size: 9.2px;
+            font-size: 9.5px;
         }
 
         .customer-table td {
@@ -252,7 +257,7 @@
 
         .cust-row {
             display: flex;
-            margin-bottom: 1px;
+            margin-bottom: 1.5px;
         }
 
         .cust-label {
@@ -289,21 +294,21 @@
             border-collapse: collapse;
             margin-top: 2px;
             margin-bottom: 4px;
-            font-size: 8.8px;
+            font-size: 9.2px;
         }
 
         .items-table th {
             font-weight: bold;
             border-top: 1px solid #111;
             border-bottom: 1px solid #111;
-            padding: 2px 2px;
+            padding: 2.5px 2px;
             text-align: left;
             text-transform: uppercase;
-            font-size: 8.5px;
+            font-size: 9px;
         }
 
         .items-table td {
-            padding: 1.5px 2px;
+            padding: 2px 2px;
             vertical-align: top;
         }
 
@@ -318,7 +323,7 @@
         .footer-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 2px;
+            margin-top: 4px;
         }
 
         .footer-table td {
@@ -326,31 +331,44 @@
         }
 
         .footer-signature-col {
-            width: 33%;
+            width: 34%;
             padding-right: 8px;
         }
 
         .signature-container {
-            min-height: 40px;
+            min-height: 52px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
         }
 
-        .signature-svg {
-            width: 110px;
-            height: 30px;
-            margin-bottom: -4px;
+        .signature-space {
+            height: 38px;
+            width: 100%;
+        }
+
+        .signature-line {
+            width: 95%;
+            border-bottom: 1px solid #222;
+            margin-bottom: 3px;
         }
 
         .dispatch-text {
-            font-size: 8.5px;
+            font-size: 8.8px;
             font-weight: bold;
-            color: #222;
+            color: #111;
+        }
+
+        .signature-caption {
+            font-size: 7.5px;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 1px;
         }
 
         .footer-stamp-col {
-            width: 33%;
+            width: 32%;
             text-align: center;
             padding: 0 4px;
         }
@@ -360,18 +378,18 @@
             text-align: center;
             padding: 2px 6px;
             line-height: 1.15;
-            font-size: 7.8px;
+            font-size: 8px;
             color: #222;
         }
 
         .stamp-company {
             font-weight: bold;
-            font-size: 8px;
+            font-size: 8.5px;
             text-transform: uppercase;
         }
 
         .stamp-canceled {
-            font-size: 11.5px;
+            font-size: 12px;
             font-weight: 900;
             letter-spacing: 2.5px;
             margin-top: 1px;
@@ -387,7 +405,7 @@
         .totals-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9px;
+            font-size: 9.5px;
             line-height: 1.25;
         }
 
@@ -423,14 +441,26 @@
         /* ─── TEXTO LATERAL VERTICAL (MARGEN DERECHO) ─── */
         .lateral-watermark {
             position: absolute;
-            right: -8px;
+            right: -6px;
             top: 50%;
             transform: rotate(-90deg) translate(0, 0);
             transform-origin: right top;
-            font-size: 6.5px;
+            font-size: 7px;
             color: #666666;
             letter-spacing: 0.8px;
             white-space: nowrap;
+        }
+
+        /* ─── LÍNEA DE CORTE PARA SEPARAR FACTURA MANUALMENTE EN HOJA A4 ─── */
+        .cut-guide-container {
+            margin-top: 12px;
+            text-align: center;
+            width: 100%;
+            border-top: 1px dashed #9ca3af;
+            padding-top: 4px;
+            color: #9ca3af;
+            font-size: 8px;
+            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -579,9 +609,9 @@
                     {{ (isset($sucursal->obligado_contabilidad) && in_array(strtoupper($sucursal->obligado_contabilidad), ['SI', '1', 'TRUE'])) ? '"OBLIGADO A LLEVAR CONTABILIDAD"' : '"NO OBLIGADO A LLEVAR CONTABILIDAD"' }}
                 </div>
                 @if($sucursal && $sucursal->contribuyente_especial)
-                    <div class="company-detail" style="font-size: 7.5px;">CONTRIBUYENTE ESPECIAL SEGÚN RESOLUCIÓN NRO. {{ $sucursal->contribuyente_especial }}</div>
+                    <div class="company-detail" style="font-size: 7.8px;">CONTRIBUYENTE ESPECIAL SEGÚN RESOLUCIÓN NRO. {{ $sucursal->contribuyente_especial }}</div>
                 @else
-                    <div class="company-detail" style="font-size: 7.5px; opacity: 0.9;">CONTRIBUYENTE RÉGIMEN GENERAL</div>
+                    <div class="company-detail" style="font-size: 7.8px; opacity: 0.9;">CONTRIBUYENTE RÉGIMEN GENERAL</div>
                 @endif
             </td>
 
@@ -708,20 +738,19 @@
         </tbody>
     </table>
 
-    <!-- ─── 5. FOOTER (FIRMA / SELLO / TOTALES) ─── -->
+    <!-- ─── 5. FOOTER (FIRMA MANUAL, SELLO, TOTALES) ─── -->
     <table class="footer-table">
         <tr>
-            <!-- Columna Izquierda: Firma y Comprobante de Despacho -->
+            <!-- Columna Izquierda: Espacio para Firma Manual y Comprobante de Despacho -->
             <td class="footer-signature-col">
                 <div class="signature-container">
-                    <!-- Garabato / Firma estilizada -->
-                    <svg class="signature-svg" viewBox="0 0 160 45" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M 10 32 C 15 10, 25 8, 30 24 C 35 38, 45 42, 55 20 C 65 2, 70 30, 85 28 C 98 26, 110 15, 125 22 C 135 28, 145 35, 155 30" />
-                        <path d="M 22 26 C 45 28, 75 32, 115 25" />
-                    </svg>
+                    <!-- Espacio en blanco para la firma manual con esfero -->
+                    <div class="signature-space"></div>
+                    <div class="signature-line"></div>
                     <div class="dispatch-text">
                         COMPROBANTE DE DESPACHO &nbsp;{{ $formattedDocNumber }}
                     </div>
+                    <div class="signature-caption">FIRMA CLIENTE / RECIBÍ CONFORME</div>
                 </div>
             </td>
 
@@ -767,6 +796,11 @@
     <div class="lateral-watermark">
         SISTEMA POS &amp; FACTURACIÓN ELECTRÓNICA SRI / 1x1 COPIA (V) / {{ $formattedDocNumber }}
     </div>
+
+    <!-- Guía de corte para partir la hoja A4 a la mitad manualmente -->
+    <div class="cut-guide-container">
+        - - - - - - - - - - - - - - - - - - - - - - - - - ✂ LÍNEA DE CORTE (MEDIA HOJA A4) - - - - - - - - - - - - - - - - - - - - - - - - -
+    </div>
 </div>
 
 <script>
@@ -774,7 +808,7 @@
     window.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             window.print();
-        }, 500);
+        }, 400);
     });
 </script>
 
