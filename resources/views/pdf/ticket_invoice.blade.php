@@ -292,6 +292,7 @@
         /* ─── TABLA DE ITEMS / DETALLE ─── */
         .items-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             margin-top: 2px;
             margin-bottom: 4px;
@@ -303,7 +304,6 @@
             border-top: 1px solid #111;
             border-bottom: 1px solid #111;
             padding: 2.5px 2px;
-            text-align: left;
             text-transform: uppercase;
             font-size: 9px;
         }
@@ -311,14 +311,15 @@
         .items-table td {
             padding: 2px 2px;
             vertical-align: top;
+            word-wrap: break-word;
         }
 
-        .col-code { width: 14%; text-align: left; }
-        .col-desc { width: 48%; text-align: left; }
-        .col-qty  { width: 10%; text-align: right; }
-        .col-price { width: 9%; text-align: right; }
-        .col-disc { width: 9%; text-align: right; }
-        .col-total { width: 10%; text-align: right; }
+        .col-code  { width: 15%; text-align: left !important; }
+        .col-desc  { width: 45%; text-align: left !important; }
+        .col-qty   { width: 10%; text-align: right !important; }
+        .col-price { width: 10%; text-align: right !important; }
+        .col-disc  { width: 10%; text-align: right !important; }
+        .col-total { width: 10%; text-align: right !important; }
 
         /* ─── FOOTER (FIRMA, TOTALES - FIJADO AL CORTE INFERIOR DE 135MM) ─── */
         .footer-table {
@@ -714,7 +715,7 @@
                 <tr>
                     <td class="col-code">{{ $code }}</td>
                     <td class="col-desc">{{ $desc }}</td>
-                    <td class="col-qty">{{ number_format($itemQty, 2) }}-</td>
+                    <td class="col-qty">{{ number_format($itemQty, 2) }}</td>
                     <td class="col-price">{{ number_format($itemPrice, 2) }}</td>
                     <td class="col-disc">{{ $itemDisc > 0 ? number_format($itemDisc, 2) : '' }}</td>
                     <td class="col-total">{{ number_format($itemTot, 2) }}</td>
