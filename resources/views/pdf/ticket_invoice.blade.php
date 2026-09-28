@@ -440,6 +440,13 @@
             text-overflow: ellipsis;
             line-height: 1;
         }
+
+        /* ─── LÍNEA DE CORTE SIMPLE (SIN TEXTO) ─── */
+        .cut-line {
+            width: 100%;
+            border-bottom: 1px dashed #9ca3af;
+            margin-top: 3mm;
+        }
     </style>
 </head>
 <body>
@@ -768,6 +775,9 @@
         SISTEMA POS &amp; FACTURACIÓN ELECTRÓNICA SRI / 1x1 COPIA (V) / {{ $formattedDocNumber }}
     </div>
 </div>
+
+<!-- Línea de corte simple para separar la media hoja A4 -->
+<div class="cut-line"></div>
 
 <script>
     // Auto-disparar diálogo de impresión si se abre en ventana independiente
