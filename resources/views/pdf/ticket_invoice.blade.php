@@ -319,11 +319,11 @@
         .col-disc { width: 9%; text-align: right; }
         .col-total { width: 10%; text-align: right; }
 
-        /* ─── FOOTER (FIRMA, SELLO, TOTALES) ─── */
+        /* ─── FOOTER (FIRMA, TOTALES) ─── */
         .footer-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 4px;
+            margin-top: 6px;
         }
 
         .footer-table td {
@@ -331,32 +331,33 @@
         }
 
         .footer-signature-col {
-            width: 34%;
-            padding-right: 8px;
+            width: 45%;
+            padding-right: 12px;
         }
 
         .signature-container {
-            min-height: 52px;
+            min-height: 48px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
         }
 
         .signature-space {
-            height: 38px;
+            height: 28px;
             width: 100%;
         }
 
         .signature-line {
-            width: 95%;
-            border-bottom: 1px solid #222;
+            width: 100%;
+            border-bottom: 1.5px solid #000;
             margin-bottom: 3px;
         }
 
         .dispatch-text {
-            font-size: 8.8px;
+            font-size: 9px;
             font-weight: bold;
-            color: #111;
+            color: #000;
+            letter-spacing: 0.2px;
         }
 
         .signature-caption {
@@ -367,37 +368,12 @@
             margin-top: 1px;
         }
 
-        .footer-stamp-col {
-            width: 32%;
-            text-align: center;
-            padding: 0 4px;
-        }
-
-        .stamp-box {
-            display: inline-block;
-            text-align: center;
-            padding: 2px 6px;
-            line-height: 1.15;
-            font-size: 8px;
-            color: #222;
-        }
-
-        .stamp-company {
-            font-weight: bold;
-            font-size: 8.5px;
-            text-transform: uppercase;
-        }
-
-        .stamp-canceled {
-            font-size: 12px;
-            font-weight: 900;
-            letter-spacing: 2.5px;
-            margin-top: 1px;
-            text-transform: uppercase;
+        .footer-center-col {
+            width: 15%;
         }
 
         .footer-totals-col {
-            width: 34%;
+            width: 40%;
             text-align: right;
             padding-left: 6px;
         }
@@ -458,18 +434,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1;
-        }
-
-        /* ─── LÍNEA DE CORTE PARA SEPARAR FACTURA MANUALMENTE EN HOJA A4 ─── */
-        .cut-guide-container {
-            margin-top: 8px;
-            text-align: center;
-            width: 100%;
-            border-top: 1px dashed #9ca3af;
-            padding-top: 3px;
-            color: #9ca3af;
-            font-size: 7.5px;
-            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -763,15 +727,8 @@
                 </div>
             </td>
 
-            <!-- Columna Central: Sello de la Empresa / CANCELADO -->
-            <td class="footer-stamp-col">
-                <div class="stamp-box">
-                    <div class="stamp-company">{{ $companyName }}</div>
-                    <div>{{ $branchTag }}: {{ $sucursal->address ?? 'SUR DE QUITO SECTOR EL BEATERIO' }}</div>
-                    <div>Telfs: {{ $sucursal->phone ?? '0999179988' }}</div>
-                    <div class="stamp-canceled">CANCELADO</div>
-                </div>
-            </td>
+            <!-- Espacio Central Libre (para colocar sello físico) -->
+            <td class="footer-center-col"></td>
 
             <!-- Columna Derecha: Totales SRI -->
             <td class="footer-totals-col">
@@ -805,11 +762,6 @@
     <div class="lateral-watermark">
         SISTEMA POS &amp; FACTURACIÓN ELECTRÓNICA SRI / 1x1 COPIA (V) / {{ $formattedDocNumber }}
     </div>
-</div>
-
-<!-- Guía de corte para partir la hoja A4 a la mitad manualmente -->
-<div class="cut-guide-container">
-    - - - - - - - - - - - - - - - - - - - - - - - - - ✂ LÍNEA DE CORTE (MEDIA HOJA A4) - - - - - - - - - - - - - - - - - - - - - - - - -
 </div>
 
 <script>
