@@ -110,6 +110,7 @@ class SalePdfService
             'client',
             'vehicle',
             'workOrder.vehicle',
+            'user',
             'financeRecord.paymentDistributions.account'
         ]);
 
@@ -119,26 +120,24 @@ class SalePdfService
             $sale->vehicle->brand = $vehicleBrands[$brandId] ?? $brandId;
         }
 
-        if ($sale->document_type === 'invoice' || !empty($sale->sri_access_key)) {
-            $sucursal = Sucursale::find($sale->client->sucursale_id ?? 1) ?? Sucursale::first();
-            $autorizacion = [
-                'numeroAutorizacion' => $sale->sri_access_key,
-                'fechaAutorizacion'  => $sale->sri_authorization_date ? $sale->sri_authorization_date->format('d/m/Y H:i:s') : null,
-                'estado'             => $sale->sri_status,
-            ];
+        $sucursal = Sucursale::find($sale->client->sucursale_id ?? 1) ?? Sucursale::first();
+        $autorizacion = [
+            'numeroAutorizacion' => $sale->sri_access_key,
+            'fechaAutorizacion'  => $sale->sri_authorization_date ? $sale->sri_authorization_date->format('d/m/Y H:i:s') : null,
+            'estado'             => $sale->sri_status,
+        ];
 
-            if ($request->has('print')) {
-                return view('pdf.ride', compact('sale', 'sucursal', 'autorizacion'));
-            }
+        if ($request->has('print') || $request->get('format') === 'ticket') {
+            return view('pdf.ticket_invoice', compact('sale', 'sucursal', 'autorizacion'));
+        }
+
+        if ($sale->document_type === 'invoice' || !empty($sale->sri_access_key)) {
             $pdf = Pdf::loadView('pdf.ride', compact('sale', 'sucursal', 'autorizacion'));
             $fileName = $this->buildDownloadFileName($sale, 'pdf');
             return $pdf->stream($fileName);
         }
 
-        if ($request->has('print')) {
-            return view('sales.pdf_sale', compact('sale'));
-        }
-        $pdf = Pdf::loadView('sales.pdf_sale', compact('sale'));
+        $pdf = Pdf::loadView('sales.pdf_sale', compact('sale', 'sucursal', 'autorizacion'));
         $fileName = PdfHelper::formatFileName($sale->document_type, $sale->document_number, $sale->client, $sale->vehicle);
         return $pdf->stream($fileName);
     }
