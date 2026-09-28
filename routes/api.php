@@ -45,6 +45,7 @@ use App\Http\Controllers\Purchases\SupplierReconciliationController;
 use App\Http\Controllers\Sales\CreditNoteController;
 use App\Http\Controllers\SparePartRequestController;
 use App\Http\Controllers\Supplier\PedidoDistribuidorController;
+use App\Http\Controllers\Supplier\DistributorCatalogController;
 use App\Http\Controllers\UnitTypeController;
 use Illuminate\Support\Facades\Route;
 
@@ -280,6 +281,14 @@ Route::group(
         Route::put('pedidos-distribuidor/{id}', [PedidoDistribuidorController::class, 'update']);
         Route::delete('pedidos-distribuidor/{id}', [PedidoDistribuidorController::class, 'destroy']);
         Route::put('pedidos-distribuidor/{id}/status', [PedidoDistribuidorController::class, 'updateStatus']);
+
+        // ============= RUTAS DE CATÁLOGO / LISTAS DE PRECIOS DE DISTRIBUIDORES ==========
+        Route::get('distributor-catalog/categories', [DistributorCatalogController::class, 'categories']);
+        Route::get('distributor-catalog/suppliers', [DistributorCatalogController::class, 'suppliers']);
+        Route::post('distributor-catalog/import', [DistributorCatalogController::class, 'import']);
+        Route::delete('distributor-catalog/clear/{supplier_id}', [DistributorCatalogController::class, 'clear']);
+        Route::delete('distributor-catalog/{id}', [DistributorCatalogController::class, 'destroy']);
+        Route::get('distributor-catalog', [DistributorCatalogController::class, 'index']);
 
         // ============= RUTAS DE KARDEX INTEGRAL ==========
         Route::get('kardex/productos', [KardexController::class, 'indexByProduct']);
