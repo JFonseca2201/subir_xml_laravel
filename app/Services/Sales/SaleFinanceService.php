@@ -69,8 +69,8 @@ class SaleFinanceService
 
         \App\Models\Finance\FinancialMovement::where(function ($q) use ($sale) {
             $q->where('metadata->invoice', $sale->document_number)
-              ->orWhere('metadata->document_number', $sale->document_number)
-              ->orWhere('description', 'like', "%{$sale->document_number}%");
+                ->orWhere('metadata->document_number', $sale->document_number)
+                ->orWhere('description', 'like', "%{$sale->document_number}%");
         })->where('movable_type', get_class($sale))->delete();
 
         $entryDate = $sale->service_date instanceof \Carbon\Carbon
@@ -265,7 +265,7 @@ class SaleFinanceService
                     ProcessElectronicInvoice::dispatch($sale->id)->onQueue('sri');
                 }
             }
-
+            /* aquí se debe llamar la funcion proccess financial record */
             $this->processFinancialRecord($sale, $requestData, $userId);
         });
 
