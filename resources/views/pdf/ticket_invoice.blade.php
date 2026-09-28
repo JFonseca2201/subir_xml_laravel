@@ -30,14 +30,15 @@
             margin: 0 auto;
         }
 
-        /* ─── CONTENEDOR DE MEDIA HOJA A4 VERTICAL ─── */
+        /* ─── CONTENEDOR DE MEDIA HOJA A4 VERTICAL (EXACTO 135MM) ─── */
         .ticket-wrapper {
             position: relative;
             width: 100%;
             max-width: 100%;
-            min-height: 125mm;
-            max-height: 138mm; /* Asegura que la factura quede estrictamente en la mitad superior */
-            padding-right: 20px; /* Espacio para el texto lateral vertical */
+            height: 135mm;
+            max-height: 135mm;
+            padding-right: 20px;
+            box-sizing: border-box;
             page-break-inside: avoid;
         }
 
@@ -319,11 +320,14 @@
         .col-disc { width: 9%; text-align: right; }
         .col-total { width: 10%; text-align: right; }
 
-        /* ─── FOOTER (FIRMA, TOTALES) ─── */
+        /* ─── FOOTER (FIRMA, TOTALES - FIJADO AL CORTE INFERIOR DE 135MM) ─── */
         .footer-table {
-            width: 100%;
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            width: calc(100% - 20px);
             border-collapse: collapse;
-            margin-top: 6px;
+            margin: 0;
         }
 
         .footer-table td {
@@ -343,7 +347,7 @@
         }
 
         .signature-space {
-            height: 28px;
+            height: 32px;
             width: 100%;
         }
 
@@ -414,13 +418,14 @@
             text-align: right;
         }
 
-        /* ─── TEXTO LATERAL VERTICAL (MARGEN DERECHO - CONFINADO A LA FACTURA) ─── */
+        /* ─── TEXTO LATERAL VERTICAL (MARGEN DERECHO - CONFINADO A LA MEDIA HOJA DE 135MM) ─── */
         .lateral-watermark {
             position: absolute;
             right: 0px;
-            top: 2mm;
-            height: 115mm;
-            max-height: 120mm;
+            top: 0px;
+            bottom: 0px;
+            height: 135mm;
+            max-height: 135mm;
             width: 14px;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
