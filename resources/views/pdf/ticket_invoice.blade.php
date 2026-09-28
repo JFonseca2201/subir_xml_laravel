@@ -473,8 +473,9 @@
         $branchTag = $sucursal->trade_name ?? 'MATRIZ';
     }
 
-    // Desglose de Pagos (EFE, TAR, CRE)
+    // Desglose de Pagos (Efectivo, Transferencia, Tarjeta, Crédito)
     $efeAmount = 0.00;
+    $traAmount = 0.00;
     $tarAmount = 0.00;
     $creAmount = 0.00;
 
@@ -484,19 +485,23 @@
         foreach ($sale->financeRecord->paymentDistributions as $pd) {
             $method = strtolower($pd->payment_method ?? ($pd->account->type ?? ''));
             $accName = strtolower($pd->account->name ?? '');
-            if (str_contains($method, 'cash') || str_contains($method, 'efectivo') || str_contains($accName, 'caja') || str_contains($accName, 'efectivo')) {
-                $efeAmount += (float)$pd->amount;
-            } elseif (str_contains($method, 'card') || str_contains($method, 'tarjeta') || str_contains($method, 'transf') || str_contains($method, 'banco') || str_contains($accName, 'banco') || str_contains($accName, 'tarjeta') || str_contains($accName, 'pichincha') || str_contains($accName, 'guayaquil') || str_contains($accName, 'produbanco')) {
+            if (str_contains($method, 'transf') || str_contains($accName, 'transf') || str_contains($accName, 'pichincha') || str_contains($accName, 'guayaquil') || str_contains($accName, 'produbanco') || str_contains($accName, 'banco') || str_contains($method, 'transfer')) {
+                $traAmount += (float)$pd->amount;
+            } elseif (str_contains($method, 'card') || str_contains($method, 'tarjeta') || str_contains($accName, 'tarjeta') || str_contains($accName, 'pos') || str_contains($accName, 'datafast')) {
                 $tarAmount += (float)$pd->amount;
             } elseif (str_contains($method, 'credit') || str_contains($method, 'credito') || str_contains($accName, 'credito')) {
                 $creAmount += (float)$pd->amount;
+            } elseif (str_contains($method, 'cash') || str_contains($method, 'efectivo') || str_contains($accName, 'caja') || str_contains($accName, 'efectivo')) {
+                $efeAmount += (float)$pd->amount;
             } else {
-                $tarAmount += (float)$pd->amount;
+                $efeAmount += (float)$pd->amount;
             }
         }
     } else {
         $method = strtolower($sale->payment_method ?? 'efectivo');
-        if (str_contains($method, 'tarjeta') || str_contains($method, 'transf') || str_contains($method, 'card') || str_contains($method, 'banco')) {
+        if (str_contains($method, 'transf') || str_contains($method, 'banco')) {
+            $traAmount = (float)$sale->total;
+        } elseif (str_contains($method, 'tarjeta') || str_contains($method, 'card')) {
             $tarAmount = (float)$sale->total;
         } elseif (str_contains($method, 'cred') || $sale->payment_status === 'pending') {
             $creAmount = (float)$sale->total;
@@ -589,7 +594,7 @@
             <td class="company-info-col">
                 <div class="company-name">{{ $companyName }}</div>
                 <div class="company-detail"><span class="company-detail-bold">RUC:</span> {{ $sucursal->ruc ?? '1793192550001' }}</div>
-                <div class="company-detail"><span class="company-detail-bold">{{ $branchTag }}:</span> {{ $sucursal->address ?? 'SUR DE QUITO SECTOR EL BEATERIO S49B Y E1C' }}</div>
+                <div class="company-detail"><span class="company-detail-bold">SUCURSAL ({{ $branchTag }}):</span> {{ $sucursal->address ?? 'SUR DE QUITO SECTOR EL BEATERIO S49B Y E1C' }}</div>
                 <div class="company-detail">Telf.: {{ $sucursal->phone ?? '0999179988' }} - E-mail: {{ $sucursal->email ?? 'comp.luxueryevys@gmail.com' }}</div>
                 <div class="company-detail" style="font-weight: bold; margin-top: 1px;">
                     {{ (isset($sucursal->obligado_contabilidad) && in_array(strtoupper($sucursal->obligado_contabilidad), ['SI', '1', 'TRUE'])) ? '"OBLIGADO A LLEVAR CONTABILIDAD"' : '"NO OBLIGADO A LLEVAR CONTABILIDAD"' }}
@@ -607,9 +612,9 @@
                     <span class="doc-type-title">{{ $sale->document_type === 'quote' ? 'Cotización No.' : ($sale->document_type === 'note' ? 'Nota Venta No.' : 'Factura No.') }}</span>
                     <span class="doc-number">{{ $formattedDocNumber }}</span>
                 </div>
-                <div class="branch-tag">{{ $branchTag }}</div>
+                <div class="branch-tag">SUCURSAL: {{ $branchTag }}</div>
 
-                <!-- Mini tabla de pagos (EFE, TAR, CRE) y Ambiente -->
+                <!-- Mini tabla de pagos (EFE, TRA, TAR, CRE) y Ambiente -->
                 <div class="payment-status-grid">
                     <div class="payment-row">
                         <div class="payment-lbl-left"></div>
@@ -618,11 +623,16 @@
                     </div>
                     <div class="payment-row">
                         <div class="payment-lbl-left">AMBIENTE: {{ ($sucursal->ambiente == '2' || config('sri.ambiente') == '2') ? 'PRODUCCIÓN' : 'PRUEBAS' }}</div>
+                        <div class="payment-lbl">TRA</div>
+                        <div class="payment-val">{{ number_format($traAmount, 2) }}</div>
+                    </div>
+                    <div class="payment-row">
+                        <div class="payment-lbl-left">EMISIÓN: NORMAL</div>
                         <div class="payment-lbl">TAR</div>
                         <div class="payment-val">{{ number_format($tarAmount, 2) }}</div>
                     </div>
                     <div class="payment-row">
-                        <div class="payment-lbl-left">EMISIÓN: NORMAL</div>
+                        <div class="payment-lbl-left"></div>
                         <div class="payment-lbl">CRE</div>
                         <div class="payment-val">{{ number_format($creAmount, 2) }}</div>
                     </div>
