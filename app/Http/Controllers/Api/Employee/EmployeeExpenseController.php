@@ -1144,7 +1144,9 @@ class EmployeeExpenseController extends Controller
             $accountName = $record->account ? ($record->account->bank_name ?: $record->account->name) : 'CAJA GENERAL';
             $employee = $record->employee;
             $employeeName = $employee ? ($employee->first_name . ' ' . $employee->last_name) : 'N/A';
-            $employeeIdCard = $employee ? ($employee->identification_number ?? $employee->id_card ?? $employee->cedula ?? '') : '';
+            $employeeIdCard = $employee ? ($employee->identification ?? $employee->identification_number ?? $employee->id_card ?? $employee->cedula ?? '') : '';
+            $employeePhone = $employee ? ($employee->phone ?? '') : '';
+            $employeeEmail = $employee ? ($employee->email ?? '') : '';
             $employeePosition = $employee ? ($employee->position ?? $employee->role ?? 'Personal / Operativo') : 'Personal / Operativo';
 
             $companyData = [
@@ -1203,6 +1205,23 @@ class EmployeeExpenseController extends Controller
                 $advancesAmount = (float) ($record->advances_amount > 0 ? $record->advances_amount : ($advances ? $advances->sum('amount') : 0));
                 $netAmount = (float) ($record->net_amount > 0 ? $record->net_amount : ($record->amount > 0 ? $record->amount : ($baseSalary - $advancesAmount)));
 
+                $advancesList = [];
+                if ($advances && $advances->isNotEmpty()) {
+                    foreach ($advances as $adv) {
+                        $advancesList[] = [
+                            'id' => $adv->id,
+                            'date' => Carbon::parse($adv->advance_date)->format('d/m/Y'),
+                            'reference' => $adv->reference ?: ('ADEL-EMP-' . str_pad($adv->id, 5, '0', STR_PAD_LEFT)),
+                            'reason' => $adv->reason ?: 'Adelanto de Sueldo',
+                            'amount' => (float) $adv->amount,
+                        ];
+                    }
+                }
+
+                $manager = Employee::where('position', 'like', '%GERENTE%')->first() ?? Employee::find(1);
+                $authorizerName = $manager ? trim($manager->first_name . ' ' . $manager->last_name) : 'JUAN DIEGO FONSECA YUPA';
+                $authorizerPosition = $manager && !empty($manager->position) ? $manager->position : 'GERENTE GENERAL';
+
                 $receiptData = [
                     'type' => 'payment',
                     'title' => 'COMPROBANTE DE PAGO DE NÓMINA',
@@ -1210,7 +1229,11 @@ class EmployeeExpenseController extends Controller
                     'date' => Carbon::parse($record->payment_date)->format('d/m/Y'),
                     'employee_name' => $employeeName,
                     'employee_id_card' => $employeeIdCard,
+                    'employee_phone' => $employeePhone,
+                    'employee_email' => $employeeEmail,
                     'employee_position' => $employeePosition,
+                    'authorizer_name' => $authorizerName,
+                    'authorizer_position' => $authorizerPosition,
                     'payment_method' => $record->payment_method ?: ($record->account && $record->account->type === 'bank' ? 'TRANSFERENCIA' : 'EFECTIVO'),
                     'account_name' => $accountName,
                     'reason' => 'Pago de Nómina / Remuneración',
@@ -1218,12 +1241,17 @@ class EmployeeExpenseController extends Controller
                     'month_label' => $monthLabel,
                     'base_salary' => $baseSalary,
                     'advances_deducted' => $advancesAmount,
+                    'advances_items' => $advancesList,
                     'net_amount' => $netAmount,
                     'amount' => $netAmount,
                     'amount_in_words' => $this->convertNumberToSpanishWords($netAmount),
                 ];
             } else {
                 // ADELANTO DE SUELDO
+                $manager = Employee::where('position', 'like', '%GERENTE%')->first() ?? Employee::find(1);
+                $authorizerName = $manager ? trim($manager->first_name . ' ' . $manager->last_name) : 'JUAN DIEGO FONSECA YUPA';
+                $authorizerPosition = $manager && !empty($manager->position) ? $manager->position : 'GERENTE GENERAL';
+
                 $advanceAmount = (float) $record->amount;
                 $receiptData = [
                     'type' => 'advance',
@@ -1232,7 +1260,11 @@ class EmployeeExpenseController extends Controller
                     'date' => Carbon::parse($record->advance_date)->format('d/m/Y'),
                     'employee_name' => $employeeName,
                     'employee_id_card' => $employeeIdCard,
+                    'employee_phone' => $employeePhone,
+                    'employee_email' => $employeeEmail,
                     'employee_position' => $employeePosition,
+                    'authorizer_name' => $authorizerName,
+                    'authorizer_position' => $authorizerPosition,
                     'payment_method' => $record->payment_method ?: ($record->account && $record->account->type === 'bank' ? 'TRANSFERENCIA' : 'EFECTIVO'),
                     'account_name' => $accountName,
                     'reason' => $record->reason ?: 'Adelanto de Sueldo / Anticipo',
