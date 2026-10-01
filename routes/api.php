@@ -169,6 +169,8 @@ Route::group(
         Route::get('employee-earnings/{id}', [EmployeeExpenseController::class, 'getEmployeeEarnings']);
         Route::get('employee-pending-advances/{id}', [EmployeeExpenseController::class, 'getEmployeePendingAdvances']);
         Route::get('employee-expenses/{type}/{id}/pdf', [EmployeeExpenseController::class, 'generateSinglePDF']);
+        Route::get('employee-expenses/{type}/{id}/receipt', [EmployeeExpenseController::class, 'printReceipt']);
+        Route::get('employee-expenses/{type}/{id}/print', [EmployeeExpenseController::class, 'printReceipt']);
 
         // ============= RUTAS DE ADELANTOS ==========
         Route::post('employee-expenses/advance', [EmployeeExpenseController::class, 'storeAdvance']);

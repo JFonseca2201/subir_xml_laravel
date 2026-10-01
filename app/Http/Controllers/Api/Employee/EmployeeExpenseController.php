@@ -937,6 +937,11 @@ class EmployeeExpenseController extends Controller
                 return response()->json(['error' => 'Tipo inválido'], 400);
             }
 
+            // Si se solicita formato ticket o imprimir, delegar a printReceipt
+            if (request()->has('print') || request()->get('format') === 'ticket') {
+                return $this->printReceipt($type, $id);
+            }
+
             // Preparar el logo
             $sucursal = \App\Models\Config\Sucursale::query()->first();
             $logoBase64 = '';
@@ -966,26 +971,11 @@ class EmployeeExpenseController extends Controller
                 $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
             }
 
-            // Mapear nombre de la cuenta
             $accountName = $record->account ? ($record->account->bank_name ?: $record->account->name) : 'CAJA GENERAL';
             $employee = $record->employee;
             $employeeName = $employee ? ($employee->first_name . ' ' . $employee->last_name) : 'N/A';
-            $employeeIdCard = $employee ? ($employee->identification_number ?? $employee->id_card ?? $employee->cedula ?? '') : '';
-            $employeePosition = $employee ? ($employee->position ?? $employee->role ?? 'Personal / Operativo') : 'Personal / Operativo';
 
-            $companyData = [
-                'name' => $sucursal ? ($sucursal->trade_name ?: ($sucursal->name ?: 'EMPRESA')) : 'LAVADORA Y LUBRICADORA EXPRESS',
-                'trade_name' => $sucursal ? $sucursal->trade_name : '',
-                'ruc' => $sucursal ? ($sucursal->ruc ?: '1790012345001') : '1790012345001',
-                'address' => $sucursal ? ($sucursal->address ?: 'Av. Principal') : 'Av. Principal',
-                'phone' => $sucursal ? ($sucursal->phone ?: '') : '',
-                'email' => $sucursal ? ($sucursal->email ?: '') : '',
-                'sucursal_name' => $sucursal ? ($sucursal->name ?: 'BEATERIO') : 'BEATERIO',
-                'logoBase64' => $logoBase64,
-            ];
-
-            $receiptData = [];
-
+            // PAGO DE NÓMINA -> Rol de Pagos Oficial
             if ($type === 'payment') {
                 $advances = $record->advances;
 
@@ -1024,6 +1014,145 @@ class EmployeeExpenseController extends Controller
                     }
                 }
 
+                $monthNames = [
+                    '01' => 'ENERO', '02' => 'FEBRERO', '03' => 'MARZO', '04' => 'ABRIL',
+                    '05' => 'MAYO', '06' => 'JUNIO', '07' => 'JULIO', '08' => 'AGOSTO',
+                    '09' => 'SEPTIEMBRE', '10' => 'OCTUBRE', '11' => 'NOVIEMBRE', '12' => 'DICIEMBRE'
+                ];
+
+                if (!$monthStr) {
+                    $dt = Carbon::parse($record->payment_date);
+                    $monthStr = $dt->day <= 10 ? $dt->copy()->subMonth()->format('Y-m') : $dt->format('Y-m');
+                }
+
+                if ($monthStr && strpos($monthStr, '-') !== false) {
+                    $parts = explode('-', $monthStr);
+                    $monthLabel = ($monthNames[$parts[1] ?? ''] ?? $parts[1]) . ' ' . ($parts[0] ?? '');
+                } else {
+                    $dt = Carbon::parse($record->payment_date);
+                    $mKey = str_pad($dt->month, 2, '0', STR_PAD_LEFT);
+                    $monthLabel = ($monthNames[$mKey] ?? '') . ' ' . $dt->year;
+                }
+
+                $baseSalary = (float) ($record->base_salary > 0 ? $record->base_salary : ($employee ? $employee->salary : $record->amount));
+                $advancesAmount = (float) ($record->advances_amount > 0 ? $record->advances_amount : ($advances ? $advances->sum('amount') : 0));
+                $netAmount = (float) ($record->net_amount > 0 ? $record->net_amount : ($record->amount > 0 ? $record->amount : ($baseSalary - $advancesAmount)));
+
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.employee_payroll_role', [
+                    'payment' => $record,
+                    'employee' => $employee,
+                    'advances' => $advances ?: [],
+                    'base_salary' => $baseSalary,
+                    'advances_amount' => $advancesAmount,
+                    'net_amount' => $netAmount,
+                    'month_label' => $monthLabel,
+                    'payment_date' => Carbon::parse($record->payment_date)->format('d/m/Y'),
+                    'doc_number' => 'ROL-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT),
+                    'account_name' => $accountName,
+                    'company_name' => $sucursal ? ($sucursal->trade_name ?: ($sucursal->name ?: 'EMPRESA')) : 'LAVADORA Y LUBRICADORA EXPRESS',
+                    'company_ruc' => $sucursal ? ($sucursal->ruc ?: '1790012345001') : '1790012345001',
+                    'company_address' => $sucursal ? ($sucursal->address ?: 'Av. Principal') : 'Av. Principal',
+                    'company_phone' => $sucursal ? ($sucursal->phone ?: '') : '',
+                    'company_email' => $sucursal ? ($sucursal->email ?: '') : '',
+                    'logoBase64' => $logoBase64,
+                    'amount_in_words' => "SON: " . $this->convertNumberToSpanishWords($netAmount) . " AMERICANOS"
+                ])->setPaper('a4', 'portrait');
+
+                $cleanEmpName = str_replace(' ', '_', $employeeName);
+                return $pdf->download('ROL_PAGOS_' . $cleanEmpName . '_' . ($monthStr ?: date('Y-m')) . '.pdf');
+            }
+
+            // ADELANTO -> Comprobante de media hoja
+            return $this->printReceipt($type, $id);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error generating employee single PDF: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Imprime o previsualiza el Comprobante de Adelanto o Pago de Personal en formato Media Hoja A4
+     */
+    public function printReceipt($type, $id)
+    {
+        try {
+            $record = null;
+
+            if ($type === 'payment') {
+                $record = EmployeePayment::with(['employee', 'account'])->findOrFail($id);
+            } else if ($type === 'advance') {
+                $record = EmployeeAdvance::with(['employee', 'account'])->findOrFail($id);
+            } else {
+                return response()->json(['error' => 'Tipo inválido'], 400);
+            }
+
+            // Preparar el logo
+            $sucursal = \App\Models\Config\Sucursale::query()->first();
+            $logoBase64 = '';
+            $logoPath = null;
+            if ($sucursal && $sucursal->logo) {
+                $tempPath = public_path($sucursal->logo);
+                if (file_exists($tempPath)) {
+                    $logoPath = $tempPath;
+                } else {
+                    $cleanLogo = str_replace('storage/', '', $sucursal->logo);
+                    $tempPath = storage_path('app/public/' . $cleanLogo);
+                    if (file_exists($tempPath)) {
+                        $logoPath = $tempPath;
+                    }
+                }
+            }
+            if (!$logoPath || !file_exists($logoPath)) {
+                $logoPath = public_path('assets/img/brand/logo.jpeg');
+            }
+            if (file_exists($logoPath)) {
+                $logoData = file_get_contents($logoPath);
+                $logoMime = 'image/jpeg';
+                $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+                if ($ext === 'png') $logoMime = 'image/png';
+                elseif ($ext === 'gif') $logoMime = 'image/gif';
+                elseif ($ext === 'svg') $logoMime = 'image/svg+xml';
+                $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+            }
+
+            $accountName = $record->account ? ($record->account->bank_name ?: $record->account->name) : 'CAJA GENERAL';
+            $employee = $record->employee;
+            $employeeName = $employee ? ($employee->first_name . ' ' . $employee->last_name) : 'N/A';
+            $employeeIdCard = $employee ? ($employee->identification_number ?? $employee->id_card ?? $employee->cedula ?? '') : '';
+            $employeePosition = $employee ? ($employee->position ?? $employee->role ?? 'Personal / Operativo') : 'Personal / Operativo';
+
+            $companyData = [
+                'name' => $sucursal ? ($sucursal->trade_name ?: ($sucursal->name ?: 'EMPRESA')) : 'LAVADORA Y LUBRICADORA EXPRESS',
+                'trade_name' => $sucursal ? $sucursal->trade_name : '',
+                'ruc' => $sucursal ? ($sucursal->ruc ?: '1790012345001') : '1790012345001',
+                'address' => $sucursal ? ($sucursal->address ?: 'Av. Principal') : 'Av. Principal',
+                'phone' => $sucursal ? ($sucursal->phone ?: '') : '',
+                'email' => $sucursal ? ($sucursal->email ?: '') : '',
+                'sucursal_name' => $sucursal ? ($sucursal->name ?: 'BEATERIO') : 'BEATERIO',
+                'logoBase64' => $logoBase64,
+            ];
+
+            $receiptData = [];
+
+            if ($type === 'payment') {
+                $advances = $record->advances;
+
+                if (!$advances || $advances->isEmpty()) {
+                    $advances = EmployeeAdvance::where('employee_id', $record->employee_id)
+                        ->where(function ($q) use ($record) {
+                            $q->where('employee_payment_id', $record->id)
+                                ->orWhere(function ($sub) use ($record) {
+                                    $sub->where('is_deducted', true)
+                                        ->whereBetween('updated_at', [
+                                            Carbon::parse($record->created_at)->subMinutes(10),
+                                            Carbon::parse($record->created_at)->addMinutes(10)
+                                        ]);
+                                });
+                        })
+                        ->get();
+                }
+
+                $monthStr = $record->payment_month;
                 $monthNames = [
                     '01' => 'ENERO', '02' => 'FEBRERO', '03' => 'MARZO', '04' => 'ABRIL',
                     '05' => 'MAYO', '06' => 'JUNIO', '07' => 'JULIO', '08' => 'AGOSTO',
@@ -1087,7 +1216,7 @@ class EmployeeExpenseController extends Controller
                 ];
             }
 
-            if (request()->has('html') || request()->get('format') === 'html') {
+            if (request()->has('print') || request()->has('html') || request()->get('format') === 'ticket' || request()->get('format') === 'html') {
                 return view('pdf.employee_expense_receipt', [
                     'receipt' => $receiptData,
                     'company' => $companyData,
@@ -1103,7 +1232,7 @@ class EmployeeExpenseController extends Controller
             $prefix = ($type === 'payment' ? 'PAGO_' : 'ADELANTO_');
             return $pdf->download($prefix . $id . '_' . $cleanEmpName . '_' . date('Y-m-d') . '.pdf');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Error generating employee single PDF: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error generating employee receipt: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
