@@ -76,18 +76,19 @@
             }
         }
 
-        /* ─── CONTENEDOR DE CADA MEDIA HOJA (138MM) ─── */
+        /* ─── CONTENEDOR DE CADA MEDIA HOJA (136MM) ─── */
         .voucher-box {
             width: 100%;
-            height: 137mm;
-            max-height: 137mm;
+            height: 136mm;
+            max-height: 136mm;
             box-sizing: border-box;
             page-break-inside: avoid;
             overflow: hidden;
             border: 1px solid #cbd5e1;
             border-radius: 4px;
-            padding: 6px 8px 8px 8px;
+            padding: 6px 8px 6px 8px;
             background: #ffffff;
+            position: relative;
         }
 
         /* ─── ENCABEZADO ─── */
@@ -308,11 +309,17 @@
             letter-spacing: 0.3px;
         }
 
-        /* ─── SECCIÓN DE FIRMAS CON AMPLIO ESPACIO ─── */
+        /* ─── ESPACIADOR QUE EMPUJA LAS FIRMAS AL PIE DE LA MEDIA HOJA ─── */
+        .signature-spacer {
+            width: 100%;
+            height: 38mm; /* Espacio amplio para firmar a mano y colocar sellos */
+        }
+
+        /* ─── SECCIÓN DE FIRMAS EN EL PIE DE CADA MEDIA HOJA ─── */
         .footer-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 2px;
+            margin-top: 0;
         }
 
         .footer-table td {
@@ -325,14 +332,9 @@
             text-align: center;
         }
 
-        .signature-space {
-            height: 44px; /* Espacio amplio y limpio para firmar físicamente */
-            width: 100%;
-        }
-
         .signature-line {
             width: 85%;
-            margin: 0 auto 2px auto;
+            margin: 0 auto 3px auto;
             border-bottom: 1.2px solid #0f172a;
         }
 
@@ -354,7 +356,7 @@
         /* ─── SEPARADOR CENTRAL DE CORTE (ENTRE AMBAS COPIAS) ─── */
         .cut-divider {
             width: 100%;
-            height: 6mm;
+            height: 7mm;
             text-align: center;
             position: relative;
             display: flex;
@@ -365,7 +367,7 @@
         .cut-dashed-line {
             border-bottom: 1px dashed #64748b;
             width: 100%;
-            margin: 2.5mm 0;
+            margin: 3mm 0;
             text-align: center;
             line-height: 0.1em;
         }
@@ -507,11 +509,13 @@
             </table>
         </div>
 
-        <!-- Sección de Firmas -->
+        <!-- Espaciador que empuja las firmas al pie de la primera mitad de hoja -->
+        <div class="signature-spacer"></div>
+
+        <!-- Sección de Firmas (Ubicadas en la base / pie de la primera media hoja) -->
         <table class="footer-table">
             <tr>
                 <td class="signature-box">
-                    <div class="signature-space"></div>
                     <div class="signature-line"></div>
                     <div class="signature-title">AUTORIZADO POR / EMISOR</div>
                     <div class="signature-subtitle">{{ $company['name'] ?? 'ADMINISTRACIÓN' }}</div>
@@ -520,7 +524,6 @@
                 <td style="width: 12%;"></td>
 
                 <td class="signature-box">
-                    <div class="signature-space"></div>
                     <div class="signature-line"></div>
                     <div class="signature-title">RECIBÍ CONFORME (TRABAJADOR)</div>
                     <div class="signature-subtitle">{{ $receipt['employee_name'] ?? 'FIRMA Y CÉDULA' }}</div>
@@ -649,11 +652,13 @@
             </table>
         </div>
 
-        <!-- Sección de Firmas -->
+        <!-- Espaciador que empuja las firmas al pie de la segunda mitad de hoja -->
+        <div class="signature-spacer"></div>
+
+        <!-- Sección de Firmas (Ubicadas en la base / pie final de la hoja A4) -->
         <table class="footer-table">
             <tr>
                 <td class="signature-box">
-                    <div class="signature-space"></div>
                     <div class="signature-line"></div>
                     <div class="signature-title">AUTORIZADO POR / EMISOR</div>
                     <div class="signature-subtitle">{{ $company['name'] ?? 'ADMINISTRACIÓN' }}</div>
@@ -662,7 +667,6 @@
                 <td style="width: 12%;"></td>
 
                 <td class="signature-box">
-                    <div class="signature-space"></div>
                     <div class="signature-line"></div>
                     <div class="signature-title">RECIBÍ CONFORME (TRABAJADOR)</div>
                     <div class="signature-subtitle">{{ $receipt['employee_name'] ?? 'FIRMA Y CÉDULA' }}</div>
