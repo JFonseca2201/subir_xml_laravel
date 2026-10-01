@@ -6,69 +6,63 @@
     <title>{{ $receipt['title'] ?? 'Comprobante de Movimiento de Personal' }} - {{ $receipt['doc_number'] ?? '' }}</title>
     <style>
         @page {
-            size: A4 portrait; /* Hoja A4 en vertical */
-            margin: 6mm 8mm 6mm 8mm;
+            size: A4 portrait;
+            margin: 8mm 10mm 8mm 10mm;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Courier New', Courier, Consolas, 'Lucida Console', Monaco, monospace;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
 
         body {
             background-color: #ffffff;
-            color: #111111;
-            font-size: 10px;
-            line-height: 1.18;
+            color: #0f172a;
+            font-size: 9.5px;
+            line-height: 1.25;
             padding: 0;
             width: 100%;
-            max-width: 195mm;
             margin: 0 auto;
         }
 
-        /* ─── CONTENEDOR DE MEDIA HOJA A4 VERTICAL (EXACTO 135MM) ─── */
+        /* ─── CONTENEDOR DE MEDIA HOJA A4 ─── */
         .ticket-wrapper {
-            position: relative;
             width: 100%;
-            max-width: 100%;
-            height: 135mm;
-            max-height: 135mm;
-            padding-right: 20px;
-            box-sizing: border-box;
             page-break-inside: avoid;
         }
 
         /* ─── BOTONES DE PANTALLA (NO IMPRIMIR) ─── */
         .no-print-toolbar {
             position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(15, 23, 42, 0.9);
+            top: 12px;
+            right: 16px;
+            background: rgba(15, 23, 42, 0.92);
             padding: 8px 14px;
             border-radius: 8px;
             display: flex;
             gap: 10px;
             z-index: 99999;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
         }
 
         .no-print-btn {
             background: #2563eb;
             color: #ffffff;
             border: none;
-            padding: 6px 14px;
-            border-radius: 4px;
-            font-family: Arial, sans-serif;
+            padding: 7px 15px;
+            border-radius: 5px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            transition: background 0.2s;
         }
 
         .no-print-btn.btn-close {
@@ -76,7 +70,7 @@
         }
 
         .no-print-btn:hover {
-            opacity: 0.9;
+            opacity: 0.92;
         }
 
         @media print {
@@ -93,7 +87,7 @@
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 3px;
+            margin-bottom: 5px;
         }
 
         .header-table td {
@@ -106,24 +100,25 @@
         }
 
         .company-logo {
-            width: 58px;
-            height: 58px;
+            max-width: 60px;
+            max-height: 55px;
             object-fit: contain;
             display: block;
         }
 
         .logo-monogram {
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            border: 2px solid #222;
+            width: 52px;
+            height: 52px;
+            border-radius: 6px;
+            background: #1e293b;
+            color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
-            letter-spacing: -1px;
-            color: #222;
+            text-align: center;
+            line-height: 52px;
         }
 
         .company-info-col {
@@ -136,19 +131,20 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.2px;
-            color: #000000;
-            margin-bottom: 2px;
+            color: #0f172a;
+            margin-bottom: 1px;
             line-height: 1.15;
         }
 
         .company-detail {
-            font-size: 9px;
-            color: #222222;
-            line-height: 1.2;
+            font-size: 8.5px;
+            color: #334155;
+            line-height: 1.25;
         }
 
         .company-detail-bold {
             font-weight: bold;
+            color: #0f172a;
         }
 
         .doc-header-col {
@@ -157,35 +153,35 @@
         }
 
         .doc-box {
-            border: 1.5px solid #111;
+            border: 1.5px solid #0f172a;
             padding: 5px 8px;
             text-align: center;
-            background-color: #fafafa;
+            background-color: #f8fafc;
             border-radius: 4px;
         }
 
         .doc-type-title {
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 800;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             text-transform: uppercase;
-            color: #000;
+            color: #0f172a;
             margin-bottom: 2px;
         }
 
         .doc-number {
             font-size: 12px;
             font-weight: 800;
-            letter-spacing: 0.8px;
-            color: #1e3a8a;
+            letter-spacing: 0.5px;
+            color: #1d4ed8;
         }
 
         .branch-tag {
-            font-size: 9px;
+            font-size: 8px;
             font-weight: bold;
-            margin-top: 3px;
+            margin-top: 2px;
             text-transform: uppercase;
-            color: #444;
+            color: #475569;
         }
 
         /* ─── TABLA DE DATOS DEL TRABAJADOR Y MOVIMIENTO ─── */
@@ -194,37 +190,34 @@
             border-collapse: collapse;
             margin-top: 4px;
             margin-bottom: 5px;
-            border: 1px solid #222;
-            font-size: 9.2px;
+            border: 1px solid #cbd5e1;
+            font-size: 9px;
+            background: #ffffff;
         }
 
         .info-card-table td {
             padding: 3px 6px;
             vertical-align: top;
-            border-bottom: 1px dotted #ccc;
-        }
-
-        .info-card-table tr:last-child td {
-            border-bottom: none;
+            border: 1px solid #e2e8f0;
         }
 
         .info-label {
             font-weight: bold;
-            color: #000;
-            width: 18%;
+            color: #334155;
+            width: 16%;
             text-transform: uppercase;
+            background-color: #f8fafc;
+            font-size: 8.5px;
         }
 
         .info-val {
-            color: #111;
-            width: 32%;
-            text-transform: uppercase;
+            color: #0f172a;
+            width: 34%;
         }
 
         .info-val-wide {
-            color: #111;
-            width: 82%;
-            text-transform: uppercase;
+            color: #0f172a;
+            width: 84%;
         }
 
         /* ─── TABLA DE DESGLOSE / CONCEPTO ─── */
@@ -233,23 +226,24 @@
             border-collapse: collapse;
             margin-top: 3px;
             margin-bottom: 4px;
-            font-size: 9.2px;
+            font-size: 9px;
         }
 
         .concept-table th {
             font-weight: bold;
-            border-top: 1.5px solid #111;
-            border-bottom: 1.5px solid #111;
-            padding: 3px 4px;
+            border-top: 1.5px solid #0f172a;
+            border-bottom: 1.5px solid #0f172a;
+            padding: 3.5px 5px;
             text-transform: uppercase;
-            font-size: 9px;
-            background-color: #f5f5f5;
+            font-size: 8.5px;
+            background-color: #f1f5f9;
+            color: #0f172a;
         }
 
         .concept-table td {
-            padding: 3.5px 4px;
+            padding: 4px 5px;
             vertical-align: top;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #e2e8f0;
         }
 
         .amount-highlight-box {
@@ -258,48 +252,53 @@
             border-radius: 4px;
             padding: 4px 8px;
             margin-top: 4px;
-            margin-bottom: 4px;
-            display: table;
+            margin-bottom: 6px;
             width: 100%;
         }
 
-        .amount-words-col {
-            display: table-cell;
+        .amount-highlight-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .amount-highlight-table td {
             vertical-align: middle;
-            font-size: 8.8px;
+            border: none;
+            padding: 0;
+        }
+
+        .amount-words-col {
+            font-size: 8.5px;
             font-weight: bold;
             text-transform: uppercase;
-            width: 68%;
-            padding-right: 8px;
+            color: #1e293b;
             line-height: 1.25;
+            padding-right: 8px;
         }
 
         .amount-num-col {
-            display: table-cell;
-            vertical-align: middle;
             text-align: right;
-            width: 32%;
+            white-space: nowrap;
         }
 
         .amount-num-val {
             font-size: 15px;
             font-weight: 900;
-            color: #000;
-            letter-spacing: 0.5px;
+            color: #0f172a;
+            letter-spacing: 0.3px;
         }
 
-        /* ─── FOOTER (FIRMAS - FIJADO AL CORTE INFERIOR DE 135MM) ─── */
+        /* ─── FOOTER (FIRMAS - FLUJO NATURAL) ─── */
         .footer-table {
-            position: absolute;
-            bottom: 0px;
-            left: 0px;
-            width: calc(100% - 20px);
+            width: 100%;
             border-collapse: collapse;
-            margin: 0;
+            margin-top: 14px;
+            margin-bottom: 8px;
         }
 
         .footer-table td {
             vertical-align: bottom;
+            border: none;
         }
 
         .signature-box {
@@ -308,65 +307,58 @@
         }
 
         .signature-space {
-            height: 36px;
+            height: 32px;
             width: 100%;
         }
 
         .signature-line {
-            width: 90%;
+            width: 85%;
             margin: 0 auto 3px auto;
-            border-bottom: 1.5px solid #000;
+            border-bottom: 1.2px solid #0f172a;
         }
 
         .signature-title {
-            font-size: 8.8px;
+            font-size: 8.5px;
             font-weight: bold;
-            color: #000;
+            color: #0f172a;
             text-transform: uppercase;
             letter-spacing: 0.2px;
         }
 
         .signature-subtitle {
             font-size: 7.8px;
-            color: #444;
+            color: #475569;
             text-transform: uppercase;
             margin-top: 1px;
         }
 
-        /* ─── TEXTO LATERAL VERTICAL ─── */
-        .lateral-watermark {
-            position: absolute;
-            right: 0px;
-            top: 0px;
-            bottom: 0px;
-            height: 135mm;
-            max-height: 135mm;
-            width: 14px;
-            writing-mode: vertical-rl;
-            transform: rotate(180deg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 6.5px;
-            color: #777777;
-            letter-spacing: 0.6px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1;
+        /* ─── LÍNEA DE CORTE SIMPLE QUE MARCA MEDIA HOJA ─── */
+        .cut-line-wrapper {
+            width: 100%;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            text-align: center;
         }
 
-        /* ─── LÍNEA DE CORTE SIMPLE ─── */
         .cut-line {
             width: 100%;
-            border-bottom: 1px dashed #9ca3af;
-            margin-top: 3mm;
+            border-bottom: 1px dashed #94a3b8;
+            position: relative;
+        }
+
+        .cut-label {
+            font-size: 7.5px;
+            color: #64748b;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+            text-transform: uppercase;
         }
     </style>
 </head>
 
 <body>
-    <!-- Barra interactiva en navegador (No imprimible) -->
+    @if(empty($is_pdf))
+    <!-- Barra interactiva en navegador (No imprimible, sólo vista HTML) -->
     <div class="no-print-toolbar">
         <button class="no-print-btn" onclick="window.print()">
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,14 +368,10 @@
         </button>
         <button class="no-print-btn btn-close" onclick="window.close()">Cerrar</button>
     </div>
+    @endif
 
-    <!-- ─── CUERPO MEDIA HOJA (135MM) ─── -->
+    <!-- ─── CUERPO MEDIA HOJA ─── -->
     <div class="ticket-wrapper">
-        <!-- Texto vertical lateral de seguridad y trazabilidad -->
-        <div class="lateral-watermark">
-            COMPROBANTE EMITIDO EL {{ date('d/m/Y H:i') }} - SISTEMA DE CONTROL DE PERSONAL Y FINANZAS
-        </div>
-
         <!-- Encabezado de la Empresa -->
         <table class="header-table">
             <tr>
@@ -458,19 +446,19 @@
             </thead>
             <tbody>
                 <tr>
-                    <td style="font-weight: bold;">
+                    <td style="font-weight: bold; color: #0f172a;">
                         {{ $receipt['reason'] ?? ($receipt['type'] === 'payment' ? 'Pago de Nómina / Sueldo' : 'Adelanto de Sueldo') }}
                     </td>
-                    <td>
+                    <td style="color: #1e293b;">
                         {{ $receipt['description'] ?? 'Entrega de valores en efectivo/transferencia al trabajador' }}
                         @if($receipt['type'] === 'payment' && !empty($receipt['month_label']))
-                            <br><span style="font-size: 8.5px; color: #333;">(Período Correspondiente: <strong>{{ $receipt['month_label'] }}</strong>)</span>
+                            <br><span style="font-size: 8.2px; color: #475569;">(Período Correspondiente: <strong>{{ $receipt['month_label'] }}</strong>)</span>
                         @endif
                         @if($receipt['type'] === 'payment' && isset($receipt['advances_deducted']) && $receipt['advances_deducted'] > 0)
-                            <br><span style="font-size: 8.2px; color: #555;">[Sueldo Base: ${{ number_format($receipt['base_salary'] ?? 0, 2) }} - Adelantos Descontados: ${{ number_format($receipt['advances_deducted'], 2) }}]</span>
+                            <br><span style="font-size: 8px; color: #475569;">[Sueldo Base: ${{ number_format($receipt['base_salary'] ?? 0, 2) }} - Adelantos Descontados: ${{ number_format($receipt['advances_deducted'], 2) }}]</span>
                         @endif
                     </td>
-                    <td style="text-align: right; font-weight: bold; font-size: 10px;">
+                    <td style="text-align: right; font-weight: bold; font-size: 10.5px; color: #0f172a;">
                         ${{ number_format((float)($receipt['amount'] ?? 0), 2) }}
                     </td>
                 </tr>
@@ -479,16 +467,20 @@
 
         <!-- Cuadro de Valor Total en Números y Letras -->
         <div class="amount-highlight-box">
-            <div class="amount-words-col">
-                SON: {{ $receipt['amount_in_words'] ?? '' }}
-            </div>
-            <div class="amount-num-col">
-                <span style="font-size: 9px; font-weight: bold; text-transform: uppercase;">TOTAL: </span>
-                <span class="amount-num-val">${{ number_format((float)($receipt['amount'] ?? 0), 2) }}</span>
-            </div>
+            <table class="amount-highlight-table">
+                <tr>
+                    <td class="amount-words-col">
+                        SON: {{ $receipt['amount_in_words'] ?? '' }}
+                    </td>
+                    <td class="amount-num-col">
+                        <span style="font-size: 9px; font-weight: bold; text-transform: uppercase;">TOTAL: </span>
+                        <span class="amount-num-val">${{ number_format((float)($receipt['amount'] ?? 0), 2) }}</span>
+                    </td>
+                </tr>
+            </table>
         </div>
 
-        <!-- Sección de Firmas (Fijado al corte inferior de 135mm) -->
+        <!-- Sección de Firmas -->
         <table class="footer-table">
             <tr>
                 <!-- Firma Empleador / Caja -->
@@ -513,6 +505,19 @@
     </div>
 
     <!-- Línea de corte simple que marca exactamente la media hoja A4 -->
-    <div class="cut-line"></div>
+    <div class="cut-line-wrapper">
+        <div class="cut-line"></div>
+        <div class="cut-label">✂ LÍNEA DE CORTE - MEDIA HOJA A4</div>
+    </div>
+
+    @if(!empty($auto_print))
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.print();
+            }, 350);
+        });
+    </script>
+    @endif
 </body>
 </html>

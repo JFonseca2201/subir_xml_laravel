@@ -1220,12 +1220,15 @@ class EmployeeExpenseController extends Controller
                 return view('pdf.employee_expense_receipt', [
                     'receipt' => $receiptData,
                     'company' => $companyData,
+                    'is_pdf' => false,
+                    'auto_print' => request()->get('print') === 'true',
                 ]);
             }
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.employee_expense_receipt', [
                 'receipt' => $receiptData,
                 'company' => $companyData,
+                'is_pdf' => true,
             ])->setPaper('a4', 'portrait');
 
             $cleanEmpName = str_replace(' ', '_', $employeeName);
