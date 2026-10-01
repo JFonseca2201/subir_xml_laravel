@@ -223,6 +223,16 @@ class FinanzasController extends Controller
         try {
             $movement = \App\Models\Finance\FinancialMovement::with(['movable', 'account'])->findOrFail($id);
 
+            // Si es adelanto o pago de empleado, delegar al comprobante especializado de personal
+            if ($movement->movable_type === \App\Models\Employee\EmployeeAdvance::class || str_contains((string)$movement->movable_type, 'EmployeeAdvance') || ($movement->referencia ?? null) === 'employee_advance') {
+                $empController = app(\App\Http\Controllers\Api\Employee\EmployeeExpenseController::class);
+                return $empController->generateSinglePDF('advance', $movement->movable_id ?: $movement->id);
+            }
+            if ($movement->movable_type === \App\Models\Employee\EmployeePayment::class || str_contains((string)$movement->movable_type, 'EmployeePayment') || ($movement->referencia ?? null) === 'employee_payment') {
+                $empController = app(\App\Http\Controllers\Api\Employee\EmployeeExpenseController::class);
+                return $empController->generateSinglePDF('payment', $movement->movable_id ?: $movement->id);
+            }
+
             // Determinar tipo como string
             $movementType = $movement->type; // 'income', 'expense', 'transfer'
             $movement->type_string = $movementType;

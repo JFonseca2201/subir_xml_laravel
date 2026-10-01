@@ -928,14 +928,11 @@ class EmployeeExpenseController extends Controller
     {
         try {
             $record = null;
-            $fecha = null;
 
             if ($type === 'payment') {
                 $record = EmployeePayment::with(['employee', 'account'])->findOrFail($id);
-                $fecha = $record->payment_date;
             } else if ($type === 'advance') {
                 $record = EmployeeAdvance::with(['employee', 'account'])->findOrFail($id);
-                $fecha = $record->advance_date;
             } else {
                 return response()->json(['error' => 'Tipo inválido'], 400);
             }
@@ -970,16 +967,28 @@ class EmployeeExpenseController extends Controller
             }
 
             // Mapear nombre de la cuenta
-            $accountName = $record->account ? ($record->account->bank_name ?: $record->account->name) : 'EFECTIVO';
+            $accountName = $record->account ? ($record->account->bank_name ?: $record->account->name) : 'CAJA GENERAL';
+            $employee = $record->employee;
+            $employeeName = $employee ? ($employee->first_name . ' ' . $employee->last_name) : 'N/A';
+            $employeeIdCard = $employee ? ($employee->identification_number ?? $employee->id_card ?? $employee->cedula ?? '') : '';
+            $employeePosition = $employee ? ($employee->position ?? $employee->role ?? 'Personal / Operativo') : 'Personal / Operativo';
 
-            $employeeName = $record->employee ? $record->employee->first_name . ' ' . $record->employee->last_name : 'N/A';
+            $companyData = [
+                'name' => $sucursal ? ($sucursal->trade_name ?: ($sucursal->name ?: 'EMPRESA')) : 'LAVADORA Y LUBRICADORA EXPRESS',
+                'trade_name' => $sucursal ? $sucursal->trade_name : '',
+                'ruc' => $sucursal ? ($sucursal->ruc ?: '1790012345001') : '1790012345001',
+                'address' => $sucursal ? ($sucursal->address ?: 'Av. Principal') : 'Av. Principal',
+                'phone' => $sucursal ? ($sucursal->phone ?: '') : '',
+                'email' => $sucursal ? ($sucursal->email ?: '') : '',
+                'sucursal_name' => $sucursal ? ($sucursal->name ?: 'BEATERIO') : 'BEATERIO',
+                'logoBase64' => $logoBase64,
+            ];
 
-            // Si es PAGO DE NÓMINA -> Generar Rol de Pagos oficial
+            $receiptData = [];
+
             if ($type === 'payment') {
-                $employee = $record->employee;
                 $advances = $record->advances;
 
-                // Si no tiene adelantos vinculados directos en la relación
                 if (!$advances || $advances->isEmpty()) {
                     $advances = EmployeeAdvance::where('employee_id', $record->employee_id)
                         ->where(function ($q) use ($record) {
@@ -995,9 +1004,8 @@ class EmployeeExpenseController extends Controller
                         ->get();
                 }
 
-                // Si aún está vacío pero tiene mes definido, buscar los de ese mes
                 $monthStr = $record->payment_month;
-                if ((!$advances || $advances->isEmpty())) {
+                if (!$advances || $advances->isEmpty()) {
                     $desc = strtoupper($record->description ?? '');
                     if (!$monthStr) {
                         if (strpos($desc, 'AGOSTO') !== false) $monthStr = '2026-08';
@@ -1040,53 +1048,60 @@ class EmployeeExpenseController extends Controller
                 $advancesAmount = (float) ($record->advances_amount > 0 ? $record->advances_amount : ($advances ? $advances->sum('amount') : 0));
                 $netAmount = (float) ($record->net_amount > 0 ? $record->net_amount : ($record->amount > 0 ? $record->amount : ($baseSalary - $advancesAmount)));
 
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.employee_payroll_role', [
-                    'payment' => $record,
-                    'employee' => $employee,
-                    'advances' => $advances ?: [],
-                    'base_salary' => $baseSalary,
-                    'advances_amount' => $advancesAmount,
-                    'net_amount' => $netAmount,
-                    'month_label' => $monthLabel,
-                    'payment_date' => Carbon::parse($record->payment_date)->format('d/m/Y'),
-                    'doc_number' => 'ROL-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT),
+                $receiptData = [
+                    'type' => 'payment',
+                    'title' => 'COMPROBANTE DE PAGO DE NÓMINA',
+                    'doc_number' => 'PAGO-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT),
+                    'date' => Carbon::parse($record->payment_date)->format('d/m/Y'),
+                    'employee_name' => $employeeName,
+                    'employee_id_card' => $employeeIdCard,
+                    'employee_position' => $employeePosition,
+                    'payment_method' => $record->payment_method ?: ($record->account && $record->account->type === 'bank' ? 'TRANSFERENCIA' : 'EFECTIVO'),
                     'account_name' => $accountName,
-                    'company_name' => $sucursal ? ($sucursal->trade_name ?: ($sucursal->name ?: 'EMPRESA')) : 'LAVADORA Y LUBRICADORA EXPRESS',
-                    'company_ruc' => $sucursal ? ($sucursal->ruc ?: '1790012345001') : '1790012345001',
-                    'company_address' => $sucursal ? ($sucursal->address ?: 'Av. Principal') : 'Av. Principal',
-                    'company_phone' => $sucursal ? ($sucursal->phone ?: '') : '',
-                    'company_email' => $sucursal ? ($sucursal->email ?: '') : '',
-                    'logoBase64' => $logoBase64,
-                    'amount_in_words' => $this->convertNumberToSpanishWords($netAmount)
-                ])->setPaper('a4', 'portrait');
-
-                $cleanEmpName = str_replace(' ', '_', $employeeName);
-                return $pdf->download('ROL_PAGOS_' . $cleanEmpName . '_' . ($monthStr ?: date('Y-m')) . '.pdf');
+                    'reason' => 'Pago de Nómina / Remuneración',
+                    'description' => $record->description ?: ("Cancelación de sueldo correspondiente al mes de {$monthLabel}"),
+                    'month_label' => $monthLabel,
+                    'base_salary' => $baseSalary,
+                    'advances_deducted' => $advancesAmount,
+                    'net_amount' => $netAmount,
+                    'amount' => $netAmount,
+                    'amount_in_words' => $this->convertNumberToSpanishWords($netAmount),
+                ];
+            } else {
+                // ADELANTO DE SUELDO
+                $advanceAmount = (float) $record->amount;
+                $receiptData = [
+                    'type' => 'advance',
+                    'title' => 'COMPROBANTE DE ADELANTO',
+                    'doc_number' => $record->reference ?: ('ADEL-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT)),
+                    'date' => Carbon::parse($record->advance_date)->format('d/m/Y'),
+                    'employee_name' => $employeeName,
+                    'employee_id_card' => $employeeIdCard,
+                    'employee_position' => $employeePosition,
+                    'payment_method' => $record->payment_method ?: ($record->account && $record->account->type === 'bank' ? 'TRANSFERENCIA' : 'EFECTIVO'),
+                    'account_name' => $accountName,
+                    'reason' => $record->reason ?: 'Adelanto de Sueldo / Anticipo',
+                    'description' => $record->description ?: 'Anticipo de remuneración a descontar en el próximo rol de pagos',
+                    'amount' => $advanceAmount,
+                    'amount_in_words' => $this->convertNumberToSpanishWords($advanceAmount),
+                ];
             }
 
-            // Si es ADELANTO -> Generar Comprobante de Adelanto
-            $movement = new \stdClass();
-            $movement->id = $record->id;
-            $movement->entry_date = $fecha;
-            $movement->created_at = $record->created_at;
-            $movement->description = 'Adelanto de Sueldo: ' . ($record->employee ? ($record->employee->first_name . ' ' . $record->employee->last_name) : '') .
-                ($record->description ? ' - ' . $record->description : '') .
-                ($record->reason ? ' (Motivo: ' . $record->reason . ')' : '');
-            $movement->amount = $record->amount;
-            $movement->work_order_number = null;
-            $movement->invoice_number = $record->reference ?? ('ADEL-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT));
+            if (request()->has('html') || request()->get('format') === 'html') {
+                return view('pdf.employee_expense_receipt', [
+                    'receipt' => $receiptData,
+                    'company' => $companyData,
+                ]);
+            }
 
-            $customTitle = 'Comprobante de Adelanto de Sueldo - ' . $employeeName;
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.employee_expense_receipt', [
+                'receipt' => $receiptData,
+                'company' => $companyData,
+            ])->setPaper('a4', 'portrait');
 
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('movimientos.single_pdf', [
-                'movement' => $movement,
-                'type_string' => 'expense',
-                'account_name' => $accountName,
-                'logoBase64' => $logoBase64,
-                'custom_title' => $customTitle
-            ]);
-
-            return $pdf->download($type . '_' . $id . '_' . $employeeName . '_' . date('Y-m-d') . '.pdf');
+            $cleanEmpName = str_replace(' ', '_', $employeeName);
+            $prefix = ($type === 'payment' ? 'PAGO_' : 'ADELANTO_');
+            return $pdf->download($prefix . $id . '_' . $cleanEmpName . '_' . date('Y-m-d') . '.pdf');
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error generating employee single PDF: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
@@ -1122,7 +1137,7 @@ class EmployeeExpenseController extends Controller
         }
 
         $centsFormatted = str_pad($cents, 2, '0', STR_PAD_LEFT);
-        return "SON: " . trim($words) . " CON {$centsFormatted}/100 DÓLARES AMERICANOS";
+        return trim($words) . " CON {$centsFormatted}/100 DÓLARES";
     }
 
     private function threeDigitsToWords($num)
