@@ -1062,32 +1062,31 @@ class EmployeeExpenseController extends Controller
                 return $pdf->download('ROL_PAGOS_' . $cleanEmpName . '_' . ($monthStr ?: date('Y-m')) . '.pdf');
             }
 
-            // ADELANTO -> PDF Oficial de Adelanto de Sueldo (A4)
+            // ADELANTO -> Comprobante Electrónico de Movimiento Contable (Sin firmas, para contabilidad)
             if ($type === 'advance') {
-                $advanceAmount = (float) $record->amount;
-                $docNumber = $record->reference ?: ('ADEL-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT));
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.employee_advance_pdf', [
-                    'advance' => $record,
-                    'amount' => $advanceAmount,
-                    'employee_name' => $employeeName,
-                    'employee_id_card' => $employee ? ($employee->identification_number ?? $employee->id_card ?? $employee->cedula ?? '') : '',
-                    'employee_position' => $employee ? ($employee->position ?? $employee->role ?? 'Personal Operativo') : 'Personal Operativo',
-                    'advance_date' => Carbon::parse($record->advance_date)->format('d/m/Y'),
-                    'payment_method' => $record->payment_method ?: ($record->account && $record->account->type === 'bank' ? 'TRANSFERENCIA' : 'EFECTIVO'),
-                    'doc_number' => $docNumber,
+                $movement = new \stdClass();
+                $movement->id = $record->id;
+                $movement->entry_date = $record->advance_date;
+                $movement->created_at = $record->created_at;
+                $movement->description = 'Adelanto de Sueldo: ' . ($record->employee ? ($record->employee->first_name . ' ' . $record->employee->last_name) : '') .
+                    ($record->description ? ' - ' . $record->description : '') .
+                    ($record->reason ? ' (Motivo: ' . $record->reason . ')' : '');
+                $movement->amount = $record->amount;
+                $movement->work_order_number = null;
+                $movement->invoice_number = $record->reference ?? ('ADEL-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT));
+
+                $customTitle = 'Comprobante de Adelanto de Sueldo - ' . $employeeName;
+
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('movimientos.single_pdf', [
+                    'movement' => $movement,
+                    'type_string' => 'expense',
                     'account_name' => $accountName,
-                    'company_name' => $sucursal ? ($sucursal->trade_name ?: ($sucursal->name ?: 'EMPRESA')) : 'LAVADORA Y LUBRICADORA EXPRESS',
-                    'company_trade_name' => $sucursal ? $sucursal->trade_name : '',
-                    'company_ruc' => $sucursal ? ($sucursal->ruc ?: '1790012345001') : '1790012345001',
-                    'company_address' => $sucursal ? ($sucursal->address ?: 'Av. Principal') : 'Av. Principal',
-                    'company_phone' => $sucursal ? ($sucursal->phone ?: '') : '',
-                    'sucursal_name' => $sucursal ? ($sucursal->name ?: 'BEATERIO') : 'BEATERIO',
-                    'company_logo_base64' => $logoBase64,
-                    'amount_in_words' => $this->convertNumberToSpanishWords($advanceAmount),
-                ])->setPaper('a4', 'portrait');
+                    'logoBase64' => $logoBase64,
+                    'custom_title' => $customTitle,
+                ]);
 
                 $cleanEmpName = str_replace(' ', '_', $employeeName);
-                return $pdf->download('COMPROBANTE_ADELANTO_' . $cleanEmpName . '_' . $record->id . '.pdf');
+                return $pdf->download('ADELANTO_' . $record->id . '_' . $cleanEmpName . '_' . date('Y-m-d') . '.pdf');
             }
 
             return response()->json(['error' => 'Tipo inválido'], 400);
