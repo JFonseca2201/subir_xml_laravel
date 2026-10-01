@@ -1062,8 +1062,35 @@ class EmployeeExpenseController extends Controller
                 return $pdf->download('ROL_PAGOS_' . $cleanEmpName . '_' . ($monthStr ?: date('Y-m')) . '.pdf');
             }
 
-            // ADELANTO -> Comprobante de media hoja
-            return $this->printReceipt($type, $id);
+            // ADELANTO -> PDF Oficial de Adelanto de Sueldo (A4)
+            if ($type === 'advance') {
+                $advanceAmount = (float) $record->amount;
+                $docNumber = $record->reference ?: ('ADEL-EMP-' . str_pad($record->id, 5, '0', STR_PAD_LEFT));
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.employee_advance_pdf', [
+                    'advance' => $record,
+                    'amount' => $advanceAmount,
+                    'employee_name' => $employeeName,
+                    'employee_id_card' => $employee ? ($employee->identification_number ?? $employee->id_card ?? $employee->cedula ?? '') : '',
+                    'employee_position' => $employee ? ($employee->position ?? $employee->role ?? 'Personal Operativo') : 'Personal Operativo',
+                    'advance_date' => Carbon::parse($record->advance_date)->format('d/m/Y'),
+                    'payment_method' => $record->payment_method ?: ($record->account && $record->account->type === 'bank' ? 'TRANSFERENCIA' : 'EFECTIVO'),
+                    'doc_number' => $docNumber,
+                    'account_name' => $accountName,
+                    'company_name' => $sucursal ? ($sucursal->trade_name ?: ($sucursal->name ?: 'EMPRESA')) : 'LAVADORA Y LUBRICADORA EXPRESS',
+                    'company_trade_name' => $sucursal ? $sucursal->trade_name : '',
+                    'company_ruc' => $sucursal ? ($sucursal->ruc ?: '1790012345001') : '1790012345001',
+                    'company_address' => $sucursal ? ($sucursal->address ?: 'Av. Principal') : 'Av. Principal',
+                    'company_phone' => $sucursal ? ($sucursal->phone ?: '') : '',
+                    'sucursal_name' => $sucursal ? ($sucursal->name ?: 'BEATERIO') : 'BEATERIO',
+                    'company_logo_base64' => $logoBase64,
+                    'amount_in_words' => $this->convertNumberToSpanishWords($advanceAmount),
+                ])->setPaper('a4', 'portrait');
+
+                $cleanEmpName = str_replace(' ', '_', $employeeName);
+                return $pdf->download('COMPROBANTE_ADELANTO_' . $cleanEmpName . '_' . $record->id . '.pdf');
+            }
+
+            return response()->json(['error' => 'Tipo inválido'], 400);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error generating employee single PDF: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);

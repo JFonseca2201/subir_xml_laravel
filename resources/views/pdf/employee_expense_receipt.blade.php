@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 8mm 10mm 8mm 10mm;
+            margin: 6mm 8mm 6mm 8mm;
         }
 
         * {
@@ -22,20 +22,14 @@
         body {
             background-color: #ffffff;
             color: #0f172a;
-            font-size: 9.5px;
-            line-height: 1.25;
+            font-size: 8.5px;
+            line-height: 1.2;
             padding: 0;
             width: 100%;
             margin: 0 auto;
         }
 
-        /* ─── CONTENEDOR DE MEDIA HOJA A4 ─── */
-        .ticket-wrapper {
-            width: 100%;
-            page-break-inside: avoid;
-        }
-
-        /* ─── BOTONES DE PANTALLA (NO IMPRIMIR) ─── */
+        /* ─── BOTONES DE PANTALLA (SOLO VISTA NAVEGADOR) ─── */
         .no-print-toolbar {
             position: fixed;
             top: 12px;
@@ -62,7 +56,6 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            transition: background 0.2s;
         }
 
         .no-print-btn.btn-close {
@@ -83,11 +76,25 @@
             }
         }
 
-        /* ─── HEADER PRINCIPAL ─── */
+        /* ─── CONTENEDOR DE CADA MEDIA HOJA (136MM MÁXIMO) ─── */
+        .voucher-box {
+            width: 100%;
+            height: 134mm;
+            max-height: 134mm;
+            box-sizing: border-box;
+            page-break-inside: avoid;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            padding: 5px 8px;
+            background: #ffffff;
+        }
+
+        /* ─── ENCABEZADO ─── */
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
 
         .header-table td {
@@ -95,51 +102,51 @@
         }
 
         .company-logo-col {
-            width: 65px;
-            padding-right: 8px;
+            width: 55px;
+            padding-right: 6px;
         }
 
         .company-logo {
-            max-width: 60px;
-            max-height: 55px;
+            max-width: 50px;
+            max-height: 44px;
             object-fit: contain;
             display: block;
         }
 
         .logo-monogram {
-            width: 52px;
-            height: 52px;
-            border-radius: 6px;
+            width: 44px;
+            height: 44px;
+            border-radius: 5px;
             background: #1e293b;
             color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             text-align: center;
-            line-height: 52px;
+            line-height: 44px;
         }
 
         .company-info-col {
-            width: 52%;
-            padding-right: 8px;
+            width: 50%;
+            padding-right: 6px;
         }
 
         .company-name {
-            font-size: 11.5px;
+            font-size: 10.5px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.2px;
             color: #0f172a;
             margin-bottom: 1px;
-            line-height: 1.15;
+            line-height: 1.1;
         }
 
         .company-detail {
-            font-size: 8.5px;
+            font-size: 7.8px;
             color: #334155;
-            line-height: 1.25;
+            line-height: 1.2;
         }
 
         .company-detail-bold {
@@ -148,55 +155,67 @@
         }
 
         .doc-header-col {
-            width: 38%;
+            width: 42%;
             text-align: right;
         }
 
         .doc-box {
-            border: 1.5px solid #0f172a;
-            padding: 5px 8px;
+            border: 1.2px solid #0f172a;
+            padding: 3px 6px;
             text-align: center;
             background-color: #f8fafc;
             border-radius: 4px;
         }
 
         .doc-type-title {
-            font-size: 10.5px;
+            font-size: 9.5px;
             font-weight: 800;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
             text-transform: uppercase;
             color: #0f172a;
-            margin-bottom: 2px;
         }
 
         .doc-number {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 800;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             color: #1d4ed8;
+            margin: 1px 0;
         }
 
-        .branch-tag {
-            font-size: 8px;
-            font-weight: bold;
-            margin-top: 2px;
+        .copy-badge {
+            display: inline-block;
+            background-color: #0f172a;
+            color: #ffffff;
+            font-size: 7.5px;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 3px;
             text-transform: uppercase;
-            color: #475569;
+            letter-spacing: 0.4px;
         }
 
-        /* ─── TABLA DE DATOS DEL TRABAJADOR Y MOVIMIENTO ─── */
+        .copy-badge-worker {
+            background-color: #1e3a8a;
+        }
+
+        .copy-badge-business {
+            background-color: #047857;
+        }
+
+        /* ─── TABLA DE DATOS DEL TRABAJADOR ─── */
         .info-card-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 4px;
-            margin-bottom: 5px;
+            margin-top: 3px;
+            margin-bottom: 3px;
             border: 1px solid #cbd5e1;
-            font-size: 9px;
+            font-size: 8px;
             background: #ffffff;
         }
 
         .info-card-table td {
-            padding: 3px 6px;
+            padding: 2px 5px;
             vertical-align: top;
             border: 1px solid #e2e8f0;
         }
@@ -204,55 +223,56 @@
         .info-label {
             font-weight: bold;
             color: #334155;
-            width: 16%;
+            width: 15%;
             text-transform: uppercase;
             background-color: #f8fafc;
-            font-size: 8.5px;
+            font-size: 7.8px;
         }
 
         .info-val {
             color: #0f172a;
-            width: 34%;
+            width: 35%;
         }
 
         .info-val-wide {
             color: #0f172a;
-            width: 84%;
+            width: 85%;
         }
 
-        /* ─── TABLA DE DESGLOSE / CONCEPTO ─── */
+        /* ─── TABLA DE CONCEPTO ─── */
         .concept-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 3px;
-            margin-bottom: 4px;
-            font-size: 9px;
+            margin-top: 2px;
+            margin-bottom: 3px;
+            font-size: 8px;
         }
 
         .concept-table th {
             font-weight: bold;
-            border-top: 1.5px solid #0f172a;
-            border-bottom: 1.5px solid #0f172a;
-            padding: 3.5px 5px;
+            border-top: 1.2px solid #0f172a;
+            border-bottom: 1.2px solid #0f172a;
+            padding: 2.5px 4px;
             text-transform: uppercase;
-            font-size: 8.5px;
+            font-size: 7.8px;
             background-color: #f1f5f9;
             color: #0f172a;
         }
 
         .concept-table td {
-            padding: 4px 5px;
+            padding: 3px 4px;
             vertical-align: top;
             border-bottom: 1px solid #e2e8f0;
         }
 
+        /* ─── CUADRO DE TOTALES ─── */
         .amount-highlight-box {
             background-color: #f8fafc;
-            border: 1.5px solid #0f172a;
+            border: 1.2px solid #0f172a;
             border-radius: 4px;
-            padding: 4px 8px;
-            margin-top: 4px;
-            margin-bottom: 6px;
+            padding: 3px 6px;
+            margin-top: 2px;
+            margin-bottom: 4px;
             width: 100%;
         }
 
@@ -268,12 +288,12 @@
         }
 
         .amount-words-col {
-            font-size: 8.5px;
+            font-size: 7.8px;
             font-weight: bold;
             text-transform: uppercase;
             color: #1e293b;
-            line-height: 1.25;
-            padding-right: 8px;
+            line-height: 1.2;
+            padding-right: 6px;
         }
 
         .amount-num-col {
@@ -282,18 +302,17 @@
         }
 
         .amount-num-val {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 900;
             color: #0f172a;
             letter-spacing: 0.3px;
         }
 
-        /* ─── FOOTER (FIRMAS - FLUJO NATURAL) ─── */
+        /* ─── FIRMAS ─── */
         .footer-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 14px;
-            margin-bottom: 8px;
+            margin-top: 6px;
         }
 
         .footer-table td {
@@ -307,18 +326,18 @@
         }
 
         .signature-space {
-            height: 32px;
+            height: 22px;
             width: 100%;
         }
 
         .signature-line {
-            width: 85%;
-            margin: 0 auto 3px auto;
-            border-bottom: 1.2px solid #0f172a;
+            width: 80%;
+            margin: 0 auto 2px auto;
+            border-bottom: 1px solid #0f172a;
         }
 
         .signature-title {
-            font-size: 8.5px;
+            font-size: 7.8px;
             font-weight: bold;
             color: #0f172a;
             text-transform: uppercase;
@@ -326,31 +345,38 @@
         }
 
         .signature-subtitle {
-            font-size: 7.8px;
+            font-size: 7px;
             color: #475569;
             text-transform: uppercase;
             margin-top: 1px;
         }
 
-        /* ─── LÍNEA DE CORTE SIMPLE QUE MARCA MEDIA HOJA ─── */
-        .cut-line-wrapper {
+        /* ─── SEPARADOR CENTRAL DE CORTE (ENTRE AMBAS COPIAS) ─── */
+        .cut-divider {
             width: 100%;
-            margin-top: 10px;
-            margin-bottom: 4px;
+            height: 8mm;
             text-align: center;
-        }
-
-        .cut-line {
-            width: 100%;
-            border-bottom: 1px dashed #94a3b8;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .cut-label {
-            font-size: 7.5px;
+        .cut-dashed-line {
+            border-bottom: 1px dashed #64748b;
+            width: 100%;
+            margin: 3.5mm 0;
+            text-align: center;
+            line-height: 0.1em;
+        }
+
+        .cut-badge {
+            background: #ffffff;
+            padding: 0 8px;
+            font-size: 7px;
+            font-weight: bold;
             color: #64748b;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
         }
     </style>
@@ -364,18 +390,19 @@
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
             </svg>
-            Imprimir Comprobante
+            Imprimir Comprobante (2 Copias en Hoja A4)
         </button>
         <button class="no-print-btn btn-close" onclick="window.close()">Cerrar</button>
     </div>
     @endif
 
-    <!-- ─── CUERPO MEDIA HOJA ─── -->
-    <div class="ticket-wrapper">
+    <!-- ========================================== -->
+    <!-- COPIA 1: EMPLEADO / TRABAJADOR (PARTE SUPERIOR) -->
+    <!-- ========================================== -->
+    <div class="voucher-box">
         <!-- Encabezado de la Empresa -->
         <table class="header-table">
             <tr>
-                <!-- Logo -->
                 <td class="company-logo-col">
                     @if(!empty($company['logoBase64']))
                         <img src="{{ $company['logoBase64'] }}" alt="Logo" class="company-logo">
@@ -386,7 +413,6 @@
                     @endif
                 </td>
 
-                <!-- Datos Empresa -->
                 <td class="company-info-col">
                     <div class="company-name">{{ $company['name'] ?? 'EMPRESA' }}</div>
                     @if(!empty($company['trade_name']) && $company['trade_name'] !== ($company['name'] ?? ''))
@@ -399,12 +425,13 @@
                     @endif
                 </td>
 
-                <!-- Cuadro de Identificación del Comprobante -->
                 <td class="doc-header-col">
                     <div class="doc-box">
                         <div class="doc-type-title">{{ $receipt['title'] ?? 'COMPROBANTE DE ENTREGA' }}</div>
                         <div class="doc-number">{{ $receipt['doc_number'] ?? 'N/A' }}</div>
-                        <div class="branch-tag">SUCURSAL: {{ $company['sucursal_name'] ?? 'MATRIZ' }}</div>
+                        <div style="margin-top: 1px;">
+                            <span class="copy-badge copy-badge-worker">ORIGINAL: TRABAJADOR</span>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -452,13 +479,13 @@
                     <td style="color: #1e293b;">
                         {{ $receipt['description'] ?? 'Entrega de valores en efectivo/transferencia al trabajador' }}
                         @if($receipt['type'] === 'payment' && !empty($receipt['month_label']))
-                            <br><span style="font-size: 8.2px; color: #475569;">(Período Correspondiente: <strong>{{ $receipt['month_label'] }}</strong>)</span>
+                            <br><span style="font-size: 7.5px; color: #475569;">(Período: <strong>{{ $receipt['month_label'] }}</strong>)</span>
                         @endif
                         @if($receipt['type'] === 'payment' && isset($receipt['advances_deducted']) && $receipt['advances_deducted'] > 0)
-                            <br><span style="font-size: 8px; color: #475569;">[Sueldo Base: ${{ number_format($receipt['base_salary'] ?? 0, 2) }} - Adelantos Descontados: ${{ number_format($receipt['advances_deducted'], 2) }}]</span>
+                            <br><span style="font-size: 7.2px; color: #475569;">[Sueldo Base: ${{ number_format($receipt['base_salary'] ?? 0, 2) }} - Adelantos: ${{ number_format($receipt['advances_deducted'], 2) }}]</span>
                         @endif
                     </td>
-                    <td style="text-align: right; font-weight: bold; font-size: 10.5px; color: #0f172a;">
+                    <td style="text-align: right; font-weight: bold; font-size: 9.5px; color: #0f172a;">
                         ${{ number_format((float)($receipt['amount'] ?? 0), 2) }}
                     </td>
                 </tr>
@@ -473,7 +500,7 @@
                         SON: {{ $receipt['amount_in_words'] ?? '' }}
                     </td>
                     <td class="amount-num-col">
-                        <span style="font-size: 9px; font-weight: bold; text-transform: uppercase;">TOTAL: </span>
+                        <span style="font-size: 8px; font-weight: bold; text-transform: uppercase;">TOTAL: </span>
                         <span class="amount-num-val">${{ number_format((float)($receipt['amount'] ?? 0), 2) }}</span>
                     </td>
                 </tr>
@@ -483,7 +510,6 @@
         <!-- Sección de Firmas -->
         <table class="footer-table">
             <tr>
-                <!-- Firma Empleador / Caja -->
                 <td class="signature-box">
                     <div class="signature-space"></div>
                     <div class="signature-line"></div>
@@ -493,7 +519,6 @@
 
                 <td style="width: 8%;"></td>
 
-                <!-- Firma Trabajador -->
                 <td class="signature-box">
                     <div class="signature-space"></div>
                     <div class="signature-line"></div>
@@ -504,10 +529,146 @@
         </table>
     </div>
 
-    <!-- Línea de corte simple que marca exactamente la media hoja A4 -->
-    <div class="cut-line-wrapper">
-        <div class="cut-line"></div>
-        <div class="cut-label">✂ LÍNEA DE CORTE - MEDIA HOJA A4</div>
+    <!-- ========================================== -->
+    <!-- LÍNEA DE CORTE CENTRAL -->
+    <!-- ========================================== -->
+    <div class="cut-divider">
+        <div class="cut-dashed-line">
+            <span class="cut-badge">✂ CORTE AQUÍ - SEPARACIÓN DE COMPROBANTES (MEDIA HOJA A4) ✂</span>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- COPIA 2: NEGOCIO / EMPRESA (PARTE INFERIOR) -->
+    <!-- ========================================== -->
+    <div class="voucher-box">
+        <!-- Encabezado de la Empresa -->
+        <table class="header-table">
+            <tr>
+                <td class="company-logo-col">
+                    @if(!empty($company['logoBase64']))
+                        <img src="{{ $company['logoBase64'] }}" alt="Logo" class="company-logo">
+                    @else
+                        <div class="logo-monogram">
+                            {{ substr($company['name'] ?? 'E', 0, 2) }}
+                        </div>
+                    @endif
+                </td>
+
+                <td class="company-info-col">
+                    <div class="company-name">{{ $company['name'] ?? 'EMPRESA' }}</div>
+                    @if(!empty($company['trade_name']) && $company['trade_name'] !== ($company['name'] ?? ''))
+                        <div class="company-detail company-detail-bold">{{ $company['trade_name'] }}</div>
+                    @endif
+                    <div class="company-detail"><span class="company-detail-bold">RUC:</span> {{ $company['ruc'] ?? '1790012345001' }}</div>
+                    <div class="company-detail"><span class="company-detail-bold">DIR:</span> {{ $company['address'] ?? 'Matriz' }}</div>
+                    @if(!empty($company['phone']))
+                        <div class="company-detail"><span class="company-detail-bold">TEL:</span> {{ $company['phone'] }}</div>
+                    @endif
+                </td>
+
+                <td class="doc-header-col">
+                    <div class="doc-box">
+                        <div class="doc-type-title">{{ $receipt['title'] ?? 'COMPROBANTE DE ENTREGA' }}</div>
+                        <div class="doc-number">{{ $receipt['doc_number'] ?? 'N/A' }}</div>
+                        <div style="margin-top: 1px;">
+                            <span class="copy-badge copy-badge-business">COPIA: NEGOCIO / ARCHIVO</span>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Datos del Empleado y Transacción -->
+        <table class="info-card-table">
+            <tr>
+                <td class="info-label">TRABAJADOR:</td>
+                <td class="info-val-wide" colspan="3">
+                    <strong>{{ $receipt['employee_name'] ?? 'N/A' }}</strong> 
+                    @if(!empty($receipt['employee_id_card']))
+                        &nbsp;&nbsp;[C.I.: {{ $receipt['employee_id_card'] }}]
+                    @endif
+                </td>
+            </tr>
+            <tr>
+                <td class="info-label">FECHA:</td>
+                <td class="info-val"><strong>{{ $receipt['date'] ?? date('d/m/Y') }}</strong></td>
+                <td class="info-label">FORMA PAGO:</td>
+                <td class="info-val"><strong>{{ $receipt['payment_method'] ?? 'EFECTIVO' }}</strong></td>
+            </tr>
+            <tr>
+                <td class="info-label">CUENTA/CAJA:</td>
+                <td class="info-val">{{ $receipt['account_name'] ?? 'Caja General' }}</td>
+                <td class="info-label">CARGO/ROL:</td>
+                <td class="info-val">{{ $receipt['employee_position'] ?? 'Personal Operativo' }}</td>
+            </tr>
+        </table>
+
+        <!-- Detalle de Concepto / Motivo y Descripción -->
+        <table class="concept-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%; text-align: left;">MOTIVO / CONCEPTO</th>
+                    <th style="width: 55%; text-align: left;">DESCRIPCIÓN Y OBSERVACIONES</th>
+                    <th style="width: 20%; text-align: right;">VALOR RECIBIDO</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight: bold; color: #0f172a;">
+                        {{ $receipt['reason'] ?? ($receipt['type'] === 'payment' ? 'Pago de Nómina / Sueldo' : 'Adelanto de Sueldo') }}
+                    </td>
+                    <td style="color: #1e293b;">
+                        {{ $receipt['description'] ?? 'Entrega de valores en efectivo/transferencia al trabajador' }}
+                        @if($receipt['type'] === 'payment' && !empty($receipt['month_label']))
+                            <br><span style="font-size: 7.5px; color: #475569;">(Período: <strong>{{ $receipt['month_label'] }}</strong>)</span>
+                        @endif
+                        @if($receipt['type'] === 'payment' && isset($receipt['advances_deducted']) && $receipt['advances_deducted'] > 0)
+                            <br><span style="font-size: 7.2px; color: #475569;">[Sueldo Base: ${{ number_format($receipt['base_salary'] ?? 0, 2) }} - Adelantos: ${{ number_format($receipt['advances_deducted'], 2) }}]</span>
+                        @endif
+                    </td>
+                    <td style="text-align: right; font-weight: bold; font-size: 9.5px; color: #0f172a;">
+                        ${{ number_format((float)($receipt['amount'] ?? 0), 2) }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Cuadro de Valor Total en Números y Letras -->
+        <div class="amount-highlight-box">
+            <table class="amount-highlight-table">
+                <tr>
+                    <td class="amount-words-col">
+                        SON: {{ $receipt['amount_in_words'] ?? '' }}
+                    </td>
+                    <td class="amount-num-col">
+                        <span style="font-size: 8px; font-weight: bold; text-transform: uppercase;">TOTAL: </span>
+                        <span class="amount-num-val">${{ number_format((float)($receipt['amount'] ?? 0), 2) }}</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Sección de Firmas -->
+        <table class="footer-table">
+            <tr>
+                <td class="signature-box">
+                    <div class="signature-space"></div>
+                    <div class="signature-line"></div>
+                    <div class="signature-title">AUTORIZADO POR / EMISOR</div>
+                    <div class="signature-subtitle">{{ $company['name'] ?? 'ADMINISTRACIÓN' }}</div>
+                </td>
+
+                <td style="width: 8%;"></td>
+
+                <td class="signature-box">
+                    <div class="signature-space"></div>
+                    <div class="signature-line"></div>
+                    <div class="signature-title">RECIBÍ CONFORME (TRABAJADOR)</div>
+                    <div class="signature-subtitle">{{ $receipt['employee_name'] ?? 'FIRMA Y CÉDULA' }}</div>
+                </td>
+            </tr>
+        </table>
     </div>
 
     @if(!empty($auto_print))
@@ -515,7 +676,7 @@
         window.addEventListener('load', function() {
             setTimeout(function() {
                 window.print();
-            }, 350);
+            }, 300);
         });
     </script>
     @endif
