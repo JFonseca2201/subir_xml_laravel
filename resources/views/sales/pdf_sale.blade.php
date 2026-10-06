@@ -396,18 +396,20 @@
         }
 
         .line-items-container {
-            margin: 15px 0;
-            /* font-size: 0.875em; */
+            margin: 0;
             font-size: 8px;
         }
 
         .line-items-container th {
             text-align: left;
-            color: #999;
-            border-bottom: 2px solid #ddd;
-            padding: 10px 0 15px 0;
-            font-size: 0.75em;
+            background: transparent;
+            color: #0f172a;
+            border-bottom: 2px solid #0f172a;
+            padding: 4px 0;
+            font-size: 9px;
             text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.4px;
         }
 
         .line-items-container th:last-child {
@@ -415,15 +417,15 @@
         }
 
         .line-items-container td {
-            padding: 5px 0;
+            padding: 3px 0;
         }
 
         .line-items-container tbody tr:first-child td {
-            padding-top: 10px;
+            padding-top: 4px;
         }
 
         .line-items-container.has-bottom-border tbody tr:last-child td {
-            padding-bottom: 25px;
+            padding-bottom: 10px;
             border-bottom: 2px solid #ddd;
         }
 
@@ -792,22 +794,22 @@
             <div style="clear:both;"></div>
             <table class="invoice-info-container"
                 style="width: 100%; margin-bottom: 10px; border-collapse: collapse; text-transform: uppercase;">
-                <tr style="border-bottom: 0.8px solid #949494;">
-                    <td style="width: 50%; padding-bottom: 8px; font-size: 12px; text-align: left; border: none;">
+                <tr style="border-bottom: 1.5px solid #0f172a;">
+                    <td style="width: 50%; padding-bottom: 8px; font-size: 13.5px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px; text-align: left; border: none;">
                         {{ $sale->document_type === 'quote' ? 'COTIZACIÓN' : ($sale->document_type === 'invoice' ? 'FACTURA' : 'NOTA DE VENTA') }}#
                         {{ $sale->id }}-{{ $sale->document_number }}
                         @if($sale->work_order_number)
-                        <br><span style="font-size: 8px; color: #555; font-weight: normal;">ORDEN TRABAJO: #{{ $sale->work_order_number }}</span>
+                        <br><span style="font-size: 8.5px; color: #475569; font-weight: normal; letter-spacing: 0.2px;">ORDEN TRABAJO: #{{ $sale->work_order_number }}</span>
                         @endif
                     </td>
-                    <td style="width: 50%; padding-bottom: 8px; text-align: right; font-size: 12px; border: none; vertical-align: top;">
+                    <td style="width: 50%; padding-bottom: 8px; text-align: right; font-size: 11px; font-weight: 700; color: #0f172a; border: none; vertical-align: top;">
                         FECHA: {{ $sale->service_date->format('d/m/Y') }}
                     </td>
                 </tr>
                 <tr>
                     <td style="width: 48%; vertical-align: top; padding-right: 15px; padding-top: 15px; border: none;">
                         <div
-                            style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
+                            style="font-weight: 800; font-size: 11px; margin-bottom: 8px; background: transparent; border-bottom: 1.5px solid #0f172a; padding: 3px 0; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
                             DATOS DEL CLIENTE</div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">NOMBRE:</span> {{ $sale->client->full_name }}
@@ -886,7 +888,7 @@
                         style="width: 48%; vertical-align: top; padding-left: 15px; padding-top: 15px; border: none; text-align: left;">
                         @if ($sale->vehicle)
                         <div
-                            style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
+                            style="font-weight: 800; font-size: 11px; margin-bottom: 8px; background: transparent; border-bottom: 1.5px solid #0f172a; padding: 3px 0; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
                             DATOS DEL VEHÍCULO</div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">PLACA:</span>
@@ -918,7 +920,7 @@
                         </div>
                         @else
                         <div
-                            style="font-weight: bold; font-size: 11px; margin-bottom: 8px; background-color: #f5f5f5; padding: 5px;">
+                            style="font-weight: 800; font-size: 11px; margin-bottom: 8px; background: transparent; border-bottom: 1.5px solid #0f172a; padding: 3px 0; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
                             INFORMACIÓN ADICIONAL</div>
                         <div style="margin-bottom: 5px; font-size: 9.5px;">
                             <span style="font-weight: bold;">SUCURSAL:</span>

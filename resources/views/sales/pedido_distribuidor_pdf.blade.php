@@ -84,11 +84,12 @@
 
         .line-items-container th {
             text-align: left;
-            color: #999;
-            border-bottom: 2px solid #ddd;
-            padding: 10px 0 15px 0;
+            color: #1e293b;
+            border-bottom: 1.5px solid #cbd5e1;
+            padding: 8px 0 10px 0;
             font-size: 0.75em;
             text-transform: uppercase;
+            font-weight: 700;
         }
 
         .line-items-container th:last-child {

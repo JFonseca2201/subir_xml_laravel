@@ -58,9 +58,13 @@
         .info-title {
             font-weight: bold;
             font-size: 10px;
-            margin-bottom: 10px;
-            background-color: #f5f5f5;
-            padding: 5px;
+            margin-bottom: 8px;
+            background-color: transparent;
+            border-bottom: 1px solid #cbd5e1;
+            padding: 3px 0;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         .info-row {
@@ -80,9 +84,13 @@
         .items-title {
             font-weight: bold;
             font-size: 9px;
-            margin-bottom: 10px;
-            background-color: #f5f5f5;
-            padding: 5px;
+            margin-bottom: 8px;
+            background-color: transparent;
+            border-bottom: 1px solid #cbd5e1;
+            padding: 3px 0;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         table {
@@ -100,9 +108,12 @@
         }
 
         th {
-            background-color: #f5f5f5;
+            background-color: transparent;
             font-weight: bold;
-            border-bottom: 1px solid #555555ff;
+            color: #1e293b;
+            border-bottom: 1.5px solid #cbd5e1;
+            text-transform: uppercase;
+            font-size: 8.5px;
         }
 
         tr:last-child td {
@@ -122,10 +133,14 @@
 
         .observations-title {
             font-weight: bold;
-            font-size: 11px;
-            margin-bottom: 10px;
-            background-color: #f5f5f5;
-            padding: 5px;
+            font-size: 10px;
+            margin-bottom: 8px;
+            background-color: transparent;
+            border-bottom: 1px solid #cbd5e1;
+            padding: 3px 0;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         .observations-text {

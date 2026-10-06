@@ -132,21 +132,22 @@
             width: 100%;
             table-layout: fixed;
             border-collapse: collapse;
-            margin-top: 6px;
-            margin-bottom: 7px;
+            margin-top: 0;
+            margin-bottom: 4px;
             border: 1px solid #cbd5e1;
             border-radius: 5px;
             overflow: hidden;
         }
 
         .items-table th {
-            background-color: #748191;
-            color: #ffffff;
-            font-size: 8px;
-            font-weight: 700;
+            background-color: transparent;
+            color: #0f172a;
+            font-size: 9px;
+            font-weight: 800;
             text-transform: uppercase;
-            padding: 5px 6px;
-            border-bottom: 1px solid #5c6877;
+            padding: 4px 6px;
+            letter-spacing: 0.4px;
+            border-bottom: 2px solid #0f172a;
             border-top: none;
             border-left: none;
             border-right: none;
@@ -154,7 +155,7 @@
         }
 
         .items-table td {
-            padding: 4.5px 6px;
+            padding: 3px 6px;
             border-top: 1px solid #e2e8f0;
             border-bottom: 1px solid #e2e8f0;
             border-left: none;
@@ -177,7 +178,7 @@
 
         .totals-table .lbl {
             font-weight: 700;
-            background: #f8fafc;
+            background: transparent;
             color: #475569;
             width: 58%;
         }
@@ -208,11 +209,11 @@
 
 <body>
     <div class="container">
-        <!-- ── HEADER ── -->
+        <!-- ── HEADER (COLUMNA IZQUIERDA 7/12 ~58%, COLUMNA DERECHA 5/12 ~40.5%) ── -->
         <table class="layout-table">
             <tr>
-                <!-- Columna Izquierda: Emisor -->
-                <td style="width: 49.4%; vertical-align: top;">
+                <!-- Columna Izquierda: Emisor (Proporción 7) -->
+                <td style="width: 58%; vertical-align: top;">
                     <div class="card-panel">
                         <table style="width: 100%; height: 170px; border-collapse: collapse; border: none;">
                             <tr>
@@ -231,10 +232,10 @@
                 </td>
 
                 <!-- Espaciador Central -->
-                <td style="width: 1.2%;"></td>
+                <td style="width: 1.5%;"></td>
 
-                <!-- Columna Derecha: Clave y SRI -->
-                <td style="width: 49.4%; vertical-align: top;">
+                <!-- Columna Derecha: Clave y SRI (Proporción 5) -->
+                <td style="width: 40.5%; vertical-align: top;">
                     <div class="card-panel-shaded">
                         <div class="doc-ruc">R.U.C.: {{ $sucursal->ruc }}</div>
                         <div class="doc-type">NOTA DE CRÉDITO</div>

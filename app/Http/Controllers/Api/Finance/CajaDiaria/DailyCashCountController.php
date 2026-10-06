@@ -41,6 +41,30 @@ class DailyCashCountController extends Controller
         $saldoPichincha = $acc2 ? ($acc2->saldo_actual ?? $acc2->current_balance) : 0.00;
         $saldoGuayaquil = $acc3 ? ($acc3->saldo_actual ?? $acc3->current_balance) : 0.00;
 
+        $initCash = $previousCount ? (float)$previousCount->cash_total : 0.0;
+        $initPich = $previousCount ? (float)$previousCount->pichincha_total : 0.0;
+        $initGuay = $previousCount ? (float)$previousCount->guayaquil_total : 0.0;
+
+        // Calcular flujos del día específico (Ingresos y Egresos) registrados en el sistema
+        $acc1Id = $acc1 ? $acc1->id : 1;
+        $acc2Id = $acc2 ? $acc2->id : 2;
+        $acc3Id = $acc3 ? $acc3->id : 3;
+
+        $cashIn = (float)DB::table('financial_movements')->where('account_id', $acc1Id)->where('type', 'income')->whereDate('entry_date', $date)->sum('amount');
+        $cashOut = (float)DB::table('financial_movements')->where('account_id', $acc1Id)->where('type', 'expense')->whereDate('entry_date', $date)->sum('amount');
+
+        $pichIn = (float)DB::table('financial_movements')->where('account_id', $acc2Id)->where('type', 'income')->whereDate('entry_date', $date)->sum('amount');
+        $pichOut = (float)DB::table('financial_movements')->where('account_id', $acc2Id)->where('type', 'expense')->whereDate('entry_date', $date)->sum('amount');
+
+        $guayIn = (float)DB::table('financial_movements')->where('account_id', $acc3Id)->where('type', 'income')->whereDate('entry_date', $date)->sum('amount');
+        $guayOut = (float)DB::table('financial_movements')->where('account_id', $acc3Id)->where('type', 'expense')->whereDate('entry_date', $date)->sum('amount');
+
+        // Saldos Teóricos esperados al cierre de esa fecha = Saldo Inicial + Ingresos - Egresos
+        $expCash = round($initCash + $cashIn - $cashOut, 2);
+        $expPich = round($initPich + $pichIn - $pichOut, 2);
+        $expGuay = round($initGuay + $guayIn - $guayOut, 2);
+        $expTotal = round($expCash + $expPich + $expGuay, 2);
+
         return response()->json([
             'success' => true,
             'date_formatted' => ucfirst($carbonDate->locale('es')->isoFormat('dddd DD [de] MMMM YYYY')),
@@ -62,6 +86,17 @@ class DailyCashCountController extends Controller
                 'origin_date' => null,
                 'cash_details' => null
             ],
+            'daily_movements' => [
+                'cash' => ['income' => $cashIn, 'expense' => $cashOut, 'net' => $cashIn - $cashOut],
+                'pichincha' => ['income' => $pichIn, 'expense' => $pichOut, 'net' => $pichIn - $pichOut],
+                'guayaquil' => ['income' => $guayIn, 'expense' => $guayOut, 'net' => $guayIn - $guayOut],
+            ],
+            'expected_balances' => [
+                'cash' => $expCash,
+                'pichincha' => $expPich,
+                'guayaquil' => $expGuay,
+                'total' => $expTotal,
+            ],
             'latest_overall_count' => $latestOverallCount ? [
                 'id' => $latestOverallCount->id,
                 'count_date' => $latestOverallCount->count_date ? $latestOverallCount->count_date->format('Y-m-d') : null,
@@ -75,8 +110,12 @@ class DailyCashCountController extends Controller
                 'user_name' => $latestOverallCount->user ? $latestOverallCount->user->name : 'N/A',
                 'created_at' => $latestOverallCount->created_at ? $latestOverallCount->created_at->format('d/m/Y H:i') : null,
             ] : null,
-            // 🛠️ CORRECCIÓN DEFINITIVA: Limpiamos las flechas para usar el valor numérico directo
             'system_balances' => [
+                'cash' => (float)$expCash,
+                'pichincha' => (float)$expPich,
+                'guayaquil' => (float)$expGuay,
+            ],
+            'live_balances' => [
                 'cash' => (float)$saldoCajaChica,
                 'pichincha' => (float)$saldoPichincha,
                 'guayaquil' => (float)$saldoGuayaquil,

@@ -231,20 +231,20 @@
         .card-box {
             border: 1px solid #cbd5e1;
             border-radius: 5px;
-            margin-bottom: 7px;
+            margin-bottom: 10px;
             overflow: hidden;
             background: #ffffff;
         }
 
         .card-header {
-            background: #748191;
-            color: #ffffff;
-            padding: 4px 10px;
-            font-size: 9px;
-            font-weight: 700;
+            background: transparent;
+            color: #0f172a;
+            padding: 5px 10px;
+            font-size: 10.5px;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
-            border-bottom: 1px solid #5c6877;
+            letter-spacing: 0.5px;
+            border-bottom: 1.5px solid #cbd5e1;
         }
 
         .card-body {
@@ -281,29 +281,30 @@
             width: 100%;
             table-layout: fixed;
             border-collapse: collapse;
-            margin-bottom: 7px;
+            margin-top: 0;
+            margin-bottom: 4px;
             border: 1px solid #cbd5e1;
             border-radius: 5px;
             overflow: hidden;
         }
 
         .items-table thead th {
-            background: #748191;
-            color: #ffffff;
-            font-size: 8px;
-            font-weight: 700;
+            background: transparent;
+            color: #0f172a;
+            font-size: 9.2px;
+            font-weight: 800;
             text-transform: uppercase;
-            padding: 5px 6px;
-            letter-spacing: 0.3px;
-            border-bottom: 1px solid #5c6877;
+            padding: 4px 6px;
+            letter-spacing: 0.4px;
+            border-bottom: 2px solid #0f172a;
             border-top: none;
             border-left: none;
             border-right: none;
         }
 
         .items-table tbody td {
-            padding: 4.5px 6px;
-            font-size: 8.5px;
+            padding: 3px 6px;
+            font-size: 8.8px;
             border-top: 1px solid #e2e8f0;
             border-bottom: 1px solid #e2e8f0;
             border-left: none;
@@ -313,7 +314,7 @@
         }
 
         .items-table tbody tr:nth-child(even) {
-            background: #f8fafc;
+            background: transparent;
         }
 
         .text-center {
@@ -350,8 +351,8 @@
         }
 
         .totals-table td {
-            padding: 3px 8px;
-            font-size: 8.5px;
+            padding: 3.5px 8px;
+            font-size: 8.8px;
             border-bottom: 1px solid #e2e8f0;
         }
 
@@ -370,34 +371,34 @@
             text-align: right;
             font-weight: 700;
             color: #0f172a;
-            font-size: 8.8px;
+            font-size: 9px;
             width: 40%;
         }
 
         .tot-highlight {
-            background: #748191 !important;
-            color: #ffffff !important;
-            border-top: 1px solid #5c6877 !important;
+            background: transparent !important;
+            color: #0f172a !important;
+            border-top: 2px solid #0f172a !important;
         }
 
         .tot-highlight td {
-            padding: 5px 8px;
-            font-size: 10.5px;
+            padding: 6px 8px;
+            font-size: 11.5px;
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #ffffff !important;
+            color: #0f172a !important;
         }
 
         .tot-highlight .tot-label {
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #ffffff !important;
+            color: #0f172a !important;
         }
 
         .tot-highlight .tot-val {
             font-weight: 800;
             font-family: Helvetica, Arial, sans-serif !important;
-            color: #ffffff !important;
+            color: #0f172a !important;
         }
 
         /* ── FOOTER ─────────────────────────────────────────────── */
@@ -477,11 +478,11 @@
 
     <div class="container">
 
-        {{-- ═══ CABECERA SRI (2 COLUMNAS OFICIALES DE IGUAL DIMENSIÓN) ════════════════════════ --}}
+        {{-- ═══ CABECERA SRI (COLUMNA IZQUIERDA 7/12 ~58%, COLUMNA DERECHA 5/12 ~40.5%) ════════════════════════ --}}
         <table class="layout-table">
             <tr>
-                {{-- COLUMNA IZQUIERDA: DATOS DE LA EMPRESA --}}
-                <td style="width: 49.4%; vertical-align: top;">
+                {{-- COLUMNA IZQUIERDA: DATOS DE LA EMPRESA (PROPORCIÓN 7) --}}
+                <td style="width: 58%; vertical-align: top;">
                     <div class="logo-box">
                         @if (!empty($logoBase64))
                         <img src="{{ $logoBase64 }}" class="logo-img" alt="Logo">
@@ -531,10 +532,10 @@
                 </td>
 
                 {{-- ESPACIADOR CENTRAL --}}
-                <td style="width: 1.2%;"></td>
+                <td style="width: 1.5%;"></td>
 
-                {{-- COLUMNA DERECHA: DATOS TRIBUTARIOS Y FISCALES --}}
-                <td style="width: 49.4%; vertical-align: top;">
+                {{-- COLUMNA DERECHA: DATOS TRIBUTARIOS Y FISCALES (PROPORCIÓN 5) --}}
+                <td style="width: 40.5%; vertical-align: top;">
                     <div class="card-panel-shaded">
                         <div class="doc-ruc">R.U.C.: {{ $sucursal->ruc ?? '1793192550001' }}</div>
                         <div class="doc-type-badge">FACTURA</div>
