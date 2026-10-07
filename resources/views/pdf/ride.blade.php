@@ -760,12 +760,20 @@
                             <table class="info-table">
                                 @php
                                 $otNumber = $sale->work_order_number ?: ($sale->workOrder->number ?? null);
+                                $otDate = $sale->workOrder ? $sale->workOrder->date : null;
+                                $otDateFormatted = $otDate ? \Carbon\Carbon::parse($otDate)->format('d/m/Y') : null;
                                 @endphp
                                 @if (!empty($otNumber))
                                 <tr>
                                     <td style="font-weight: 700; width: 34%; color: #475569;">Orden de Trabajo:</td>
                                     <td style="color: #0f172a; font-weight: 700;">{{ $otNumber }}</td>
                                 </tr>
+                                @if (!empty($otDateFormatted) && $otDateFormatted !== $fechaEmision)
+                                <tr>
+                                    <td style="font-weight: 700; width: 34%; color: #475569;">Fecha O/T:</td>
+                                    <td style="color: #0f172a; font-weight: 600;">{{ $otDateFormatted }}</td>
+                                </tr>
+                                @endif
                                 @endif
 
                                 <tr>

@@ -803,7 +803,15 @@
                         @endif
                     </td>
                     <td style="width: 50%; padding-bottom: 8px; text-align: right; font-size: 11px; font-weight: 700; color: #0f172a; border: none; vertical-align: top;">
-                        FECHA: {{ $sale->service_date->format('d/m/Y') }}
+                        FECHA: {{ $sale->service_date ? $sale->service_date->format('d/m/Y') : now()->format('d/m/Y') }}
+                        @php
+                            $otDate = $sale->workOrder ? $sale->workOrder->date : null;
+                            $otDateFormatted = $otDate ? \Carbon\Carbon::parse($otDate)->format('d/m/Y') : null;
+                            $saleDateFormatted = $sale->service_date ? $sale->service_date->format('d/m/Y') : now()->format('d/m/Y');
+                        @endphp
+                        @if(!empty($otDateFormatted) && $otDateFormatted !== $saleDateFormatted)
+                        <br><span style="font-size: 8.5px; color: #475569; font-weight: 600; letter-spacing: 0.2px;">FECHA O/T: {{ $otDateFormatted }}</span>
+                        @endif
                     </td>
                 </tr>
                 <tr>

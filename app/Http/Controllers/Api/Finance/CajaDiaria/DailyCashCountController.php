@@ -59,10 +59,28 @@ class DailyCashCountController extends Controller
         $guayIn = (float)DB::table('financial_movements')->where('account_id', $acc3Id)->where('type', 'income')->whereDate('entry_date', $date)->sum('amount');
         $guayOut = (float)DB::table('financial_movements')->where('account_id', $acc3Id)->where('type', 'expense')->whereDate('entry_date', $date)->sum('amount');
 
+        $transOut1 = (float)DB::table('internal_transfers')->where('from_account_id', $acc1Id)->whereDate('transfer_date', $date)->sum('amount');
+        $transIn1  = (float)DB::table('internal_transfers')->where('to_account_id', $acc1Id)->whereDate('transfer_date', $date)->sum('amount');
+
+        $transOut2 = (float)DB::table('internal_transfers')->where('from_account_id', $acc2Id)->whereDate('transfer_date', $date)->sum('amount');
+        $transIn2  = (float)DB::table('internal_transfers')->where('to_account_id', $acc2Id)->whereDate('transfer_date', $date)->sum('amount');
+
+        $transOut3 = (float)DB::table('internal_transfers')->where('from_account_id', $acc3Id)->whereDate('transfer_date', $date)->sum('amount');
+        $transIn3  = (float)DB::table('internal_transfers')->where('to_account_id', $acc3Id)->whereDate('transfer_date', $date)->sum('amount');
+
+        $totCashIn = $cashIn + $transIn1;
+        $totCashOut = $cashOut + $transOut1;
+
+        $totPichIn = $pichIn + $transIn2;
+        $totPichOut = $pichOut + $transOut2;
+
+        $totGuayIn = $guayIn + $transIn3;
+        $totGuayOut = $guayOut + $transOut3;
+
         // Saldos Teóricos esperados al cierre de esa fecha = Saldo Inicial + Ingresos - Egresos
-        $expCash = round($initCash + $cashIn - $cashOut, 2);
-        $expPich = round($initPich + $pichIn - $pichOut, 2);
-        $expGuay = round($initGuay + $guayIn - $guayOut, 2);
+        $expCash = round($initCash + $totCashIn - $totCashOut, 2);
+        $expPich = round($initPich + $totPichIn - $totPichOut, 2);
+        $expGuay = round($initGuay + $totGuayIn - $totGuayOut, 2);
         $expTotal = round($expCash + $expPich + $expGuay, 2);
 
         return response()->json([
@@ -87,9 +105,9 @@ class DailyCashCountController extends Controller
                 'cash_details' => null
             ],
             'daily_movements' => [
-                'cash' => ['income' => $cashIn, 'expense' => $cashOut, 'net' => $cashIn - $cashOut],
-                'pichincha' => ['income' => $pichIn, 'expense' => $pichOut, 'net' => $pichIn - $pichOut],
-                'guayaquil' => ['income' => $guayIn, 'expense' => $guayOut, 'net' => $guayIn - $guayOut],
+                'cash' => ['income' => $totCashIn, 'expense' => $totCashOut, 'net' => $totCashIn - $totCashOut],
+                'pichincha' => ['income' => $totPichIn, 'expense' => $totPichOut, 'net' => $totPichIn - $totPichOut],
+                'guayaquil' => ['income' => $totGuayIn, 'expense' => $totGuayOut, 'net' => $totGuayIn - $totGuayOut],
             ],
             'expected_balances' => [
                 'cash' => $expCash,
@@ -111,11 +129,6 @@ class DailyCashCountController extends Controller
                 'created_at' => $latestOverallCount->created_at ? $latestOverallCount->created_at->format('d/m/Y H:i') : null,
             ] : null,
             'system_balances' => [
-                'cash' => (float)$expCash,
-                'pichincha' => (float)$expPich,
-                'guayaquil' => (float)$expGuay,
-            ],
-            'live_balances' => [
                 'cash' => (float)$saldoCajaChica,
                 'pichincha' => (float)$saldoPichincha,
                 'guayaquil' => (float)$saldoGuayaquil,

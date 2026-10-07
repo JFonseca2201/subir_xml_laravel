@@ -28,37 +28,101 @@ class PedidoDistribuidorController extends Controller
     }
 
     /**
-     * Obtener los productos asociados a un distribuidor específico.
+     * Obtener los productos asociados a un distribuidor específico y del catálogo general.
      */
     public function getProductsBySupplier(Request $request, $supplier_id)
     {
         try {
             $search = $request->get('search', '');
 
-            $query = Product::where('supplier_id', $supplier_id)
-                ->where('state', 1); // Solo productos activos
+            // 1. Items del catálogo importado del distribuidor
+            $catalogQuery = \App\Models\Supplier\DistributorCatalogItem::where('supplier_id', $supplier_id);
+            if (!empty($search)) {
+                $catalogQuery->where(function ($q) use ($search) {
+                    $q->where('description', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('reference', 'like', "%{$search}%");
+                });
+            }
+            $catalogItems = $catalogQuery->orderBy('description', 'asc')->get();
+
+            $formattedCatalog = $catalogItems->map(function ($item) {
+                return [
+                    'id' => null,
+                    'catalog_id' => $item->id,
+                    'description' => $item->description,
+                    'sku' => $item->code ?: $item->reference,
+                    'reference' => $item->reference,
+                    'purchase_price' => (float) $item->price,
+                    'price_sale' => (float) $item->price,
+                    'stock' => $item->stock_status ?: 'En catálogo',
+                    'source' => 'catalog',
+                ];
+            });
+
+            // 2. Productos de inventario asignados a este distribuidor
+            $supplierProdQuery = Product::where('supplier_id', $supplier_id)
+                ->where('state', 1);
 
             if (!empty($search)) {
-                $query->where(function ($q) use ($search) {
+                $supplierProdQuery->where(function ($q) use ($search) {
                     $q->where('description', 'like', "%{$search}%")
                         ->orWhere('sku', 'like', "%{$search}%");
                 });
             }
+            $supplierProducts = $supplierProdQuery->orderBy('description', 'asc')->get();
 
-            $products = $query->orderBy('description', 'asc')->get();
+            $formattedSupplierProducts = $supplierProducts->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'catalog_id' => null,
+                    'description' => $product->description,
+                    'sku' => $product->sku,
+                    'reference' => null,
+                    'purchase_price' => (float) $product->purchase_price,
+                    'price_sale' => (float) $product->price_sale,
+                    'stock' => $product->stock,
+                    'source' => 'supplier_inventory',
+                ];
+            });
+
+            // 3. Productos de inventario general activos
+            $generalProdQuery = Product::where('state', 1)
+                ->where(function ($q) use ($supplier_id) {
+                    $q->where('supplier_id', '!=', $supplier_id)
+                      ->orWhereNull('supplier_id');
+                });
+
+            if (!empty($search)) {
+                $generalProdQuery->where(function ($q) use ($search) {
+                    $q->where('description', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%");
+                });
+            }
+            $generalProducts = $generalProdQuery->orderBy('description', 'asc')->limit(300)->get();
+
+            $formattedGeneralProducts = $generalProducts->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'catalog_id' => null,
+                    'description' => $product->description,
+                    'sku' => $product->sku,
+                    'reference' => null,
+                    'purchase_price' => (float) $product->purchase_price,
+                    'price_sale' => (float) $product->price_sale,
+                    'stock' => $product->stock,
+                    'source' => 'general_inventory',
+                ];
+            });
+
+            // Unir colecciones: 1. Catálogo de distribuidor -> 2. Productos de ese distribuidor -> 3. Inventario general
+            $merged = $formattedCatalog
+                ->concat($formattedSupplierProducts)
+                ->concat($formattedGeneralProducts);
 
             return response()->json([
                 'status' => 200,
-                'products' => $products->map(function ($product) {
-                    return [
-                        'id' => $product->id,
-                        'description' => $product->description,
-                        'sku' => $product->sku,
-                        'purchase_price' => $product->purchase_price,
-                        'price_sale' => $product->price_sale,
-                        'stock' => $product->stock,
-                    ];
-                })
+                'products' => $merged->values()
             ], 200);
 
         } catch (Exception $e) {

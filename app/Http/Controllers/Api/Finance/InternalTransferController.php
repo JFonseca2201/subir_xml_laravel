@@ -136,19 +136,63 @@ class InternalTransferController extends Controller
 
                 $entryDate = $validated['transfer_date'] ?? now();
 
-                // Registrar un único movimiento de tipo 'transfer'
+                // Registrar movimiento de salida para la cuenta de origen
                 $transfer->registerMovement(
                     $fromAccount->id,
                     'transfer',
                     $validated['amount'],
-                    "Transferencia interna: " . ($validated['description'] ?? 'Sin descripción'),
+                    "Transferencia interna enviada a {$toAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
                     $entryDate,
                     [
-                        'type' => 'internal_transfer', 
+                        'type' => 'internal_transfer_out', 
                         'from_account' => $fromAccount->id, 
-                        'to_account' => $toAccount->id
+                        'to_account' => $toAccount->id,
+                        'direction' => 'out'
                     ]
                 );
+
+                // Registrar movimiento de entrada para la cuenta de destino
+                $transfer->registerMovement(
+                    $toAccount->id,
+                    'transfer',
+                    $validated['amount'],
+                    "Transferencia interna recibida de {$fromAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
+                    $entryDate,
+                    [
+                        'type' => 'internal_transfer_in', 
+                        'from_account' => $fromAccount->id, 
+                        'to_account' => $toAccount->id,
+                        'direction' => 'in'
+                    ]
+                );
+
+                // Registrar en la tabla movimientos_cuentas para ambas cuentas
+                if (DB::getSchemaBuilder()->hasTable('movimientos_cuentas')) {
+                    DB::table('movimientos_cuentas')->insert([
+                        [
+                            'cuenta_id' => $fromAccount->id,
+                            'tipo' => 'EGRESO',
+                            'monto' => $validated['amount'],
+                            'descripcion' => "Transferencia interna enviada a {$toAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
+                            'referencia' => 'internal_transfer',
+                            'referencia_id' => $transfer->id,
+                            'fecha' => $entryDate instanceof \Carbon\Carbon ? $entryDate->toDateString() : substr($entryDate, 0, 10),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ],
+                        [
+                            'cuenta_id' => $toAccount->id,
+                            'tipo' => 'INGRESO',
+                            'monto' => $validated['amount'],
+                            'descripcion' => "Transferencia interna recibida de {$fromAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
+                            'referencia' => 'internal_transfer',
+                            'referencia_id' => $transfer->id,
+                            'fecha' => $entryDate instanceof \Carbon\Carbon ? $entryDate->toDateString() : substr($entryDate, 0, 10),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]
+                    ]);
+                }
 
                 // 3. Actualizar saldos
                 $fromAccount->updateBalance($validated['amount'], 1); // 1 = Egreso
@@ -160,7 +204,7 @@ class InternalTransferController extends Controller
                     'account_id' => $fromAccount->id,
                     'payment_method' => $fromAccount->id === 1 ? 'cash' : 'transfer',
                     'amount' => $validated['amount'],
-                    'description' => "Transferencia interna enviada: " . ($validated['description'] ?? 'Sin descripción'),
+                    'description' => "Transferencia interna enviada a {$toAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
                     'entry_date' => $entryDate,
                     'user_id' => auth()->id() ?? 1,
                     'invoice_number' => 'TRANSFER-OUT-' . $transfer->id,
@@ -179,7 +223,7 @@ class InternalTransferController extends Controller
                     'account_id' => $toAccount->id,
                     'payment_method' => $toAccount->id === 1 ? 'cash' : 'transfer',
                     'amount' => $validated['amount'],
-                    'description' => "Transferencia interna recibida: " . ($validated['description'] ?? 'Sin descripción'),
+                    'description' => "Transferencia interna recibida de {$fromAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
                     'entry_date' => $entryDate,
                     'user_id' => auth()->id() ?? 1,
                     'invoice_number' => 'TRANSFER-IN-' . $transfer->id,

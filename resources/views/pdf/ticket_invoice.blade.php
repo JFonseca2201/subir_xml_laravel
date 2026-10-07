@@ -694,6 +694,14 @@
         VENTA {{ strtoupper($sale->user->name ?? 'MOSTRADOR') }}
         @if($sale->work_order_number)
             - OT: {{ $sale->work_order_number }}
+            @php
+                $otDate = $sale->workOrder ? $sale->workOrder->date : null;
+                $otDateFormatted = $otDate ? \Carbon\Carbon::parse($otDate)->format('d/m/Y') : null;
+                $saleDateFormatted = $sale->service_date ? $sale->service_date->format('d/m/Y') : ($sale->created_at ? $sale->created_at->format('d/m/Y') : date('d/m/Y'));
+            @endphp
+            @if(!empty($otDateFormatted) && $otDateFormatted !== $saleDateFormatted)
+                (F. OT: {{ $otDateFormatted }})
+            @endif
         @endif
         @if($sale->vehicle && $sale->vehicle->plate)
             - PLACA: {{ $sale->vehicle->plate }}
