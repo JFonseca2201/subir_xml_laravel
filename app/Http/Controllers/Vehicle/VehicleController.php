@@ -104,12 +104,9 @@ class VehicleController extends Controller
     {
         $search = trim($request->get('q', $request->get('search', '')));
         $clientId = $request->get('client_id');
-
-        if (strlen($search) < 2 && !$clientId) {
-            return response()->json([
-                'status' => 200,
-                'data' => [],
-            ]);
+        $limit = (int) $request->get('limit', 5);
+        if ($limit <= 0) {
+            $limit = 5;
         }
 
         $query = Vehicle::select([
@@ -124,11 +121,19 @@ class VehicleController extends Controller
             'vehicle_type',
             'usage_type',
             'status',
-        ])->with(['client:id,name,surname,full_name,n_document,email,phone,address']);
+        ])->with(['client:id,name,surname,full_name,n_document,email,phone,address'])
+          ->where('status', 1);
 
-        // Si no se escribe texto de búsqueda pero sí hay client_id, mostrar los vehículos de ese cliente
-        if ($clientId && $search === '') {
-            $query->where('client_id', $clientId);
+        if (strlen($search) < 2) {
+            if ($clientId) {
+                $query->where('client_id', $clientId);
+            }
+            $vehicles = $query->orderBy('id', 'desc')->limit($limit)->get();
+
+            return response()->json([
+                'status' => 200,
+                'data' => $vehicles,
+            ]);
         }
 
         if ($search !== '') {

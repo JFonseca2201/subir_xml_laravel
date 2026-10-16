@@ -26,6 +26,7 @@ class Sucursale extends Model
         'firma_electronica',
         'password_firma',
         'logo',
+        'login_background',
         'obligado_contabilidad',
         'contribuyente_especial',
         'status',

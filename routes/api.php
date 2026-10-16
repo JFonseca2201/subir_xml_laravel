@@ -70,6 +70,9 @@ Route::group(
     },
 );
 
+// Ruta pública para datos de apariencia (login, logo, fondo)
+Route::get('public/sucursal', [SucursaleController::class, 'publicInfo']);
+
 Route::group(
     [
         'middleware' => ['auth:api'],

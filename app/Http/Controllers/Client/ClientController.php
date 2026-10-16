@@ -67,12 +67,9 @@ class ClientController extends Controller
     public function search(Request $request)
     {
         $search = trim($request->get('q', $request->get('search', '')));
-
-        if (strlen($search) < 2) {
-            return response()->json([
-                'status' => 200,
-                'data' => [],
-            ]);
+        $limit = (int) $request->get('limit', 5);
+        if ($limit <= 0) {
+            $limit = 5;
         }
 
         $query = Client::select([
@@ -85,11 +82,21 @@ class ClientController extends Controller
             'email',
         ])->where('state', 1);
 
+        if (strlen($search) < 2) {
+            $recentClients = $query->orderBy('id', 'desc')->limit($limit)->get();
+
+            return response()->json([
+                'status' => 200,
+                'data' => $recentClients,
+            ]);
+        }
+
         $query->where(function ($q) use ($search) {
             $q->where('name', 'like', "%{$search}%")
                 ->orWhere('surname', 'like', "%{$search}%")
                 ->orWhere('full_name', 'like', "%{$search}%")
-                ->orWhere('n_document', 'like', "%{$search}%");
+                ->orWhere('n_document', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%");
         });
 
         $clients = $query->orderBy('id', 'desc')->limit(15)->get();

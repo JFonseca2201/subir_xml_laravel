@@ -187,9 +187,15 @@ class ProductController extends Controller
                 }
             });
         } else {
+            $limit = (int) $request->get('limit', 5);
+            if ($limit <= 0) {
+                $limit = 5;
+            }
+            $products = $query->orderBy('id', 'desc')->limit($limit)->get();
+
             return response()->json([
                 'status' => 200,
-                'data' => [],
+                'data' => $products,
             ]);
         }
 

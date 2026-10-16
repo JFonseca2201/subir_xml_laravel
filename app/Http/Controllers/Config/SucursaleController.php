@@ -31,6 +31,32 @@ class SucursaleController extends Controller
     }
 
     /**
+     * Obtener información pública de la sucursal (para login, logo, fondos).
+     */
+    public function publicInfo(): JsonResponse
+    {
+        try {
+            $sucursal = Sucursale::first();
+
+            return response()->json([
+                'status' => 200,
+                'sucursal' => $sucursal ? [
+                    'id' => $sucursal->id,
+                    'name' => $sucursal->name,
+                    'trade_name' => $sucursal->trade_name,
+                    'logo' => $sucursal->logo,
+                    'login_background' => $sucursal->login_background,
+                ] : null,
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, string $id): JsonResponse
@@ -55,6 +81,9 @@ class SucursaleController extends Controller
                 'firma_file' => 'nullable|file|max:10240',
                 'password_firma' => 'nullable|string|max:255',
                 'logo' => 'nullable|string|max:255',
+                'login_background' => 'nullable|string',
+                'login_background_file' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:10240',
+                'remove_login_background' => 'nullable',
                 'obligado_contabilidad' => 'required|in:SI,NO,si,no',
                 'contribuyente_especial' => 'nullable|string|max:50',
                 'status' => 'nullable|string',
@@ -90,6 +119,19 @@ class SucursaleController extends Controller
                 $data['firma_electronica'] = $path;
             } elseif ($request->filled('firma_electronica')) {
                 $data['firma_electronica'] = $request->firma_electronica;
+            }
+
+            // Procesar archivo de fondo de login si fue enviado
+            if ($request->hasFile('login_background_file')) {
+                $bgFile = $request->file('login_background_file');
+                $ext = $bgFile->getClientOriginalExtension() ?: 'jpg';
+                $filename = 'login_bg_' . $sucursal->id . '_' . time() . '.' . $ext;
+                $path = $bgFile->storeAs('sucursales', $filename, 'public');
+                $data['login_background'] = $path;
+            } elseif ($request->filled('login_background')) {
+                $data['login_background'] = $request->login_background;
+            } elseif ($request->has('remove_login_background') && filter_var($request->remove_login_background, FILTER_VALIDATE_BOOLEAN)) {
+                $data['login_background'] = null;
             }
 
             $sucursal->update($data);
