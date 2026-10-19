@@ -32,14 +32,25 @@ class DailyCashCountController extends Controller
             ->orderBy('count_date', 'desc')
             ->first();
 
-        // Traer los balances teóricos actuales de las cuentas correspondientes de forma resiliente
-        $acc1 = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->orWhere('id', 1)->first();
-        $acc2 = Account::where('name', 'like', '%pichincha%')->orWhere('bank_name', 'like', '%pichincha%')->orWhere('id', 2)->first();
-        $acc3 = Account::where('name', 'like', '%guayaquil%')->orWhere('bank_name', 'like', '%guayaquil%')->orWhere('id', 3)->first();
+        // Traer los balances teóricos actuales de las cuentas correspondientes de forma resiliente y precisa
+        $acc1 = Account::where('id', 1)->first()
+            ?: Account::where('code', 'CAJA_CHICA')->first()
+            ?: Account::where('type', 'cash')->first()
+            ?: Account::where('name', 'like', '%caja%')->first();
 
-        $saldoCajaChica = $acc1 ? ($acc1->saldo_actual ?? $acc1->current_balance) : 0.00;
-        $saldoPichincha = $acc2 ? ($acc2->saldo_actual ?? $acc2->current_balance) : 0.00;
-        $saldoGuayaquil = $acc3 ? ($acc3->saldo_actual ?? $acc3->current_balance) : 0.00;
+        $acc2 = Account::where('id', 2)->first()
+            ?: Account::where('code', 'BPICH')->first()
+            ?: Account::where('name', 'like', '%pichincha%')->first()
+            ?: Account::where('bank_name', 'like', '%pichincha%')->first();
+
+        $acc3 = Account::where('id', 3)->first()
+            ?: Account::where('code', 'BGA')->first()
+            ?: Account::where('name', 'like', '%guayaquil%')->first()
+            ?: Account::where('bank_name', 'like', '%guayaquil%')->first();
+
+        $saldoCajaChica = $acc1 ? (float)($acc1->fresh()->saldo_actual ?? $acc1->current_balance) : 0.00;
+        $saldoPichincha = $acc2 ? (float)($acc2->fresh()->saldo_actual ?? $acc2->current_balance) : 0.00;
+        $saldoGuayaquil = $acc3 ? (float)($acc3->fresh()->saldo_actual ?? $acc3->current_balance) : 0.00;
 
         $initCash = $previousCount ? (float)$previousCount->cash_total : 0.0;
         $initPich = $previousCount ? (float)$previousCount->pichincha_total : 0.0;
@@ -59,14 +70,27 @@ class DailyCashCountController extends Controller
         $guayIn = (float)DB::table('financial_movements')->where('account_id', $acc3Id)->where('type', 'income')->whereDate('entry_date', $date)->sum('amount');
         $guayOut = (float)DB::table('financial_movements')->where('account_id', $acc3Id)->where('type', 'expense')->whereDate('entry_date', $date)->sum('amount');
 
-        $transOut1 = (float)DB::table('internal_transfers')->where('from_account_id', $acc1Id)->whereDate('transfer_date', $date)->sum('amount');
-        $transIn1  = (float)DB::table('internal_transfers')->where('to_account_id', $acc1Id)->whereDate('transfer_date', $date)->sum('amount');
+        // Función para calcular transferencias del día contemplando transfer_date y created_at
+        $calcTrans = function($accountId, $isFrom) use ($date) {
+            $col = $isFrom ? 'from_account_id' : 'to_account_id';
+            return (float)DB::table('internal_transfers')
+                ->where($col, $accountId)
+                ->where(function($q) use ($date) {
+                    $q->whereDate('transfer_date', $date)
+                      ->orWhere(function($sub) use ($date) {
+                          $sub->whereNull('transfer_date')->whereDate('created_at', $date);
+                      });
+                })->sum('amount');
+        };
 
-        $transOut2 = (float)DB::table('internal_transfers')->where('from_account_id', $acc2Id)->whereDate('transfer_date', $date)->sum('amount');
-        $transIn2  = (float)DB::table('internal_transfers')->where('to_account_id', $acc2Id)->whereDate('transfer_date', $date)->sum('amount');
+        $transOut1 = $calcTrans($acc1Id, true);
+        $transIn1  = $calcTrans($acc1Id, false);
 
-        $transOut3 = (float)DB::table('internal_transfers')->where('from_account_id', $acc3Id)->whereDate('transfer_date', $date)->sum('amount');
-        $transIn3  = (float)DB::table('internal_transfers')->where('to_account_id', $acc3Id)->whereDate('transfer_date', $date)->sum('amount');
+        $transOut2 = $calcTrans($acc2Id, true);
+        $transIn2  = $calcTrans($acc2Id, false);
+
+        $transOut3 = $calcTrans($acc3Id, true);
+        $transIn3  = $calcTrans($acc3Id, false);
 
         $totCashIn = $cashIn + $transIn1;
         $totCashOut = $cashOut + $transOut1;
@@ -82,6 +106,18 @@ class DailyCashCountController extends Controller
         $expPich = round($initPich + $totPichIn - $totPichOut, 2);
         $expGuay = round($initGuay + $totGuayIn - $totGuayOut, 2);
         $expTotal = round($expCash + $expPich + $expGuay, 2);
+
+        // Traer todas las cuentas activas para sincronización completa
+        $allAccounts = Account::where('is_active', true)->get()->map(function($acc) {
+            return [
+                'id' => $acc->id,
+                'code' => $acc->code,
+                'name' => $acc->name,
+                'type' => $acc->type,
+                'bank_name' => $acc->bank_name,
+                'saldo_actual' => (float)($acc->fresh()->saldo_actual ?? $acc->current_balance ?? 0),
+            ];
+        });
 
         return response()->json([
             'success' => true,
@@ -132,8 +168,12 @@ class DailyCashCountController extends Controller
                 'cash' => (float)$saldoCajaChica,
                 'pichincha' => (float)$saldoPichincha,
                 'guayaquil' => (float)$saldoGuayaquil,
-            ]
-        ]);
+            ],
+            'accounts' => $allAccounts,
+        ])
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
     }
 
     /**
