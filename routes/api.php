@@ -328,6 +328,7 @@ Route::group(
 
         // ============= RUTAS DE MANTENIMIENTO PREVENTIVO Y RECORDATORIOS ==========
         Route::get('maintenance-reminders/calendar', [MaintenanceReminderController::class, 'getCalendarEvents']);
+        Route::get('maintenance-reminders/upcoming', [MaintenanceReminderController::class, 'getUpcomingEvents']);
         Route::post('maintenance-reminders/{id}/notify', [MaintenanceReminderController::class, 'notify']);
         Route::patch('maintenance-reminders/{id}/status', [MaintenanceReminderController::class, 'updateStatus']);
 

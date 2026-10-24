@@ -29,7 +29,20 @@ class MaintenanceReminderNotification extends Notification
         $client = $this->reminder->client;
         $targetKm = number_format($this->reminder->target_mileage);
         $plate = $vehicle->license_plate ?? 'Vehículo';
-        $vehicleModel = "{$vehicle->brand} {$vehicle->model}";
+
+        // Resolver la marca del vehículo desde el catálogo config/vehicle_brands
+        $brands = config('vehicle_brands', []);
+        $rawBrand = $vehicle->brand ?? null;
+        $brandName = '';
+        if ($rawBrand !== null && is_numeric($rawBrand)) {
+            $brandName = $brands[(int) $rawBrand] ?? '';
+        }
+        if (empty($brandName)) {
+            $brandName = $vehicle->brand_name ?? ($vehicle->brand ?? '');
+        }
+
+        $vehicleModel = $vehicle ? trim("{$brandName} {$vehicle->model}") : 'tu vehículo';
+        $clientName = $client ? ($client->full_name ?? ($client->name ?? 'Estimado cliente')) : 'Estimado cliente';
 
         $serviceTitles = [
             'amortiguadores' => 'Revisión y Cambio de Amortiguadores / Suspensión',
@@ -42,15 +55,33 @@ class MaintenanceReminderNotification extends Notification
         ];
 
         $serviceName = $serviceTitles[$this->reminder->service_category] ?? 'Mantenimiento Preventivo';
+        $intervalKm = number_format($this->reminder->interval_km ?: 10000);
+
+        // Datos de la empresa / sucursal
+        $sucursal = \App\Models\Config\Sucursale::first();
+        $companyName = $sucursal->trade_name ?? ($sucursal->name ?? 'TECNICENTRO LUXURY EVYS');
+        $companyPhone = $sucursal->phone ?? '';
+        $companyAddress = $sucursal->address ?? 'Quito, Ecuador';
+
+        $rawPhone = preg_replace('/[^0-9]/', '', $companyPhone);
+        $whatsappUrl = !empty($rawPhone)
+            ? "https://api.whatsapp.com/send?phone={$rawPhone}&text=" . rawurlencode("Hola, me comunico sobre el recordatorio de mantenimiento preventivo para mi vehículo placa {$plate}.")
+            : null;
 
         return (new MailMessage)
-            ->subject("🔧 Recordatorio Preventivo: {$serviceName} - Placa {$plate}")
-            ->greeting("¡Hola, {$client->full_name}!")
-            ->line("De acuerdo a nuestro seguimiento de kilometraje, estimamos que tu vehículo **{$vehicleModel} (Placa: {$plate})** está próximo a alcanzar los **{$targetKm} KM**.")
-            ->line("Servicio recomendado para este kilometraje:")
-            ->line("👉 **{$serviceName}**")
-            ->line("Realizar este servicio a tiempo previene desgastes mayores y mantiene la seguridad y rendimiento de tu vehículo.")
-            ->action('Contactar al Taller / Agendar Cita', url('/'))
-            ->line('¡Gracias por confiar en nuestro servicio profesional!');
+            ->subject("🔧 Mantenimiento Preventivo ({$intervalKm} KM Cumplidos) - Placa {$plate}")
+            ->view('emails.maintenance_reminder', [
+                'companyName'    => $companyName,
+                'companyPhone'   => $companyPhone,
+                'companyAddress' => $companyAddress,
+                'clientName'     => $clientName,
+                'vehicleModel'   => $vehicleModel,
+                'plate'          => $plate,
+                'brandName'      => $brandName,
+                'targetKm'       => $targetKm,
+                'intervalKm'     => $intervalKm,
+                'serviceName'    => $serviceName,
+                'whatsappUrl'    => $whatsappUrl,
+            ]);
     }
 }

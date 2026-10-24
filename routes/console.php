@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // Consulta y reintento automático de facturas pendientes ante el SRI cada 5 minutos
 Schedule::command('sri:consultar-pendientes')->everyFiveMinutes()->withoutOverlapping();
 
+// Envío automático cuando ya se han cumplido los 10.000 KM proyectados (diariamente a las 08:00 AM)
+Schedule::command('maintenance:send-reminders')->dailyAt('08:00')->withoutOverlapping();
+

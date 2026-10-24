@@ -7,11 +7,11 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
 
 class Client extends Model
-
 {
-    use SoftDeletes;
+    use SoftDeletes, Notifiable;
 
     protected $fillable = [
         'name',
