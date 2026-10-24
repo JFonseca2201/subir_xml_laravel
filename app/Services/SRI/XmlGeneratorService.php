@@ -135,7 +135,8 @@ class XmlGeneratorService
         // ─── detalles ───────────────────────────────────────────────────
         $xml->startElement('detalles');
         foreach ($sale->details as $index => $detalle) {
-            $taxRate  = (float)($detalle->tax_rate ?? 15.00);
+            $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
+            $taxRate  = isset($detalle->tax_rate) ? (float)$detalle->tax_rate : $defaultTaxRate;
             $qty      = (float)($detalle->quantity ?? 1);
             $grossPvp = $qty * (float)$detalle->price;
             $discount = (float)($detalle->discount ?? 0);
@@ -357,7 +358,8 @@ class XmlGeneratorService
         // ─── detalles ───────────────────────────────────────────────────
         $xml->startElement('detalles');
         foreach ($sale->details as $index => $detalle) {
-            $taxRate  = (float)($detalle->tax_rate ?? 15.00);
+            $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
+            $taxRate  = isset($detalle->tax_rate) ? (float)$detalle->tax_rate : $defaultTaxRate;
             $qty      = (float)($detalle->quantity ?? 1);
             $grossPvp = $qty * (float)$detalle->price;
             $discount = (float)($detalle->discount ?? 0);
@@ -527,7 +529,8 @@ class XmlGeneratorService
         $tarifas = [];
 
         foreach ($sale->details as $detalle) {
-            $taxRate  = (float)($detalle->tax_rate ?? 15.00);
+            $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
+            $taxRate  = isset($detalle->tax_rate) ? (float)$detalle->tax_rate : $defaultTaxRate;
             $codigo   = $this->codigoTarifa($taxRate);
             $qty      = (float)($detalle->quantity ?? 1);
             $grossPvp = $qty * (float)$detalle->price;

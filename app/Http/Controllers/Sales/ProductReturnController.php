@@ -11,6 +11,7 @@ use App\Models\Finance\FinanceRecord;
 use App\Models\Finance\PaymentDistribution;
 use App\Models\Finance\Account;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Exception;
 
 class ProductReturnController extends Controller
@@ -60,10 +61,11 @@ class ProductReturnController extends Controller
                 'data' => $returns
             ], 200);
         } catch (Exception $e) {
+            Log::error('Error al obtener devoluciones: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener las devoluciones.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -84,6 +86,14 @@ class ProductReturnController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric',
         ]);
+
+        $userId = auth()->id() ?? auth('sanctum')->id();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No autorizado. Debe iniciar sesión para procesar devoluciones.',
+            ], 401);
+        }
 
         try {
             $sale = Sale::with('details')->findOrFail($request->sale_id);
@@ -113,18 +123,17 @@ class ProductReturnController extends Controller
                 }
             }
 
-            $productReturn = DB::transaction(function () use ($request, $sale) {
+            $productReturn = DB::transaction(function () use ($request, $sale, $userId) {
 
-                // 1. Crear la Devolución
-                // Generar número de devolución DEV-XXXX
-                $lastReturn = ProductReturn::latest('id')->first();
+                // 1. Crear la Devolución con lock pesimista para evitar colisiones
+                $lastReturn = ProductReturn::lockForUpdate()->latest('id')->first();
                 $nextId = $lastReturn ? $lastReturn->id + 1 : 1;
                 $returnNumber = 'DEV-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
 
                 $return = ProductReturn::create([
                     'return_number' => $returnNumber,
                     'sale_id' => $sale->id,
-                    'user_id' => $request->user_id ?? auth()->id() ?? 1,
+                    'user_id' => $userId,
                     'type' => $request->type,
                     'refund_amount' => $request->refund_amount,
                     'reason' => $request->reason,
@@ -142,13 +151,9 @@ class ProductReturnController extends Controller
                         'total' => $itemTotal,
                     ]);
 
-                    // Deducir stock (reincorporar inventario)
+                    // Reincorporar stock al inventario de forma atómica
                     if (isset($item['product_id']) && $item['product_id']) {
-                        $product = ModelsProduct::find($item['product_id']);
-                        if ($product) {
-                            $product->stock += $item['quantity'];
-                            $product->save();
-                        }
+                        ModelsProduct::where('id', $item['product_id'])->increment('stock', $item['quantity']);
                     }
 
                     // Remover o reducir el item de la venta original
@@ -223,7 +228,7 @@ class ProductReturnController extends Controller
                             'work_order_number' => $sale->document_number,
                             'invoice_number' => $returnNumber,
                             'description' => 'Devolución de Venta: ' . $sale->document_number . ' - ' . $request->reason,
-                            'user_id' => $request->user_id ?? auth()->id() ?? $sale->user_id ?? 1,
+                            'user_id' => $userId,
                         ]);
 
                         // Crear distribución de pago
@@ -270,10 +275,11 @@ class ProductReturnController extends Controller
             ], 201);
 
         } catch (Exception $e) {
+            Log::error('Error al procesar devolución: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al procesar la devolución.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -298,10 +304,11 @@ class ProductReturnController extends Controller
                 'data' => $return
             ], 200);
         } catch (Exception $e) {
+            Log::error('Error al obtener detalle de devolución: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener el detalle de la devolución.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -320,10 +327,11 @@ class ProductReturnController extends Controller
                 'message' => 'Devolución eliminada exitosamente.'
             ], 200);
         } catch (Exception $e) {
+            Log::error('Error al eliminar devolución: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar la devolución.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }

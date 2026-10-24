@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
@@ -122,6 +123,17 @@ class UserController extends Controller
                 $data['avatar'] = $path;
             }
 
+            $currentUser = auth()->user() ?? auth('sanctum')->user() ?? auth('api')->user();
+            if ($currentUser && !$currentUser->hasRole('Administrador') && !$currentUser->can('edit_roles')) {
+                $adminRole = Role::where('name', 'Administrador')->first();
+                if ($adminRole && (string)$role_id === (string)$adminRole->id) {
+                    return response()->json([
+                        'status' => 403,
+                        'message' => 'No tiene permisos para asignar el rol de Administrador.'
+                    ], 403);
+                }
+            }
+
             $user = User::create($data);
 
             if ($role_id) {
@@ -137,10 +149,11 @@ class UserController extends Controller
                 201,
             );
         } catch (\Throwable $th) {
+            Log::error('Error en UserController@store: ' . $th->getMessage());
             return response()->json(
                 [
                     'status' => 500,
-                    'message' => $th->getMessage(),
+                    'message' => config('app.debug') ? $th->getMessage() : 'Error interno del servidor',
                 ],
                 500,
             );
@@ -192,10 +205,11 @@ class UserController extends Controller
                 404,
             );
         } catch (\Throwable $th) {
+            Log::error('Error en UserController@show: ' . $th->getMessage());
             return response()->json(
                 [
                     'status' => 500,
-                    'message' => $th->getMessage(),
+                    'message' => config('app.debug') ? $th->getMessage() : 'Error interno del servidor',
                 ],
                 500,
             );
@@ -245,9 +259,9 @@ class UserController extends Controller
 
             $data = $validator->validated();
 
-            // Set default values for optional fields
+            // Set default values for optional fields (preserve existing or auth branch)
             if (!isset($data['sucursale_id'])) {
-                $data['sucursale_id'] = '1';
+                $data['sucursale_id'] = $user->sucursale_id ?? auth()->user()?->sucursale_id ?? '1';
             }
 
             // Only update password if provided
@@ -268,13 +282,19 @@ class UserController extends Controller
             }
 
             if (!empty($request->role_id)) {
-                $data['role_id'] = $request->role_id;
+                $currentUser = auth()->user() ?? auth('sanctum')->user() ?? auth('api')->user();
+                $canChangeRole = $currentUser && ($currentUser->hasRole('Administrador') || $currentUser->can('edit_roles'));
+                if ($canChangeRole) {
+                    $data['role_id'] = $request->role_id;
+                } else {
+                    unset($data['role_id']);
+                }
             }
 
             $user->update($data);
 
-            if (!empty($request->role_id)) {
-                $role = Role::findById($request->role_id, 'api');
+            if (!empty($data['role_id'])) {
+                $role = Role::findById($data['role_id'], 'api');
                 if ($role) {
                     $user->syncRoles([$role]);
                 }
@@ -322,10 +342,11 @@ class UserController extends Controller
                 404,
             );
         } catch (\Throwable $th) {
+            Log::error('Error en UserController@update: ' . $th->getMessage());
             return response()->json(
                 [
                     'status' => 500,
-                    'message' => $th->getMessage(),
+                    'message' => config('app.debug') ? $th->getMessage() : 'Error interno del servidor',
                 ],
                 500,
             );

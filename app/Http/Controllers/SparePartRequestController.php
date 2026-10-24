@@ -90,21 +90,21 @@ class SparePartRequestController extends Controller
             $minPrice = $hasMinPrice ? floatval($request->get('min_price')) : null;
             $maxPrice = $hasMaxPrice ? floatval($request->get('max_price')) : null;
 
-            // Secuencia portátil de 0 a 30 para inspeccionar items en JSON
-            $numbers = '0 as seq UNION ALL SELECT ' . implode(' UNION ALL SELECT ', array_map(fn($i) => (string)$i, range(1, 30)));
-            $query->whereIn('id', function ($sub) use ($numbers, $minPrice, $maxPrice) {
+            // Secuencia fija y estática de 0 a 30 para inspeccionar items JSON sin concatenación dinámica
+            $query->whereIn('id', function ($sub) use ($minPrice, $maxPrice) {
+                $staticNumbers = '(SELECT 0 AS seq UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15 UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18 UNION ALL SELECT 19 UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24 UNION ALL SELECT 25 UNION ALL SELECT 26 UNION ALL SELECT 27 UNION ALL SELECT 28 UNION ALL SELECT 29 UNION ALL SELECT 30) as seq';
                 $sub->select('s.id')
                     ->from('spare_part_requests as s')
-                    ->join(\Illuminate\Support\Facades\DB::raw("(SELECT $numbers) as seq"), function ($join) {
+                    ->join(\Illuminate\Support\Facades\DB::raw($staticNumbers), function ($join) {
                         $join->on('seq.seq', '<', \Illuminate\Support\Facades\DB::raw('JSON_LENGTH(s.items)'));
                     });
 
                 if ($minPrice !== null && $maxPrice !== null) {
-                    $sub->whereBetween(\Illuminate\Support\Facades\DB::raw("CAST(JSON_UNQUOTE(JSON_EXTRACT(s.items, CONCAT('$[', seq.seq, '].public_price'))) AS DECIMAL(10,2))"), [$minPrice, $maxPrice]);
+                    $sub->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(s.items, CONCAT('$[', seq.seq, '].public_price'))) AS DECIMAL(10,2)) BETWEEN ? AND ?", [$minPrice, $maxPrice]);
                 } elseif ($minPrice !== null) {
-                    $sub->where(\Illuminate\Support\Facades\DB::raw("CAST(JSON_UNQUOTE(JSON_EXTRACT(s.items, CONCAT('$[', seq.seq, '].public_price'))) AS DECIMAL(10,2))"), '>=', $minPrice);
+                    $sub->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(s.items, CONCAT('$[', seq.seq, '].public_price'))) AS DECIMAL(10,2)) >= ?", [$minPrice]);
                 } elseif ($maxPrice !== null) {
-                    $sub->where(\Illuminate\Support\Facades\DB::raw("CAST(JSON_UNQUOTE(JSON_EXTRACT(s.items, CONCAT('$[', seq.seq, '].public_price'))) AS DECIMAL(10,2))"), '<=', $maxPrice);
+                    $sub->whereRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(s.items, CONCAT('$[', seq.seq, '].public_price'))) AS DECIMAL(10,2)) <= ?", [$maxPrice]);
                 }
             });
         }

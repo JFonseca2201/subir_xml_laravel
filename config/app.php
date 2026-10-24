@@ -117,4 +117,12 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Tax Rate (IVA)
+    |--------------------------------------------------------------------------
+    */
+    'default_tax_rate' => (float) env('DEFAULT_TAX_RATE', 15.00),
 ];
+

@@ -147,10 +147,11 @@ class SaleController extends Controller
                 'data' => $sales
             ], 200);
         } catch (Exception $e) {
+            Log::error('Error al obtener el historial de ventas: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener el historial de ventas.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -190,7 +191,13 @@ class SaleController extends Controller
         ]);
 
         try {
-            $userId = auth()->id() ?? $request->user_id ?? 1;
+            $userId = auth()->id() ?? auth('sanctum')->id();
+            if (!$userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No autorizado. Debe iniciar sesión para registrar una venta.',
+                ], 401);
+            }
             $result = $this->creationService->createSale($request, $userId);
             return response()->json($result['data'], $result['status']);
         } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
@@ -211,7 +218,7 @@ class SaleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al procesar la venta.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -243,10 +250,11 @@ class SaleController extends Controller
                 'data' => $sale
             ], 200);
         } catch (Exception $e) {
+            Log::error('Error al obtener el detalle de la venta: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener el detalle de la venta.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -295,10 +303,11 @@ class SaleController extends Controller
             $result = $this->updateService->updateSale($sale, $request);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error al actualizar venta: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al actualizar el registro.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -321,10 +330,11 @@ class SaleController extends Controller
             $result = $this->updateService->deleteSale($sale);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error al eliminar venta: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar la venta.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -359,10 +369,11 @@ class SaleController extends Controller
             $result = $this->dispatchService->dispatchSale($request);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error al despachar la venta: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al despachar la venta.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -387,14 +398,21 @@ class SaleController extends Controller
                 ], 404);
             }
 
-            $userId = auth()->id() ?? 1;
+            $userId = auth()->id() ?? auth('sanctum')->id();
+            if (!$userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No autorizado. Debe iniciar sesión.',
+                ], 401);
+            }
             $result = $this->financeService->registerPayment($sale, $request->all(), $userId);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error al registrar pago: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al registrar el pago.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -408,10 +426,11 @@ class SaleController extends Controller
             $result = $this->updateService->deleteSaleDetail($id);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error al eliminar detalle de venta: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar el ítem de la venta.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -424,10 +443,11 @@ class SaleController extends Controller
         try {
             return $this->pdfService->generateReportPdf($request);
         } catch (Exception $e) {
+            Log::error('Error al generar reporte PDF: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al generar el reporte PDF.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -456,10 +476,11 @@ class SaleController extends Controller
 
             return $this->pdfService->generateSinglePdf($sale, $request);
         } catch (Exception $e) {
+            Log::error('Error al generar PDF individual: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al generar el PDF.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -514,10 +535,11 @@ class SaleController extends Controller
             $result = $this->pdfService->enviarCotizacionPorCorreo($sale);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error al despachar correo: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al despachar el correo.',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
     }
@@ -532,10 +554,11 @@ class SaleController extends Controller
             $result = $this->sriService->checkSriStatus($ambiente);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error checkSriStatus: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al verificar el estado de los Web Services del SRI.',
-                'error'   => $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : 'Error interno del servidor',
             ], 500);
         }
     }
@@ -550,10 +573,11 @@ class SaleController extends Controller
             $result = $this->sriService->reenviarSri($sale);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error reenviarSri: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al reenviar al SRI.',
-                'error'   => $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : 'Error interno del servidor',
             ], 500);
         }
     }
@@ -568,10 +592,11 @@ class SaleController extends Controller
             $result = $this->sriService->estadoSri($sale);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
+            Log::error('Error estadoSri: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'No se pudo obtener el estado SRI.',
-                'error'   => $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : 'Error interno del servidor',
             ], 500);
         }
     }
@@ -585,10 +610,11 @@ class SaleController extends Controller
             $sale = Sale::with(['client', 'workOrder'])->findOrFail($id);
             return $this->sriService->descargarXml($sale);
         } catch (Exception $e) {
+            Log::error('Error descargarXml: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al descargar el XML.',
-                'error'   => $e->getMessage(),
+                'error'   => config('app.debug') ? $e->getMessage() : 'Error interno del servidor',
             ], 500);
         }
     }

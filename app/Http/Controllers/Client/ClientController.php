@@ -217,8 +217,13 @@ class ClientController extends Controller
             ], 422);
         }
 
-        $userId = $request->get('user_id') ?: (auth('api')->id() ?: 1);
-        $sucursaleId = $request->get('sucursale_id') ?: 1;
+        $authUser = auth('api')->user() ?? auth('sanctum')->user() ?? auth()->user();
+        $userId = $authUser?->id;
+        if ($request->filled('user_id') && $authUser && ($authUser->hasRole('Administrador') || $authUser->can('manage_users'))) {
+            $userId = (int) $request->get('user_id');
+        }
+        $userId = $userId ?? 1;
+        $sucursaleId = $request->get('sucursale_id') ?: ($authUser?->sucursale_id ?: 1);
 
         $client = Client::create([
             'name' => $name,
@@ -386,6 +391,8 @@ class ClientController extends Controller
             ], 422);
         }
 
+        $authUser = auth('api')->user() ?? auth('sanctum')->user() ?? auth()->user();
+
         $client->update([
             'name' => $name,
             'surname' => $surname,
@@ -396,7 +403,7 @@ class ClientController extends Controller
             'type_document' => $request->get('type_document'),
             'n_document' => $request->get('n_document'),
             'birth_date' => $request->get('birth_date'),
-            'user_id' => $request->get('user_id', $client->user_id),
+            'user_id' => ($authUser && ($authUser->hasRole('Administrador') || $authUser->can('manage_users'))) ? $request->get('user_id', $client->user_id) : $client->user_id,
             'sucursale_id' => $request->get('sucursale_id', $client->sucursale_id),
             'state' => $request->get('state', $client->state),
             'gender' => $request->get('gender'),

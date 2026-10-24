@@ -237,7 +237,8 @@ class SaleCreationService
                 $qty      = (float)($item['quantity'] ?? 1);
                 $price    = (float)($item['price'] ?? 0);
                 $discount = (float)($item['discount'] ?? 0);
-                $taxRate  = (float)($item['tax_rate'] ?? 15.00);
+                $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
+                $taxRate  = isset($item['tax_rate']) ? (float)$item['tax_rate'] : $defaultTaxRate;
                 $base     = ($qty * $price) - $discount;
                 $taxValue = round($base * ($taxRate / 100), 2);
 
@@ -252,11 +253,14 @@ class SaleCreationService
                     'total'       => $base,
                 ]);
 
-                // Deducir stock de forma atómica solo si no es cotización y es producto físico
+                // Deducir stock de forma atómica y segura con bloqueo pesimista solo si no es cotización y es producto físico
                 if ($request->document_type !== 'quote' && !$isDraft && isset($item['product_id']) && $item['product_id']) {
-                    $product = ModelsProduct::find($item['product_id']);
+                    $product = ModelsProduct::where('id', $item['product_id'])->lockForUpdate()->first();
                     if ($product && $product->item_type == 1) {
-                        ModelsProduct::where('id', $item['product_id'])->decrement('stock', $item['quantity']);
+                        if ($product->stock < $qty) {
+                            throw new \Exception("Stock insuficiente durante el procesamiento para el producto: {$product->description}. Disponible: {$product->stock}, Solicitado: {$qty}");
+                        }
+                        $product->decrement('stock', $qty);
                     }
                 }
             }
