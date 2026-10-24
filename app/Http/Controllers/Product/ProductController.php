@@ -450,7 +450,11 @@ class ProductController extends Controller
     {
         try {
             $cleanDesc = trim($request->description ?? '');
-            $cleanSku = $request->sku ? trim($request->sku) : null;
+            $cleanSku = !empty(trim((string)($request->sku ?? ''))) ? trim((string)$request->sku) : null;
+            $request->merge([
+                'sku' => $cleanSku,
+                'description' => $cleanDesc,
+            ]);
 
             // Validar que el SKU no exista
             if ($cleanSku) {
@@ -531,6 +535,10 @@ class ProductController extends Controller
                 'state' => 'required|integer|in:1,2',
                 'imagen' => 'nullable|image|max:2048',
             ], $customMessages);
+
+            if (array_key_exists('sku', $data)) {
+                $data['sku'] = !empty(trim((string)$data['sku'])) ? trim((string)$data['sku']) : null;
+            }
 
             // Sanitizar valores si es servicio (item_type = 2)
 
@@ -633,7 +641,13 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
 
-            $cleanSku = $request->sku ? trim($request->sku) : null;
+            $cleanSku = !empty(trim((string)($request->sku ?? ''))) ? trim((string)$request->sku) : null;
+            $cleanDesc = !empty(trim((string)($request->description ?? ''))) ? trim((string)$request->description) : null;
+            $request->merge([
+                'sku' => $cleanSku,
+                'description' => $cleanDesc,
+            ]);
+
             if ($cleanSku && $cleanSku !== $product->sku) {
                 $is_product_sku_exists = Product::whereRaw('LOWER(TRIM(sku)) = ?', [strtolower($cleanSku)])
                     ->where('id', '!=', $id)
@@ -735,6 +749,10 @@ class ProductController extends Controller
             // Si es un archivo, no lo pasamos en el update principal
             if ($request->hasFile('imagen')) {
                 unset($data['imagen']);
+            }
+
+            if (array_key_exists('sku', $data)) {
+                $data['sku'] = !empty(trim((string)$data['sku'])) ? trim((string)$data['sku']) : null;
             }
 
             $product->update($data);

@@ -147,17 +147,20 @@ class Product extends Model
 
     public function setCodeAttribute($value)
     {
-        $this->attributes['code'] = trim($value);
+        $trimmed = trim((string) $value);
+        $this->attributes['code'] = $trimmed !== '' ? $trimmed : null;
     }
 
     public function setCodeAuxAttribute($value)
     {
-        $this->attributes['code_aux'] = strtoupper(trim($value));
+        $trimmed = trim((string) $value);
+        $this->attributes['code_aux'] = $trimmed !== '' ? strtoupper($trimmed) : null;
     }
 
     public function setSkuAttribute($value)
     {
-        $this->attributes['sku'] = strtoupper(trim($value));
+        $trimmed = trim((string) $value);
+        $this->attributes['sku'] = $trimmed !== '' ? strtoupper($trimmed) : null;
     }
 
     public function setBrandAttribute($value)

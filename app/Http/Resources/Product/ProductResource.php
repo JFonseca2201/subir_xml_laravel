@@ -17,9 +17,11 @@ class ProductResource extends JsonResource
         return [
             'id' => $this->id,
             'description' => strtoupper(trim($this->description)),
-            'sku' => strtoupper(trim($this->sku)),
-            'imagen' => $this->imagen ? env('APP_URL') . 'storage/' . $this->imagen : null,
+            'sku' => $this->sku ? strtoupper(trim($this->sku)) : null,
             'code_aux' => $this->code_aux ? strtoupper(trim($this->code_aux)) : null,
+            'imagen' => ($this->imagen && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->imagen))
+                ? env('APP_URL') . 'storage/' . $this->imagen
+                : null,
             'uses' => $this->uses,
             'product_categorie_id' => $this->product_categorie_id,
             'warehouse_id' => $this->warehouse_id,
