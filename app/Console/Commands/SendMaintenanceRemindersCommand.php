@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
+use App\Mail\MaintenanceReminderMail;
 use App\Models\MaintenanceReminder;
 use App\Notifications\MaintenanceReminderNotification;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class SendMaintenanceRemindersCommand extends Command
 {
@@ -15,9 +17,16 @@ class SendMaintenanceRemindersCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'maintenance:send-reminders 
+    protected $signature = 'send:maintenance-reminders 
                             {--days=0 : Días de tolerancia después de cumplido el ciclo de kilometraje}
                             {--dry-run : Simular la ejecución sin enviar correos ni cambiar estados}';
+
+    /**
+     * Alias del comando para retrocompatibilidad con cron existentes.
+     *
+     * @var array
+     */
+    protected $aliases = ['maintenance:send-reminders'];
 
     /**
      * Descripción del comando.
@@ -87,8 +96,8 @@ class SendMaintenanceRemindersCommand extends Command
             }
 
             try {
-                // Enviar la notificación por correo
-                $client->notify(new MaintenanceReminderNotification($reminder));
+                // Enviar el correo usando Mailable oficial
+                Mail::to($email)->send(new MaintenanceReminderMail($reminder));
 
                 // Actualizar estado del recordatorio
                 $reminder->update([

@@ -329,7 +329,9 @@ Route::group(
         // ============= RUTAS DE MANTENIMIENTO PREVENTIVO Y RECORDATORIOS ==========
         Route::get('maintenance-reminders/calendar', [MaintenanceReminderController::class, 'getCalendarEvents']);
         Route::get('maintenance-reminders/upcoming', [MaintenanceReminderController::class, 'getUpcomingEvents']);
+        Route::get('maintenance-reminders/drawer-summary', [MaintenanceReminderController::class, 'getDrawerSummary']);
         Route::post('maintenance-reminders/{id}/notify', [MaintenanceReminderController::class, 'notify']);
+        Route::post('maintenance-reminders/{id}/mark-notified', [MaintenanceReminderController::class, 'markNotified']);
         Route::patch('maintenance-reminders/{id}/status', [MaintenanceReminderController::class, 'updateStatus']);
 
         // ============= RUTAS DE RESPALDO DOCUMENTAL Y ADJUNTOS (COMPROBANTES) ==========

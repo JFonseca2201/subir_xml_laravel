@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\MaintenanceReminderMail;
 use App\Models\MaintenanceReminder;
 use App\Notifications\MaintenanceReminderNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -108,6 +110,66 @@ class MaintenanceReminderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al cargar próximos mantenimientos.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Resumen estructurado para el Drawer Lateral (Pestañas: Hoy, Próximos 7 días, Vencidos) y Badge del Navbar.
+     */
+    public function getDrawerSummary(Request $request): JsonResponse
+    {
+        try {
+            $today = Carbon::today()->toDateString();
+            $next7Days = Carbon::today()->addDays(7)->toDateString();
+
+            // 1. Mantenimientos de HOY (programados para la fecha actual)
+            $todayEvents = MaintenanceReminder::with(['client', 'vehicle'])
+                ->whereDate('scheduled_date', $today)
+                ->whereIn('status', ['pending', 'notified', 'scheduled'])
+                ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+                ->orderBy('scheduled_date', 'asc')
+                ->get();
+
+            // 2. Mantenimientos PRÓXIMOS (en los siguientes 7 días, sin incluir hoy)
+            $upcomingEvents = MaintenanceReminder::with(['client', 'vehicle'])
+                ->whereDate('scheduled_date', '>', $today)
+                ->whereDate('scheduled_date', '<=', $next7Days)
+                ->whereIn('status', ['pending', 'notified', 'scheduled'])
+                ->orderBy('scheduled_date', 'asc')
+                ->get();
+
+            // 3. Mantenimientos VENCIDOS (cuya fecha estimada ya pasó y siguen pendientes)
+            $overdueEvents = MaintenanceReminder::with(['client', 'vehicle'])
+                ->whereDate('scheduled_date', '<', $today)
+                ->where('status', 'pending')
+                ->orderBy('scheduled_date', 'asc')
+                ->get();
+
+            $pendingTodayCount = $todayEvents->where('status', 'pending')->count();
+            $badgeTotal = $pendingTodayCount + $overdueEvents->count();
+
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'today'    => $todayEvents->map(fn($r) => $this->formatReminder($r)),
+                    'upcoming' => $upcomingEvents->map(fn($r) => $this->formatReminder($r)),
+                    'overdue'  => $overdueEvents->map(fn($r) => $this->formatReminder($r)),
+                ],
+                'counts'  => [
+                    'today'         => $todayEvents->count(),
+                    'pending_today' => $pendingTodayCount,
+                    'upcoming'      => $upcomingEvents->count(),
+                    'overdue'       => $overdueEvents->count(),
+                    'badge_total'   => $badgeTotal,
+                ],
+            ]);
+        } catch (Exception $e) {
+            Log::error('Error al obtener resumen de recordatorios para Drawer:', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cargar recordatorios para el drawer lateral.',
                 'error'   => $e->getMessage(),
             ], 500);
         }
@@ -229,8 +291,8 @@ class MaintenanceReminderController extends Controller
                 }
 
                 // Enviar la notificación por correo al destinatario
-                \Illuminate\Support\Facades\Notification::route('mail', $recipientEmail)
-                    ->notify(new MaintenanceReminderNotification($reminder));
+                $customSubject = $request->input('subject');
+                Mail::to($recipientEmail)->send(new MaintenanceReminderMail($reminder, $customSubject));
             }
 
             $reminder->update([
@@ -242,7 +304,7 @@ class MaintenanceReminderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Notificación enviada y registrada exitosamente.',
-                'data'    => $reminder,
+                'data'    => $this->formatReminder($reminder),
             ]);
         } catch (\Throwable $e) {
             Log::error('Error al enviar notificación de mantenimiento:', [
@@ -255,6 +317,40 @@ class MaintenanceReminderController extends Controller
                 'success' => false,
                 'message' => 'Error al procesar la notificación: ' . $e->getMessage(),
                 'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Endpoint específico POST /api/maintenance-reminders/{id}/mark-notified
+     * Registra en BD cuándo y por qué canal se notificó al cliente (ej. WhatsApp manual o llamada).
+     */
+    public function markNotified(Request $request, int $id): JsonResponse
+    {
+        try {
+            $reminder = MaintenanceReminder::with(['client', 'vehicle'])->findOrFail($id);
+            $channel = $request->input('channel', 'whatsapp'); // 'whatsapp', 'email', 'phone', 'manual'
+
+            $reminder->update([
+                'status'               => 'notified',
+                'notified_at'          => Carbon::now(),
+                'notification_channel' => $channel,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Recordatorio marcado como notificado correctamente.',
+                'data'    => $this->formatReminder($reminder),
+            ]);
+        } catch (Exception $e) {
+            Log::error('Error al marcar recordatorio como notificado:', [
+                'reminder_id' => $id,
+                'error'       => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al marcar recordatorio como notificado: ' . $e->getMessage(),
             ], 500);
         }
     }
