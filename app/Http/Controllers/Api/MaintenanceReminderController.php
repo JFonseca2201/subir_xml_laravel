@@ -182,11 +182,14 @@ class MaintenanceReminderController extends Controller
     {
         $client = $reminder->client;
         $vehicle = $reminder->vehicle;
-        $clientPhone = preg_replace('/[^0-9]/', '', $client->phone ?? '');
+        $rawClientPhone = $client->phone ?? '';
+        $cellPhoneForWhatsApp = $this->formatEcuadorianCellPhone($rawClientPhone);
+        $phoneType = $this->detectPhoneType($rawClientPhone);
+        $hasCellPhone = !empty($cellPhoneForWhatsApp);
+
         $clientName = $client->full_name ?? ($client->name ?? 'Estimado cliente');
         $plate = $vehicle->license_plate ?? 'Vehículo';
         $targetKm = number_format($reminder->target_mileage);
-
         $intervalKm = number_format($reminder->interval_km ?: 10000);
 
         // Mensajes WhatsApp personalizados
@@ -201,7 +204,9 @@ class MaintenanceReminderController extends Controller
         ];
 
         $whatsappText = $customMessages[$reminder->service_category] ?? $customMessages['general'];
-        $whatsappUrl = "https://api.whatsapp.com/send?phone={$clientPhone}&text=" . rawurlencode($whatsappText);
+        $whatsappUrl = $hasCellPhone
+            ? "https://api.whatsapp.com/send?phone={$cellPhoneForWhatsApp}&text=" . rawurlencode($whatsappText)
+            : null;
 
         $categoryColors = [
             'aceite'         => 'primary',
@@ -223,47 +228,149 @@ class MaintenanceReminderController extends Controller
             'general'        => 'ri-tools-line',
         ];
 
+        $serviceTitles = [
+            'amortiguadores' => 'Revisión y Cambio de Amortiguadores / Suspensión',
+            'distribucion'   => 'Cambio de Banda / Kit de Distribución',
+            'inyectores'     => 'Afinamiento y Limpieza de Inyectores',
+            'frenos'         => 'Mantenimiento y ABC de Frenos',
+            'alineacion'     => 'Alineación, Balanceo y Rotación de Neumáticos',
+            'aceite'         => 'Cambio de Aceite y Filtros',
+            'general'        => 'Mantenimiento Preventivo Periódico',
+        ];
+        $serviceName = $serviceTitles[$reminder->service_category] ?? 'Mantenimiento Preventivo';
+
+        $vehicleBrandName = $vehicle ? ($vehicle->brand_name ?: (config('vehicle_brands')[(int)$vehicle->brand] ?? ($vehicle->brand ?? ''))) : '';
+        $vehicleModelName = $vehicle ? trim("{$vehicleBrandName} {$vehicle->model}") : 'su vehículo';
+
+        $defaultEmailSubject = "Mantenimiento Preventivo ({$intervalKm} KM Cumplidos) - Placa {$plate}";
+        $defaultEmailBody = "Estimado(a) {$clientName},\n\n"
+            . "De acuerdo con nuestro control técnico de mantenimiento vehicular, le informamos que su vehículo {$vehicleModelName} (Placa: {$plate}) ha cumplido el ciclo de los {$intervalKm} KM recomendados desde su último servicio, alcanzando aproximadamente los {$targetKm} KM.\n\n"
+            . "Servicio correspondiente: {$serviceName}.\n\n"
+            . "Le sugerimos agendar su turno para la inspección y mantenimiento correspondiente, garantizando así la seguridad, rendimiento y óptimo funcionamiento de su vehículo.";
+
         $scheduledCarbon = Carbon::parse($reminder->scheduled_date);
         $diffDays = (int) now()->startOfDay()->diffInDays($scheduledCarbon->copy()->startOfDay(), false);
 
         return [
-            'id'                   => $reminder->id,
-            'title'                => $reminder->title,
-            'description'          => $reminder->description,
-            'service_category'     => $reminder->service_category,
-            'category_color'       => $categoryColors[$reminder->service_category] ?? 'primary',
-            'category_icon'        => $categoryIcons[$reminder->service_category] ?? 'ri-tools-line',
-            'scheduled_date'       => $scheduledCarbon->format('Y-m-d'),
-            'day'                  => (int) $scheduledCarbon->format('d'),
-            'target_mileage'       => $reminder->target_mileage,
-            'last_service_mileage' => $reminder->last_service_mileage,
-            'avg_daily_km'         => (float) $reminder->avg_daily_km,
-            'status'               => $reminder->status,
-            'notified_at'          => $reminder->notified_at ? Carbon::parse($reminder->notified_at)->format('Y-m-d H:i') : null,
-            'notification_channel' => $reminder->notification_channel,
-            'has_email'            => !empty($client?->email),
-            'has_phone'            => !empty($client?->phone),
-            'days_until'           => $diffDays,
-            'is_today'             => $scheduledCarbon->isToday(),
-            'is_overdue'           => $scheduledCarbon->isPast() && !$scheduledCarbon->isToday(),
-            'client'               => $client ? [
+            'id'                    => $reminder->id,
+            'title'                 => $reminder->title,
+            'description'           => $reminder->description,
+            'service_category'      => $reminder->service_category,
+            'service_name'          => $serviceName,
+            'category_color'        => $categoryColors[$reminder->service_category] ?? 'primary',
+            'category_icon'         => $categoryIcons[$reminder->service_category] ?? 'ri-tools-line',
+            'scheduled_date'        => $scheduledCarbon->format('Y-m-d'),
+            'day'                   => (int) $scheduledCarbon->format('d'),
+            'target_mileage'        => $reminder->target_mileage,
+            'last_service_mileage'  => $reminder->last_service_mileage,
+            'avg_daily_km'          => (float) $reminder->avg_daily_km,
+            'status'                => $reminder->status,
+            'notified_at'           => $reminder->notified_at ? Carbon::parse($reminder->notified_at)->format('Y-m-d H:i') : null,
+            'notification_channel'  => $reminder->notification_channel,
+            'has_email'             => !empty($client?->email),
+            'has_phone'             => !empty($rawClientPhone),
+            'has_cellphone'         => $hasCellPhone,
+            'phone_type'            => $phoneType,
+            'client_phone'          => $rawClientPhone,
+            'whatsapp_phone'        => $cellPhoneForWhatsApp,
+            'days_until'            => $diffDays,
+            'is_today'              => $scheduledCarbon->isToday(),
+            'is_overdue'            => $scheduledCarbon->isPast() && !$scheduledCarbon->isToday(),
+            'default_email_subject' => $defaultEmailSubject,
+            'default_email_body'    => $defaultEmailBody,
+            'client'                => $client ? [
                 'id'        => $client->id,
                 'full_name' => $client->full_name ?? ($client->name ?? ''),
                 'phone'     => $client->phone,
                 'email'     => $client->email,
             ] : null,
-            'vehicle'              => $vehicle ? [
+            'vehicle'               => $vehicle ? [
                 'id'            => $vehicle->id,
                 'license_plate' => $vehicle->license_plate,
                 'brand'         => $vehicle->brand,
-                'brand_name'    => $vehicle->brand_name ?: (config('vehicle_brands')[(int)$vehicle->brand] ?? $vehicle->brand),
+                'brand_name'    => $vehicleBrandName,
                 'model'         => $vehicle->model,
                 'year'          => $vehicle->year,
                 'usage_type'    => $vehicle->usage_type,
             ] : null,
-            'whatsapp_url'         => $whatsappUrl,
-            'whatsapp_text'        => $whatsappText,
+            'whatsapp_url'          => $whatsappUrl,
+            'whatsapp_text'         => $whatsappText,
         ];
+    }
+
+    /**
+     * Normaliza y valida si un número telefónico de Ecuador es celular móvil para WhatsApp.
+     * Si es celular móvil:
+     *   - 10 dígitos iniciando en '09' (ej. 0999179988) -> '593' . substr($clean, 1) -> 593999179988
+     *   - 9 dígitos iniciando en '9' (ej. 999179988) -> '593' . $clean -> 593999179988
+     *   - 12 dígitos iniciando en '5939' -> 593999179988
+     * Si es convencional (ej. 002432211, 022432211, etc.) o inválido, retorna null.
+     */
+    private function formatEcuadorianCellPhone(?string $phone): ?string
+    {
+        if (empty($phone)) {
+            return null;
+        }
+
+        // Si contiene múltiples teléfonos separados por barras, guiones o comas, evaluar cada uno
+        $parts = preg_split('/[\/,\-;|\s]+/', $phone);
+        foreach ($parts as $part) {
+            $clean = preg_replace('/[^0-9]/', '', $part);
+            if (empty($clean)) {
+                continue;
+            }
+
+            if (str_starts_with($clean, '005939') && strlen($clean) === 14) {
+                return substr($clean, 2);
+            }
+
+            if (strlen($clean) === 12 && str_starts_with($clean, '5939')) {
+                return $clean;
+            }
+
+            if (strlen($clean) === 10 && str_starts_with($clean, '09')) {
+                return '593' . substr($clean, 1);
+            }
+
+            if (strlen($clean) === 9 && str_starts_with($clean, '9')) {
+                return '593' . $clean;
+            }
+        }
+
+        // Si se limpió completo y no por partes
+        $cleanTotal = preg_replace('/[^0-9]/', '', $phone);
+        if (strlen($cleanTotal) === 10 && str_starts_with($cleanTotal, '09')) {
+            return '593' . substr($cleanTotal, 1);
+        }
+        if (strlen($cleanTotal) === 12 && str_starts_with($cleanTotal, '5939')) {
+            return $cleanTotal;
+        }
+        if (strlen($cleanTotal) === 9 && str_starts_with($cleanTotal, '9')) {
+            return '593' . $cleanTotal;
+        }
+
+        return null;
+    }
+
+    /**
+     * Detecta el tipo de número telefónico: 'cellphone' (celular móvil), 'conventional' (línea fija), o 'none' (vacío).
+     */
+    private function detectPhoneType(?string $phone): string
+    {
+        if (empty($phone)) {
+            return 'none';
+        }
+
+        $clean = preg_replace('/[^0-9]/', '', $phone);
+        if (empty($clean)) {
+            return 'none';
+        }
+
+        if ($this->formatEcuadorianCellPhone($phone) !== null) {
+            return 'cellphone';
+        }
+
+        return 'conventional';
     }
 
     /**
@@ -290,9 +397,10 @@ class MaintenanceReminderController extends Controller
                     $reminder->client->update(['email' => $recipientEmail]);
                 }
 
-                // Enviar la notificación por correo al destinatario
+                // Enviar la notificación por correo al destinatario con asunto y cuerpo personalizado
                 $customSubject = $request->input('subject');
-                Mail::to($recipientEmail)->send(new MaintenanceReminderMail($reminder, $customSubject));
+                $customMessage = $request->input('message');
+                Mail::to($recipientEmail)->send(new MaintenanceReminderMail($reminder, $customSubject, $customMessage));
             }
 
             $reminder->update([

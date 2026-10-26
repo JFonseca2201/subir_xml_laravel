@@ -166,9 +166,15 @@
                 ¡Hola, {{ $clientName }}!
             </div>
 
-            <p class="main-text">
-                De acuerdo con nuestro registro técnico de control vehicular, tu vehículo ha completado el ciclo recomendado de <strong>{{ $intervalKm }} KM</strong> desde su último mantenimiento registrado, alcanzando aproximadamente los <strong>{{ $targetKm }} KM</strong>.
-            </p>
+            @if(!empty($customMessage))
+                <div class="main-text" style="white-space: pre-line; background-color: #f8fafc; border-left: 3px solid #2563eb; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; color: #334155; line-height: 1.6;">
+{!! nl2br(e($customMessage)) !!}
+                </div>
+            @else
+                <p class="main-text">
+                    De acuerdo con nuestro registro técnico de control vehicular, tu vehículo ha completado el ciclo recomendado de <strong>{{ $intervalKm }} KM</strong> desde su último mantenimiento registrado, alcanzando aproximadamente los <strong>{{ $targetKm }} KM</strong>.
+                </p>
+            @endif
 
             <!-- Ficha Técnica Resumen del Vehículo -->
             <div class="vehicle-card">

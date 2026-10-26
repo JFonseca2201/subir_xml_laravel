@@ -18,7 +18,7 @@ class MaintenanceReminderMail extends Mailable
     /**
      * Crear una nueva instancia del mensaje de recordatorio.
      */
-    public function __construct(MaintenanceReminder $reminder, ?string $customSubject = null)
+    public function __construct(MaintenanceReminder $reminder, ?string $customSubject = null, ?string $customMessage = null)
     {
         $this->reminder = $reminder;
         $this->reminder->loadMissing(['client', 'vehicle']);
@@ -61,9 +61,9 @@ class MaintenanceReminderMail extends Mailable
         $companyPhone = $sucursal->phone ?? '';
         $companyAddress = $sucursal->address ?? 'Quito, Ecuador';
 
-        $rawPhone = preg_replace('/[^0-9]/', '', $companyPhone);
-        $whatsappUrl = !empty($rawPhone)
-            ? "https://api.whatsapp.com/send?phone={$rawPhone}&text=" . rawurlencode("Hola, me comunico sobre el recordatorio de mantenimiento preventivo para mi vehículo placa {$plate}.")
+        $cleanPhone = $this->formatEcuadorianCellPhone($companyPhone);
+        $whatsappUrl = !empty($cleanPhone)
+            ? "https://api.whatsapp.com/send?phone={$cleanPhone}&text=" . rawurlencode("Hola, me comunico sobre el recordatorio de mantenimiento preventivo para mi vehículo placa {$plate}.")
             : null;
 
         $subject = $customSubject ?: "🔧 Mantenimiento Preventivo ({$intervalKm} KM Cumplidos) - Placa {$plate}";
@@ -80,9 +80,23 @@ class MaintenanceReminderMail extends Mailable
             'intervalKm'     => $intervalKm,
             'serviceName'    => $serviceName,
             'whatsappUrl'    => $whatsappUrl,
+            'customMessage'  => $customMessage,
         ];
 
         $this->subject($subject);
+    }
+
+    /**
+     * Formatear celular móvil de Ecuador a código internacional 5939...
+     */
+    private function formatEcuadorianCellPhone(?string $phone): ?string
+    {
+        if (empty($phone)) return null;
+        $clean = preg_replace('/[^0-9]/', '', $phone);
+        if (strlen($clean) === 12 && str_starts_with($clean, '5939')) return $clean;
+        if (strlen($clean) === 10 && str_starts_with($clean, '09')) return '593' . substr($clean, 1);
+        if (strlen($clean) === 9 && str_starts_with($clean, '9')) return '593' . $clean;
+        return null;
     }
 
     /**
