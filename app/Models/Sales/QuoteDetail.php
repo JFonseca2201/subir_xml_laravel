@@ -13,6 +13,7 @@ class QuoteDetail extends Model
         'quote_id',
         'product_id',
         'description',
+        'type',
         'quantity',
         'price',
         'discount',

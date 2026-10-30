@@ -157,9 +157,15 @@ class QuoteController extends Controller
 
                 // Guardar items
                 foreach ($request->items as $item) {
+                    $itemType = $item['type'] ?? null;
+                    if (!$itemType && !empty($item['product_id'])) {
+                        $p = \App\Models\Product\Product::find($item['product_id']);
+                        $itemType = ($p && $p->item_type == 2) ? 'service' : 'product';
+                    }
                     $quote->details()->create([
                         'product_id' => $item['product_id'] ?? null,
                         'description' => $item['description'],
+                        'type' => $itemType ?? 'product',
                         'quantity' => $item['quantity'],
                         'price' => $item['price'],
                         'discount' => $item['discount'] ?? 0,
@@ -276,9 +282,15 @@ class QuoteController extends Controller
                 // Actualizar detalles (eliminar viejos y crear nuevos es lo más robusto)
                 $quote->details()->delete();
                 foreach ($request->items as $item) {
+                    $itemType = $item['type'] ?? null;
+                    if (!$itemType && !empty($item['product_id'])) {
+                        $p = \App\Models\Product\Product::find($item['product_id']);
+                        $itemType = ($p && $p->item_type == 2) ? 'service' : 'product';
+                    }
                     $quote->details()->create([
                         'product_id' => $item['product_id'] ?? null,
                         'description' => $item['description'],
+                        'type' => $itemType ?? 'product',
                         'quantity' => $item['quantity'],
                         'price' => $item['price'],
                         'discount' => $item['discount'] ?? 0,
