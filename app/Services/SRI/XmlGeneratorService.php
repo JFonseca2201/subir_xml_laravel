@@ -36,7 +36,7 @@ class XmlGeneratorService
         $xml->writeAttribute('version', '1.1.0');
 
         // ─── infoTributaria ─────────────────────────────────────────────
-        $ambiente = (string) ($sucursal->ambiente ?? env('SRI_AMBIENTE', '1'));
+        $ambiente = (string) ($sucursal->ambiente ?? config('sri.ambiente', 1));
         $xml->startElement('infoTributaria');
         $xml->writeElement('ambiente',          $ambiente);
         $xml->writeElement('tipoEmision',       $sucursal->tipo_emision ?? '1');
@@ -292,7 +292,7 @@ class XmlGeneratorService
         $xml->writeAttribute('version', '1.1.0');
 
         // ─── infoTributaria ─────────────────────────────────────────────
-        $ambiente = (string) ($sucursal->ambiente ?? env('SRI_AMBIENTE', '1'));
+        $ambiente = (string) ($sucursal->ambiente ?? config('sri.ambiente', 1));
         $xml->startElement('infoTributaria');
         $xml->writeElement('ambiente',          $ambiente);
         $xml->writeElement('tipoEmision',       $sucursal->tipo_emision ?? '1');
@@ -439,7 +439,7 @@ class XmlGeneratorService
         $fecha          = now()->format('dmY');
         $codDoc         = '04';
         $ruc            = str_pad($sucursal->ruc, 13, '0', STR_PAD_LEFT);
-        $ambiente       = (string) ($sucursal->ambiente ?? env('SRI_AMBIENTE', '1'));
+        $ambiente       = (string) ($sucursal->ambiente ?? config('sri.ambiente', 1));
         $estab          = str_pad($sucursal->establecimiento ?? '001', 3, '0', STR_PAD_LEFT);
         $ptoEmi         = str_pad($sucursal->punto_emision ?? '001', 3, '0', STR_PAD_LEFT);
         
@@ -465,7 +465,7 @@ class XmlGeneratorService
             : now()->format('dmY');
         $codDoc         = '01';
         $ruc            = str_pad($sucursal->ruc, 13, '0', STR_PAD_LEFT);
-        $ambiente       = (string) ($sucursal->ambiente ?? env('SRI_AMBIENTE', '1'));
+        $ambiente       = (string) ($sucursal->ambiente ?? config('sri.ambiente', 1));
         $estab          = str_pad($sucursal->establecimiento ?? '001', 3, '0', STR_PAD_LEFT);
         $ptoEmi         = str_pad($sucursal->punto_emision ?? '001', 3, '0', STR_PAD_LEFT);
         $secuencial     = str_pad($this->obtenerSecuencial($sale), 9, '0', STR_PAD_LEFT);

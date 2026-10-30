@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Config;
 
 use App\Http\Controllers\Controller;
 use App\Models\Config\Sucursale;
+use App\Rules\EcuadorianDocument;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
@@ -67,14 +68,14 @@ class SucursaleController extends Controller
             $request->validate([
                 'name' => 'required|string|max:255|unique:sucursales,name,' . $id,
                 'address' => 'required|string|max:500',
-                'ruc' => 'required|string|max:13',
+                'ruc' => ['required', 'string', new EcuadorianDocument('ruc')],
                 'phone' => 'nullable|string|max:15',
                 'email' => 'nullable|string|max:255',
                 'trade_name' => 'nullable|string|max:255',
-                'secuencial_factura' => 'required|string|max:9',
+                'secuencial_factura' => ['required', 'string', 'regex:/^[0-9]{1,9}$/'],
                 'serie_factura' => 'required|string|max:7',
-                'establecimiento' => 'required|string|max:3',
-                'punto_emision' => 'required|string|max:3',
+                'establecimiento' => ['required', 'string', 'regex:/^[0-9]{3}$/'],
+                'punto_emision' => ['required', 'string', 'regex:/^[0-9]{3}$/'],
                 'ambiente' => 'required|in:1,2',
                 'tipo_emision' => 'required|in:1',
                 'firma_electronica' => 'nullable|string|max:255',

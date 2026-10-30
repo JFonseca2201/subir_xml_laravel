@@ -49,6 +49,11 @@ class FirmaElectronicaService
      */
     private function getOpenSslBinary(): string
     {
+        $customPath = config('sri.openssl_path');
+        if ($customPath && file_exists($customPath)) {
+            return '"' . $customPath . '"';
+        }
+
         if (PHP_OS_FAMILY === 'Windows') {
             if (file_exists('C:\\xampp\\apache\\bin\\openssl.exe')) {
                 return '"C:\\xampp\\apache\\bin\\openssl.exe"';

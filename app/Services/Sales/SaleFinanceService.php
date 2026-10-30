@@ -32,7 +32,7 @@ class SaleFinanceService
             return (int) $sucursal->ambiente === 1; // 1: Pruebas, 2: Producción
         }
 
-        return (int) env('SRI_AMBIENTE', 1) === 1;
+        return (int) config('sri.ambiente', 1) === 1;
     }
 
     /**
@@ -261,7 +261,7 @@ class SaleFinanceService
                     'sri_status' => 'CREADA',
                 ]);
 
-                if (env('SRI_AUTOPROCESS', true)) {
+                if (config('sri.autoprocess', true)) {
                     ProcessElectronicInvoice::dispatch($sale->id)->onQueue('sri');
                 }
             }

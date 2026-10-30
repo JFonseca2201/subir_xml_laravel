@@ -514,7 +514,7 @@ class PedidoDistribuidorController extends Controller
             $pdf->save($tempPath);
 
             // 2. Obtener configuración
-            $printerName = env('PRINTER_NAME', 'L5290 Series(Network)');
+            $printerName = config('sri.printer_name', 'L5290 Series(Network)');
             $edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 
             // 3. Ejecutar comando de impresión en Windows usando msedge

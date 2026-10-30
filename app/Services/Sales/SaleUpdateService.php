@@ -470,26 +470,29 @@ class SaleUpdateService
                             if (!$wasQuote && !$wasDraft) {
                                 if ($detail->product_id == ($item['product_id'] ?? null)) {
                                     if ($detail->product_id) {
-                                        $product = ModelsProduct::find($detail->product_id);
-                                        if ($product && $product->item_type == 1) {
+                                        $product = ModelsProduct::where('id', $detail->product_id)->lockForUpdate()->first();
+                                        if ($product && (int) $product->item_type === 1) {
                                             $diff = $item['quantity'] - $detail->quantity;
-                                            $product->stock -= $diff;
-                                            $product->save();
+                                            if ($diff > 0 && $product->stock < $diff) {
+                                                throw new \Exception("Stock insuficiente para actualizar el producto '{$product->description}'. Disponible: {$product->stock}, Requerido adicional: {$diff}");
+                                            }
+                                            $product->decrement('stock', $diff);
                                         }
                                     }
                                 } else {
                                     if ($detail->product_id) {
-                                        $oldProduct = ModelsProduct::find($detail->product_id);
-                                        if ($oldProduct && $oldProduct->item_type == 1) {
-                                            $oldProduct->stock += $detail->quantity;
-                                            $oldProduct->save();
+                                        $oldProduct = ModelsProduct::where('id', $detail->product_id)->lockForUpdate()->first();
+                                        if ($oldProduct && (int) $oldProduct->item_type === 1) {
+                                            $oldProduct->increment('stock', $detail->quantity);
                                         }
                                     }
                                     if (isset($item['product_id']) && $item['product_id']) {
-                                        $newProduct = ModelsProduct::find($item['product_id']);
-                                        if ($newProduct && $newProduct->item_type == 1) {
-                                            $newProduct->stock -= $item['quantity'];
-                                            $newProduct->save();
+                                        $newProduct = ModelsProduct::where('id', $item['product_id'])->lockForUpdate()->first();
+                                        if ($newProduct && (int) $newProduct->item_type === 1) {
+                                            if ($newProduct->stock < $item['quantity']) {
+                                                throw new \Exception("Stock insuficiente para el nuevo producto '{$newProduct->description}'. Disponible: {$newProduct->stock}, Solicitado: {$item['quantity']}");
+                                            }
+                                            $newProduct->decrement('stock', $item['quantity']);
                                         }
                                     }
                                 }
@@ -515,10 +518,12 @@ class SaleUpdateService
                         ]);
 
                         if (!$wasQuote && !$wasDraft && isset($item['product_id']) && $item['product_id']) {
-                            $product = ModelsProduct::find($item['product_id']);
-                            if ($product && $product->item_type == 1) {
-                                $product->stock -= $item['quantity'];
-                                $product->save();
+                            $product = ModelsProduct::where('id', $item['product_id'])->lockForUpdate()->first();
+                            if ($product && (int) $product->item_type === 1) {
+                                if ($product->stock < $item['quantity']) {
+                                    throw new \Exception("Stock insuficiente para el producto '{$product->description}'. Disponible: {$product->stock}, Solicitado: {$item['quantity']}");
+                                }
+                                $product->decrement('stock', $item['quantity']);
                             }
                         }
                     }
@@ -599,7 +604,7 @@ class SaleUpdateService
         if ($sale->document_type === 'invoice' && (empty($sale->sri_status) || $sale->sri_status === 'CREADA')) {
             try {
                 $sale->update(['sri_status' => 'CREADA']);
-                if (env('SRI_AUTOPROCESS', true)) {
+                if (config('sri.autoprocess', true)) {
                     ProcessElectronicInvoice::dispatch($sale->id);
                 }
             } catch (Exception $e) {
@@ -758,9 +763,16 @@ class SaleUpdateService
 
             $detail->delete();
 
-            $subtotal = $sale->details()->sum('total');
-            $taxAmount = $sale->document_type === 'invoice' ? $subtotal * 0.15 : 0;
-            $total = $subtotal + $taxAmount;
+            $subtotal = 0;
+            $taxAmount = 0;
+            foreach ($sale->details as $d) {
+                $subtotal += (float) $d->total;
+                if ($sale->document_type === 'invoice' && (int) ($d->is_taxable ?? 1) === 1) {
+                    $rate = (float) ($d->tax_rate ?? ($sale->sucursale?->tax_rate ?? 15));
+                    $taxAmount += round((float) $d->total * ($rate / 100), 2);
+                }
+            }
+            $total = round($subtotal + $taxAmount, 2);
 
             $sale->update([
                 'subtotal' => $subtotal,

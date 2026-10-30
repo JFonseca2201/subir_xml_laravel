@@ -84,6 +84,13 @@ class CreditNoteController extends Controller
             ], 422);
         }
 
+        if (strtoupper((string) $sale->sri_status) !== 'AUTORIZADA') {
+            return response()->json([
+                'success' => false,
+                'message' => "No se puede emitir Nota de Crédito: La factura #{$sale->document_number} no se encuentra autorizada ante el SRI (Estado actual: {$sale->sri_status}).",
+            ], 422);
+        }
+
         // Validar si ya tiene una Nota de Crédito autorizada
         $existingAuthorizedNC = CreditNote::where('sale_id', $sale->id)
             ->where('sri_status', 'AUTORIZADA')
@@ -115,14 +122,14 @@ class CreditNoteController extends Controller
                     'sri_status'      => 'CREADA',
                 ]);
 
-                // 3. Reversión de stock (si aplica)
+                // 3. Reversión de stock (si aplica, solo productos físicos)
                 if ($creditNote->restore_stock) {
                     foreach ($sale->details as $detail) {
                         if ($detail->product_id) {
                             $product = Product::find($detail->product_id);
-                            if ($product) {
+                            if ($product && (int) $product->item_type === 1) {
                                 $product->increment('stock', $detail->quantity);
-                                Log::info("[NC] Stock restaurado para producto #{$product->id} (+{$detail->quantity})");
+                                Log::info("[NC] Stock restaurado para producto físico #{$product->id} (+{$detail->quantity})");
                             }
                         }
                     }
@@ -137,7 +144,17 @@ class CreditNoteController extends Controller
                                 $account = Account::find($dist->account_id);
                                 if ($account) {
                                     $account->decrement('saldo_actual', $dist->amount);
-                                    Log::info("[NC] Saldo revertido en cuenta #{$account->id} (-{$dist->amount})");
+                                    FinancialMovement::create([
+                                        'account_id' => $account->id,
+                                        'type' => 'expense',
+                                        'amount' => $dist->amount,
+                                        'entry_date' => now('America/Guayaquil')->toDateString(),
+                                        'description' => "Reversión por Nota de Crédito #{$docNumber} sobre Factura #{$sale->document_number}",
+                                        'movable_type' => CreditNote::class,
+                                        'movable_id' => $creditNote->id,
+                                        'user_id' => Auth::id() ?? $sale->user_id,
+                                    ]);
+                                    Log::info("[NC] Saldo revertido en cuenta #{$account->id} (-{$dist->amount}) con FinancialMovement");
                                 }
                             }
                         }

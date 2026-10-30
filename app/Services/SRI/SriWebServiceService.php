@@ -25,7 +25,7 @@ class SriWebServiceService
             $sucursal = \App\Models\Config\Sucursale::first();
             $this->ambiente = $sucursal && !empty($sucursal->ambiente)
                 ? (int) $sucursal->ambiente
-                : (int) env('SRI_AMBIENTE', 1);
+                : (int) config('sri.ambiente', 1);
         }
     }
 
@@ -53,9 +53,10 @@ class SriWebServiceService
      */
     public function enviarComprobante(string $xmlFirmado): array
     {
-        $rawWsdl = $this->ambiente === 2
-            ? (env('SRI_URL_RECEPCION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl')
-            : (env('SRI_URL_RECEPCION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl');
+        $rawWsdl = config("sri.urls.recepcion.{$this->ambiente}")
+            ?: ($this->ambiente === 2
+                ? 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl'
+                : 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl');
 
         $url = $this->getEndpointUrl($rawWsdl);
         $xmlBase64 = base64_encode($xmlFirmado);
@@ -86,9 +87,10 @@ XML;
      */
     public function autorizarComprobante(string $claveAcceso): array
     {
-        $rawWsdl = $this->ambiente === 2
-            ? (env('SRI_URL_AUTORIZACION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl')
-            : (env('SRI_URL_AUTORIZACION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl');
+        $rawWsdl = config("sri.urls.autorizacion.{$this->ambiente}")
+            ?: ($this->ambiente === 2
+                ? 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl'
+                : 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl');
 
         $url = $this->getEndpointUrl($rawWsdl);
 
@@ -292,13 +294,15 @@ XML;
     {
         $targetAmbiente = $ambiente !== null ? $ambiente : $this->ambiente;
 
-        $urlRecepcion = $targetAmbiente === 2
-            ? (env('SRI_URL_RECEPCION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl')
-            : (env('SRI_URL_RECEPCION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl');
+        $urlRecepcion = config("sri.urls.recepcion.{$targetAmbiente}")
+            ?: ($targetAmbiente === 2
+                ? 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl'
+                : 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl');
 
-        $urlAutorizacion = $targetAmbiente === 2
-            ? (env('SRI_URL_AUTORIZACION_PRODUCCION') ?: 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl')
-            : (env('SRI_URL_AUTORIZACION_PRUEBAS') ?: 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl');
+        $urlAutorizacion = config("sri.urls.autorizacion.{$targetAmbiente}")
+            ?: ($targetAmbiente === 2
+                ? 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl'
+                : 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl');
 
         $recepcion = $this->probarEndpoint($urlRecepcion, 'Recepción de Comprobantes');
         $autorizacion = $this->probarEndpoint($urlAutorizacion, 'Autorización de Comprobantes');

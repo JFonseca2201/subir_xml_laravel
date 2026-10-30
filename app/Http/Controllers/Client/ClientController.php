@@ -222,8 +222,8 @@ class ClientController extends Controller
         if ($request->filled('user_id') && $authUser && ($authUser->hasRole('Administrador') || $authUser->can('manage_users'))) {
             $userId = (int) $request->get('user_id');
         }
-        $userId = $userId ?? 1;
-        $sucursaleId = $request->get('sucursale_id') ?: ($authUser?->sucursale_id ?: 1);
+        $userId = $userId ?? \App\Models\User::value('id');
+        $sucursaleId = $request->get('sucursale_id') ?: ($authUser?->sucursale_id ?: \App\Models\Config\Sucursale::value('id'));
 
         $client = Client::create([
             'name' => $name,
@@ -528,17 +528,17 @@ class ClientController extends Controller
         }
 
         // Si es compañía (type_client = 2), remover name y surname de la validación
-        if (isset($input['type_client']) && (int)$input['type_client'] === 2) {
+        if (isset($input['type_client']) && (int) $input['type_client'] === 2) {
             unset($input['name']);
             unset($input['surname']);
         }
 
         // Si es pasaporte (3), no aplicar normalización de cédula/RUC
-        $typeDoc = isset($input['type_document']) ? (string)$input['type_document'] : null;
+        $typeDoc = isset($input['type_document']) ? (string) $input['type_document'] : null;
         if ($typeDoc !== '3') {
             // Normalizar documento ecuatoriano si es aplicable
             if (isset($input['n_document'])) {
-                $n_document = trim((string)$input['n_document']);
+                $n_document = trim((string) $input['n_document']);
                 $length = strlen($n_document);
                 if ($length <= 10 && $length > 0) {
                     $n_document = str_pad($n_document, 10, "0", STR_PAD_LEFT);
@@ -547,7 +547,7 @@ class ClientController extends Controller
                         $n_document .= '001';
                         $input['type_document'] = '2'; // RUC
                     } else {
-                        $input['type_document'] = isset($input['type_document']) ? (string)$input['type_document'] : '1';
+                        $input['type_document'] = isset($input['type_document']) ? (string) $input['type_document'] : '1';
                     }
                 } else if ($length > 10) {
                     $n_document = str_pad($n_document, 13, "0", STR_PAD_LEFT);
@@ -611,7 +611,8 @@ class ClientController extends Controller
     {
         $total = 0;
         $longitud = strlen($cedula);
-        if ($longitud != 10) return false;
+        if ($longitud != 10)
+            return false;
 
         for ($i = 0; $i < 9; $i++) {
             $digito = (int) $cedula[$i];

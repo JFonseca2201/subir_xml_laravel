@@ -69,7 +69,7 @@ class InternalTransfer extends Model
             }
 
             if (empty($model->user_id)) {
-                $model->user_id = auth()->id() ?? 1; // Default user
+                $model->user_id = auth('api')->id() ?? auth('sanctum')->id() ?? auth()->id() ?? \App\Models\User::value('id');
             }
             $model->created_at = now()->setTimezone('America/Guayaquil');
         });

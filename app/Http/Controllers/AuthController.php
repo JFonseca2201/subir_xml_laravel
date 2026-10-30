@@ -77,7 +77,7 @@ class AuthController extends Controller
             'type_document' => $user->type_document,
             'gender' => $user->gender,
             'sucursale_id' => $user->sucursale_id,
-            'avatar' => $user->avatar ? env('APP_URL') . 'storage/' . $user->avatar : null,
+            'avatar' => $user->avatar ? rtrim(config('app.url', ''), '/') . '/storage/' . ltrim($user->avatar, '/') : null,
             'role_id' => $user->role_id,
             'role' => $roleObj ? [
                 'id' => $roleObj->id,
@@ -136,7 +136,7 @@ class AuthController extends Controller
                 'type_document' => $user->type_document,
                 'gender' => $user->gender,
                 'sucursale_id' => $user->sucursale_id,
-                'avatar' => $user->avatar ? env('APP_URL') . 'storage/' . $user->avatar : null,
+                'avatar' => $user->avatar ? rtrim(config('app.url', ''), '/') . '/storage/' . ltrim($user->avatar, '/') : null,
                 'role' => $roleObj ? [
                     'id' => $roleObj->id,
                     'name' => $roleObj->name,

@@ -79,7 +79,7 @@ class SaleDispatchService
                 'vehicle_id' => $request->vehicle_id,
                 'work_order_id' => $request->work_order_id,
                 'work_order_number' => $linkedWorkOrder ? $linkedWorkOrder->number : ($request->work_order_number ?? ($request->work_order_id ? WorkOrder::find($request->work_order_id)?->number : null)),
-                'user_id' => $request->user_id ?? auth()->id() ?? 1,
+                'user_id' => $request->user_id ?? auth('api')->id() ?? auth('sanctum')->id() ?? auth()->id() ?? \App\Models\User::value('id'),
                 'mileage' => $request->mileage,
                 'service_date' => $request->service_date ?? now()->format('Y-m-d'),
                 'subtotal' => $request->subtotal,
@@ -103,10 +103,12 @@ class SaleDispatchService
                 ]);
 
                 if (isset($item['product_id']) && $item['product_id']) {
-                    $product = ModelsProduct::find($item['product_id']);
-                    if ($product) {
-                        $product->stock -= $item['quantity'];
-                        $product->save();
+                    $product = ModelsProduct::where('id', $item['product_id'])->lockForUpdate()->first();
+                    if ($product && (int) $product->item_type === 1) { // Solo productos físicos
+                        if ($product->stock < $item['quantity']) {
+                            throw new \Exception("Stock insuficiente para despachar el producto '{$product->description}'. Disponible: {$product->stock}, Solicitado: {$item['quantity']}");
+                        }
+                        $product->decrement('stock', $item['quantity']);
                     }
                 }
             }
@@ -234,13 +236,16 @@ class SaleDispatchService
             }
 
             if ($request->payment_status !== 'pending') {
-                $this->financeService->processFinancialRecord($newSale, $request->all(), $quote->user_id ?? 1);
+                $this->financeService->processFinancialRecord($newSale, $request->all(), $quote->user_id ?? auth('api')->id() ?? auth()->id() ?? \App\Models\User::value('id'));
             }
 
             foreach ($newSale->details as $detail) {
                 if ($detail->product_id) {
-                    $product = ModelsProduct::find($detail->product_id);
-                    if ($product && $product->stock !== null) {
+                    $product = ModelsProduct::where('id', $detail->product_id)->lockForUpdate()->first();
+                    if ($product && (int) $product->item_type === 1) {
+                        if ($product->stock < $detail->quantity) {
+                            throw new \Exception("Stock insuficiente para convertir la cotización para el producto '{$product->description}'. Disponible: {$product->stock}, Solicitado: {$detail->quantity}");
+                        }
                         $product->decrement('stock', $detail->quantity);
                     }
                 }

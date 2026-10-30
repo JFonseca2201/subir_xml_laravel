@@ -93,7 +93,7 @@ class FinanceRecord extends Model
 
             // Set authenticated user
             if (empty($record->user_id)) {
-                $record->user_id = 1; // Default user
+                $record->user_id = auth('api')->id() ?? auth('sanctum')->id() ?? auth()->id() ?? \App\Models\User::value('id');
             }
 
             // Apply payment method logic based on account

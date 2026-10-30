@@ -158,7 +158,7 @@ class SalePdfService
         $tempPath = storage_path('app/' . $tempFileName);
         $pdf->save($tempPath);
 
-        $printerName = env('PRINTER_NAME', 'L5290 Series(Network)');
+        $printerName = config('sri.printer_name', 'L5290 Series(Network)');
         $edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 
         if (file_exists($edgePath)) {

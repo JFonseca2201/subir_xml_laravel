@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Config;
 
 use App\Http\Controllers\Controller;
 use App\Models\Supplier\Supplier;
+use App\Rules\EcuadorianDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -69,7 +70,7 @@ class SupplierController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'tax_id' => 'required|string|max:255',
-                'ruc' => 'required|string|max:13|unique:suppliers,ruc',
+                'ruc' => ['required', 'string', 'unique:suppliers,ruc', new EcuadorianDocument('ruc')],
                 'name' => 'required|string|max:255',
                 'address' => 'nullable|string|max:500',
                 'phone' => 'nullable|string|max:50',
@@ -197,7 +198,7 @@ class SupplierController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'tax_id' => 'nullable|string|max:255',
-                'ruc' => 'nullable|string|max:13|unique:suppliers,ruc,' . $supplier->id,
+                'ruc' => ['nullable', 'string', 'unique:suppliers,ruc,' . $supplier->id, new EcuadorianDocument('ruc')],
                 'name' => 'nullable|string|max:255',
                 'address' => 'nullable|string|max:500',
                 'phone' => 'nullable|string|max:50',

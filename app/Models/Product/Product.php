@@ -81,7 +81,7 @@ class Product extends Model
     {
         $link = null;
         if ($this->imagen) {
-            $baseUrl = rtrim(config('app.url', env('APP_URL', '')), '/');
+            $baseUrl = rtrim(config('app.url', ''), '/');
             $cleanImg = ltrim($this->imagen, '/');
             $cleanImg = preg_replace('#^storage/#', '', $cleanImg);
             $link = $baseUrl . '/storage/' . $cleanImg;
