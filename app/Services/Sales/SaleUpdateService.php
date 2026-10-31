@@ -625,7 +625,7 @@ class SaleUpdateService
     /**
      * Anula una venta completa, revirtiendo stock, finanzas y liberando la orden de trabajo asociada.
      */
-    public function deleteSale(Sale $sale): array
+    public function deleteSale(Sale $sale, ?string $cancellationReason = null): array
     {
         if ($sale->status === 'canceled') {
             return [
@@ -637,7 +637,7 @@ class SaleUpdateService
             ];
         }
 
-        DB::transaction(function () use ($sale) {
+        DB::transaction(function () use ($sale, $cancellationReason) {
             // 1. Reversar movimientos de cuentas y registros financieros
             if ($sale->financeRecord) {
                 $financeRecord = $sale->financeRecord;
@@ -682,12 +682,16 @@ class SaleUpdateService
                 }
             }
 
-            // 5. Marcar venta como anulada (canceled), desvincularla y ejecutar soft delete para llenar deleted_at
-            $sale->update([
+            // 5. Marcar venta como anulada (canceled), desvincularla y registrar motivo
+            $updateData = [
                 'status' => 'canceled',
                 'payment_status' => 'pending',
                 'work_order_id' => null,
-            ]);
+            ];
+            if (!empty($cancellationReason)) {
+                $updateData['cancellation_reason'] = $cancellationReason;
+            }
+            $sale->update($updateData);
 
             // Ejecuta soft delete de Eloquent para llenar el campo deleted_at
             $sale->delete();

@@ -139,12 +139,17 @@ class FinanzasController extends Controller
                 });
             }
 
-            // Rango de fechas
-            if ($request->has('start_date') && !empty($request->start_date)) {
-                $query->whereDate('entry_date', '>=', $request->start_date);
-            }
-            if ($request->has('end_date') && !empty($request->end_date)) {
-                $query->whereDate('entry_date', '<=', $request->end_date);
+            // Filtro por fecha específica ("Solo por el día")
+            if ($request->has('specific_date') && !empty($request->specific_date)) {
+                $query->whereDate('entry_date', $request->specific_date);
+            } else {
+                // Rango de fechas
+                if ($request->has('start_date') && !empty($request->start_date)) {
+                    $query->whereDate('entry_date', '>=', $request->start_date);
+                }
+                if ($request->has('end_date') && !empty($request->end_date)) {
+                    $query->whereDate('entry_date', '<=', $request->end_date);
+                }
             }
 
             $movements = $query->get();
@@ -355,12 +360,17 @@ class FinanzasController extends Controller
                 });
             }
 
-            // Rango de fechas
-            if ($request->has('start_date') && !empty($request->start_date)) {
-                $query->whereDate('entry_date', '>=', $request->start_date);
-            }
-            if ($request->has('end_date') && !empty($request->end_date)) {
-                $query->whereDate('entry_date', '<=', $request->end_date);
+            // Filtro por fecha específica ("Solo por el día")
+            if ($request->has('specific_date') && !empty($request->specific_date)) {
+                $query->whereDate('entry_date', $request->specific_date);
+            } else {
+                // Rango de fechas
+                if ($request->has('start_date') && !empty($request->start_date)) {
+                    $query->whereDate('entry_date', '>=', $request->start_date);
+                }
+                if ($request->has('end_date') && !empty($request->end_date)) {
+                    $query->whereDate('entry_date', '<=', $request->end_date);
+                }
             }
 
             $movements = $query->get();
@@ -486,6 +496,176 @@ class FinanzasController extends Controller
         } catch (\Exception $e) {
             Log::error('Error loading movements: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateMovement(Request $request, int $id)
+    {
+        try {
+            $movement = FinancialMovement::with(['movable'])->findOrFail($id);
+
+            // Determinar monto
+            $amount = $movement->amount;
+            if ($request->has('payments') && is_array($request->payments) && count($request->payments) > 0) {
+                $amount = collect($request->payments)->sum(function ($p) {
+                    return (float) ($p['amount'] ?? 0);
+                });
+            } elseif ($request->has('amount')) {
+                $amount = (float) $request->amount;
+            }
+
+            // Determinar cuenta
+            $accountId = $movement->account_id;
+            if ($request->has('payments') && is_array($request->payments) && count($request->payments) > 0) {
+                $accountId = $request->payments[0]['account_id'] ?? $accountId;
+            } elseif ($request->has('account_id') && !empty($request->account_id)) {
+                $accountId = $request->account_id;
+            }
+
+            // Actualizar campos del FinancialMovement
+            if ($request->has('description')) {
+                $movement->description = $request->description;
+            }
+            if ($request->has('entry_date') && !empty($request->entry_date)) {
+                $movement->entry_date = substr($request->entry_date, 0, 10);
+            }
+            $movement->amount = $amount;
+            if ($accountId) {
+                $movement->account_id = $accountId;
+            }
+
+            // Actualizar metadata
+            $metadata = is_array($movement->metadata) ? $movement->metadata : [];
+            if ($request->has('work_order_number')) {
+                $metadata['work_order_number'] = $request->work_order_number;
+                $metadata['work_order'] = $request->work_order_number;
+            }
+            if ($request->has('invoice_number')) {
+                $metadata['invoice_number'] = $request->invoice_number;
+                $metadata['invoice'] = $request->invoice_number;
+            }
+            $movement->metadata = $metadata;
+            $movement->save();
+
+            // Sincronizar con el modelo polimórfico de origen (movable)
+            if ($movement->movable) {
+                $movable = $movement->movable;
+                
+                // Caso 1: PaymentDistribution -> FinanceRecord
+                if ($movement->movable_type === \App\Models\Finance\PaymentDistribution::class) {
+                    $movable->amount = $amount;
+                    if ($accountId) {
+                        $movable->account_id = $accountId;
+                    }
+                    $movable->save();
+
+                    if ($movable->financeRecord) {
+                        $movable->financeRecord->update([
+                            'description' => $movement->description,
+                            'entry_date' => $movement->entry_date,
+                            'amount' => $amount,
+                            'work_order_number' => $request->work_order_number ?? $movable->financeRecord->work_order_number,
+                            'invoice_number' => $request->invoice_number ?? $movable->financeRecord->invoice_number,
+                        ]);
+                    }
+                }
+                // Caso 2: FinanceRecord directo
+                elseif ($movement->movable_type === \App\Models\Finance\FinanceRecord::class) {
+                    $movable->update([
+                        'description' => $movement->description,
+                        'entry_date' => $movement->entry_date,
+                        'amount' => $amount,
+                        'account_id' => $accountId,
+                        'work_order_number' => $request->work_order_number ?? $movable->work_order_number,
+                        'invoice_number' => $request->invoice_number ?? $movable->invoice_number,
+                    ]);
+                }
+                // Caso 3: Aporte de Capital
+                elseif ($movement->movable_type === \App\Models\Partner\AporteCapital::class || $movement->movable_type === 'App\Models\AporteCapital') {
+                    $movable->monto = $amount;
+                    $movable->descripcion = $movement->description;
+                    $movable->fecha_aporte = $movement->entry_date;
+                    if ($accountId) {
+                        $movable->cuenta_id = $accountId;
+                    }
+                    $movable->save();
+                }
+                // Caso 4: Pagos o Anticipos de Empleado
+                elseif (str_contains((string)$movement->movable_type, 'EmployeePayment')) {
+                    $movable->monto = $amount;
+                    if (isset($movable->fecha)) $movable->fecha = $movement->entry_date;
+                    $movable->save();
+                }
+                elseif (str_contains((string)$movement->movable_type, 'EmployeeAdvance')) {
+                    $movable->monto = $amount;
+                    if (isset($movable->fecha)) $movable->fecha = $movement->entry_date;
+                    $movable->save();
+                }
+            }
+
+            // Procesar adjuntos (comprobantes / recibos)
+            if ($request->hasFile('receipts')) {
+                foreach ($request->file('receipts') as $file) {
+                    if ($file->isValid()) {
+                        $path = $file->store('attachments/movements', 'public');
+                        $movement->attachments()->create([
+                            'file_name' => basename($path),
+                            'original_name' => $file->getClientOriginalName(),
+                            'file_path' => $path,
+                            'mime_type' => $file->getMimeType(),
+                            'file_size' => $file->getSize(),
+                            'type' => 'receipt',
+                        ]);
+                    }
+                }
+            }
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Movimiento actualizado correctamente',
+                'movement' => $movement,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error actualizando movimiento: ' . $e->getMessage());
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error al actualizar el movimiento: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteMovement(int $id)
+    {
+        try {
+            $movement = FinancialMovement::with(['movable'])->findOrFail($id);
+
+            if ($movement->movable) {
+                $movable = $movement->movable;
+                if ($movement->movable_type === \App\Models\Finance\PaymentDistribution::class) {
+                    $fr = $movable->financeRecord;
+                    $movable->delete();
+                    if ($fr && $fr->paymentDistributions()->count() === 0) {
+                        $fr->delete();
+                    }
+                } elseif ($movement->movable_type === \App\Models\Finance\FinanceRecord::class) {
+                    $movable->delete();
+                } elseif ($movement->movable_type === \App\Models\Partner\AporteCapital::class || $movement->movable_type === 'App\Models\AporteCapital') {
+                    $movable->delete();
+                }
+            }
+
+            $movement->delete();
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Movimiento eliminado correctamente'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error eliminando movimiento: ' . $e->getMessage());
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error al eliminar el movimiento: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

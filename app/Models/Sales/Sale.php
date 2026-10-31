@@ -42,7 +42,8 @@ class Sale extends Model
         'sri_error',
         'xml_path',
         'pdf_path',
-        'converted_to_sale_id'
+        'converted_to_sale_id',
+        'cancellation_reason'
     ];
 
     protected $casts = [

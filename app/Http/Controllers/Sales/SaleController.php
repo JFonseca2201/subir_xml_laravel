@@ -229,7 +229,7 @@ class SaleController extends Controller
     public function show(int $id): JsonResponse
     {
         try {
-            $sale = Sale::with([
+            $sale = Sale::withTrashed()->with([
                 'details.product',
                 'client',
                 'vehicle',
@@ -313,9 +313,9 @@ class SaleController extends Controller
     }
 
     /**
-     * Eliminar la venta y revertir sus efectos contables y de stock.
+     * Eliminar/Anular la venta y revertir sus efectos contables y de stock.
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
         try {
             $sale = Sale::find($id);
@@ -323,17 +323,26 @@ class SaleController extends Controller
             if (!$sale) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El registro de venta no existe.'
+                    'message' => 'El registro de venta no existe o ya fue anulado.'
                 ], 404);
             }
 
-            $result = $this->updateService->deleteSale($sale);
+            $reason = trim((string)($request->input('cancellation_reason') ?? $request->input('motivo') ?? $request->query('cancellation_reason') ?? ''));
+            if (empty($reason)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Debe ingresar un motivo para anular el documento.',
+                    'errors' => ['cancellation_reason' => ['El motivo de anulación es obligatorio.']]
+                ], 422);
+            }
+
+            $result = $this->updateService->deleteSale($sale, $reason);
             return response()->json($result['data'], $result['status']);
         } catch (Exception $e) {
             Log::error('Error al eliminar venta: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Error al eliminar la venta.',
+                'message' => 'Error al anular la venta: ' . $e->getMessage(),
                 'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
             ], 500);
         }
@@ -458,7 +467,7 @@ class SaleController extends Controller
     public function generateSinglePDF(Request $request, int $id)
     {
         try {
-            $sale = Sale::with([
+            $sale = Sale::withTrashed()->with([
                 'client',
                 'vehicle',
                 'user',
@@ -607,7 +616,7 @@ class SaleController extends Controller
     public function descargarXml(int $id)
     {
         try {
-            $sale = Sale::with(['client', 'workOrder'])->findOrFail($id);
+            $sale = Sale::withTrashed()->with(['client', 'workOrder'])->findOrFail($id);
             return $this->sriService->descargarXml($sale);
         } catch (Exception $e) {
             Log::error('Error descargarXml: ' . $e->getMessage());
@@ -625,7 +634,7 @@ class SaleController extends Controller
     public function descargarRide(int $id)
     {
         try {
-            $sale = Sale::with(['details', 'client', 'vehicle', 'workOrder'])->findOrFail($id);
+            $sale = Sale::withTrashed()->with(['details', 'client', 'vehicle', 'workOrder'])->findOrFail($id);
             return $this->sriService->descargarRide($sale);
         } catch (Exception $e) {
             return response()->json([
