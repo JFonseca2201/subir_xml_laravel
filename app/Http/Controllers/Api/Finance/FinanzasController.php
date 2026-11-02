@@ -108,6 +108,22 @@ class FinanzasController extends Controller
                 $query->where('type', $request->type);
             }
 
+            // Asegurar que cada transferencia se muestre en una sola línea (excluir duplicados entrantes si existieran)
+            $query->where(function ($q) {
+                $q->where('type', '!=', 'transfer')
+                  ->orWhere(function ($tq) {
+                      $tq->where('type', 'transfer')
+                         ->where(function ($subQ) {
+                             $subQ->whereNull('metadata->direction')
+                                  ->orWhere('metadata->direction', '!=', 'in');
+                         })
+                         ->where(function ($subQ) {
+                             $subQ->whereNull('metadata->type')
+                                  ->orWhere('metadata->type', '!=', 'internal_transfer_in');
+                         });
+                  });
+            });
+
             // Filtrar por mes (formato Y-m, ej. '2026-07')
             if ($request->has('month') && !empty($request->month)) {
                 $month = $request->month;
@@ -328,6 +344,22 @@ class FinanzasController extends Controller
             if ($request->has('type') && !empty($request->type)) {
                 $query->where('type', $request->type);
             }
+
+            // Asegurar que cada transferencia se muestre en una sola línea (excluir duplicados entrantes si existieran)
+            $query->where(function ($q) {
+                $q->where('type', '!=', 'transfer')
+                  ->orWhere(function ($tq) {
+                      $tq->where('type', 'transfer')
+                         ->where(function ($subQ) {
+                             $subQ->whereNull('metadata->direction')
+                                  ->orWhere('metadata->direction', '!=', 'in');
+                         })
+                         ->where(function ($subQ) {
+                             $subQ->whereNull('metadata->type')
+                                  ->orWhere('metadata->type', '!=', 'internal_transfer_in');
+                         });
+                  });
+            });
 
             // Filtrar por mes (formato Y-m, ej. '2026-07')
             if ($request->has('month') && !empty($request->month)) {

@@ -101,7 +101,14 @@ class SaleFinanceService
             ? $requestData['payment_distributions'][0]['account_id']
             : (Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id ?? 1);
 
-        $financeDescription = 'Venta: ' . $sale->document_type . ' - ' . $sale->document_number;
+        $docTypeLabel = match (strtolower($sale->document_type ?? '')) {
+            'invoice' => 'Factura',
+            'note' => 'Nota de Venta',
+            'quote' => 'Cotización',
+            default => ucfirst($sale->document_type ?? 'Factura'),
+        };
+
+        $financeDescription = 'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number;
         if ($totalAdvances > 0) {
             $financeDescription .= " (Saldo cobrado hoy tras abono previo de \${$totalAdvances})";
         }
@@ -143,7 +150,7 @@ class SaleFinanceService
                         $distribution['account_id'],
                         'income',
                         $distribution['amount'],
-                        'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'] . ($totalAdvances > 0 ? " (Abono previo de \${$totalAdvances})" : ''),
+                        'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'] . ($totalAdvances > 0 ? " (Abono previo de \${$totalAdvances})" : ''),
                         $entryDate,
                         [
                             'document_type' => $sale->document_type,
@@ -179,7 +186,7 @@ class SaleFinanceService
                     $accountId,
                     'income',
                     $amountToAccount,
-                    'Venta: ' . $sale->document_type . ' - ' . $sale->document_number . ' - ' . $paymentMethod . ($totalAdvances > 0 ? " (Saldo cobrado tras abono previo de \${$totalAdvances})" : ''),
+                    'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number . ' - ' . $paymentMethod . ($totalAdvances > 0 ? " (Saldo cobrado tras abono previo de \${$totalAdvances})" : ''),
                     $entryDate,
                     [
                         'document_type' => $sale->document_type,

@@ -136,33 +136,20 @@ class InternalTransferController extends Controller
 
                 $entryDate = $validated['transfer_date'] ?? now();
 
-                // Registrar movimiento de salida para la cuenta de origen
+                // Registrar un único movimiento de tipo 'transfer'
                 $transfer->registerMovement(
                     $fromAccount->id,
                     'transfer',
                     $validated['amount'],
-                    "Transferencia interna enviada a {$toAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
+                    "Transferencia interna: " . ($validated['description'] ?? 'Sin descripción'),
                     $entryDate,
                     [
-                        'type' => 'internal_transfer_out', 
+                        'type' => 'internal_transfer', 
                         'from_account' => $fromAccount->id, 
                         'to_account' => $toAccount->id,
-                        'direction' => 'out'
-                    ]
-                );
-
-                // Registrar movimiento de entrada para la cuenta de destino
-                $transfer->registerMovement(
-                    $toAccount->id,
-                    'transfer',
-                    $validated['amount'],
-                    "Transferencia interna recibida de {$fromAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
-                    $entryDate,
-                    [
-                        'type' => 'internal_transfer_in', 
-                        'from_account' => $fromAccount->id, 
-                        'to_account' => $toAccount->id,
-                        'direction' => 'in'
+                        'from_account_name' => $fromAccount->name,
+                        'to_account_name' => $toAccount->name,
+                        'reference' => $validated['reference_number'] ?? null,
                     ]
                 );
 
