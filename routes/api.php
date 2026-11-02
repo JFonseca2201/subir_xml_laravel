@@ -204,11 +204,11 @@ Route::group(
         // ============= RUTAS DE DASHBOARD FINANCIERO ==========
         Route::get('dashboard-financiero', [FinanzasController::class, 'getDashboardData']);
         Route::get('financial-movements', [FinanzasController::class, 'getMovements']);
-        Route::put('financial-movements/{id}', [FinanzasController::class, 'updateMovement']);
-        Route::post('financial-movements/{id}', [FinanzasController::class, 'updateMovement']);
-        Route::delete('financial-movements/{id}', [FinanzasController::class, 'deleteMovement']);
-        Route::post('financial-movements/pdf', [FinanzasController::class, 'generatePDF']);
-        Route::get('financial-movements/{id}/pdf', [FinanzasController::class, 'generateSinglePDF']);
+        Route::match(['get', 'post'], 'financial-movements/pdf', [FinanzasController::class, 'generatePDF']);
+        Route::get('financial-movements/{id}/pdf', [FinanzasController::class, 'generateSinglePDF'])->whereNumber('id');
+        Route::put('financial-movements/{id}', [FinanzasController::class, 'updateMovement'])->whereNumber('id');
+        Route::post('financial-movements/{id}', [FinanzasController::class, 'updateMovement'])->whereNumber('id');
+        Route::delete('financial-movements/{id}', [FinanzasController::class, 'deleteMovement'])->whereNumber('id');
 
         // ============= RUTAS DE SALES ==========
         Route::get('sales/repuestos/historial', [SaleController::class, 'getRepuestosHistorial']);
