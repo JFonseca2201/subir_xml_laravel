@@ -46,6 +46,7 @@ use App\Http\Controllers\Sales\CreditNoteController;
 use App\Http\Controllers\SparePartRequestController;
 use App\Http\Controllers\Supplier\PedidoDistribuidorController;
 use App\Http\Controllers\Supplier\DistributorCatalogController;
+use App\Http\Controllers\Supplier\DistributorCatalogPdfController;
 use App\Http\Controllers\UnitTypeController;
 use Illuminate\Support\Facades\Route;
 
@@ -298,6 +299,14 @@ Route::group(
         Route::delete('distributor-catalog/clear/{supplier_id}', [DistributorCatalogController::class, 'clear']);
         Route::delete('distributor-catalog/{id}', [DistributorCatalogController::class, 'destroy']);
         Route::get('distributor-catalog', [DistributorCatalogController::class, 'index']);
+
+        // ============= RUTAS DE CATÁLOGO PDF (ESCENARIO 1: BÚSQUEDA DE TEXTO) ==========
+        Route::get('distributor-catalog-pdf/search', [DistributorCatalogPdfController::class, 'search']);
+        Route::post('distributor-catalog-pdf/upload', [DistributorCatalogPdfController::class, 'upload']);
+        Route::get('distributor-catalog-pdf/list', [DistributorCatalogPdfController::class, 'index']);
+        Route::get('distributor-catalog-pdf/{id}/status', [DistributorCatalogPdfController::class, 'getStatus']);
+        Route::get('distributor-catalog-pdf/{id}/file', [DistributorCatalogPdfController::class, 'viewFile']);
+        Route::delete('distributor-catalog-pdf/{id}', [DistributorCatalogPdfController::class, 'destroy']);
 
         // ============= RUTAS DE KARDEX INTEGRAL ==========
         Route::get('kardex/productos', [KardexController::class, 'indexByProduct']);

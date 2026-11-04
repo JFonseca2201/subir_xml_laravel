@@ -8,8 +8,11 @@ use App\Models\Supplier\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Exception;
+use Throwable;
 
 class DistributorCatalogController extends Controller
 {
@@ -154,11 +157,16 @@ class DistributorCatalogController extends Controller
      */
     public function import(Request $request): JsonResponse
     {
+        // Si la petición contiene un archivo PDF, procesar como Catálogo PDF (Escenario 1)
+        if ($request->hasFile('file') && strtolower($request->file('file')->getClientOriginalExtension()) === 'pdf') {
+            return app(DistributorCatalogPdfController::class)->upload($request);
+        }
+
         ini_set('memory_limit', '512M');
-        set_time_limit(180);
+        set_time_limit(300);
 
         $validator = Validator::make($request->all(), [
-            'supplier_id' => 'nullable|integer',
+            'supplier_id' => 'nullable',
             'supplier_name' => 'nullable|string|max:150',
             'mode' => 'nullable|in:replace,append,update',
             'items' => 'required|array|min:1',
@@ -168,66 +176,119 @@ class DistributorCatalogController extends Controller
             return response()->json([
                 'status' => 422,
                 'success' => false,
-                'message' => 'Datos de importación inválidos',
+                'message' => 'Datos de importación inválidos: ' . implode(', ', $validator->errors()->all()),
                 'errors' => $validator->errors()
             ], 422);
         }
 
         try {
-            $supplierId = $request->input('supplier_id');
-            $supplierName = $request->input('supplier_name', 'JAROMA');
+            // Auto-crear tabla distributor_catalog_items si no existe por migraciones pendientes
+            if (!Schema::hasTable('distributor_catalog_items')) {
+                Schema::create('distributor_catalog_items', function ($table) {
+                    $table->id();
+                    $table->unsignedBigInteger('supplier_id')->nullable()->index();
+                    $table->string('supplier_name', 150)->nullable()->index();
+                    $table->string('code', 100)->index();
+                    $table->text('description');
+                    $table->string('reference', 100)->nullable()->index();
+                    $table->decimal('price', 12, 2)->default(0.00);
+                    $table->string('category_code', 50)->nullable()->index();
+                    $table->string('category_name', 255)->index();
+                    $table->string('stock_status', 100)->nullable()->default('Disponible')->index();
+                    $table->timestamps();
+                });
+            }
+
+            $rawSupplierId = $request->input('supplier_id');
+            $supplierId = (is_numeric($rawSupplierId) && (int)$rawSupplierId > 0) ? (int)$rawSupplierId : null;
+            $supplierName = trim((string)$request->input('supplier_name', 'DISTRIBUIDOR'));
+            if (empty($supplierName)) {
+                $supplierName = 'DISTRIBUIDOR';
+            }
             $mode = $request->input('mode', 'replace');
             $items = $request->input('items', []);
 
-            // Resolver o auto-crear Supplier si no existe
-            if (!$supplierId && $supplierName) {
+            // Resolver o auto-crear Supplier de forma segura
+            $supplier = null;
+            if ($supplierId) {
+                $supplier = Supplier::find($supplierId);
+            }
+
+            if (!$supplier && !empty($supplierName)) {
                 $supplier = Supplier::where('name', 'like', "%{$supplierName}%")->first();
                 if (!$supplier) {
-                    $supplier = Supplier::create([
-                        'name' => strtoupper(trim($supplierName)),
+                    $supplierData = [
+                        'name' => mb_strtoupper(trim($supplierName)),
                         'ruc' => '9999999999001',
-                        'is_active' => true,
-                    ]);
+                    ];
+                    if (Schema::hasColumn('suppliers', 'is_active')) {
+                        $supplierData['is_active'] = true;
+                    }
+                    $supplier = Supplier::create($supplierData);
                 }
+            }
+
+            if ($supplier) {
                 $supplierId = $supplier->id;
                 $supplierName = $supplier->name;
-            } elseif ($supplierId) {
-                $supplier = Supplier::find($supplierId);
-                if ($supplier) {
-                    $supplierName = $supplier->name;
-                }
+            } else {
+                $supplierId = null;
             }
 
             DB::beginTransaction();
 
             // Si modo es replace, borrar catálogo previo de este distribuidor
             if ($mode === 'replace') {
-                DistributorCatalogItem::where('supplier_id', $supplierId)->delete();
+                if ($supplierId) {
+                    DistributorCatalogItem::where('supplier_id', $supplierId)->delete();
+                } else {
+                    DistributorCatalogItem::where('supplier_name', $supplierName)->delete();
+                }
             }
 
             $now = now()->setTimezone('America/Guayaquil');
             $insertBatch = [];
-            $batchSize = 400;
+            $batchSize = 150;
             $importedCount = 0;
 
             foreach ($items as $row) {
-                $code = trim((string)($row['code'] ?? ''));
+                $code = mb_substr(trim((string)($row['code'] ?? '')), 0, 95);
                 $description = trim((string)($row['description'] ?? ''));
                 if (empty($code) && empty($description)) continue;
 
-                $price = floatval(str_replace(',', '.', (string)($row['price'] ?? 0)));
-                $reference = isset($row['reference']) ? trim((string)$row['reference']) : null;
-                $categoryCode = isset($row['category_code']) ? trim((string)$row['category_code']) : null;
+                if (empty($code)) {
+                    $code = mb_substr($description, 0, 30);
+                }
+                if (empty($description)) {
+                    $description = $code;
+                }
+
+                $rawPrice = str_replace(',', '.', (string)($row['price'] ?? 0));
+                $price = floatval(preg_replace('/[^0-9.]/', '', $rawPrice) ?: 0);
+                if (is_nan($price) || $price < 0) {
+                    $price = 0.00;
+                }
+                $price = round($price, 2);
+
+                $reference = isset($row['reference']) && trim((string)$row['reference']) !== ''
+                    ? mb_substr(trim((string)$row['reference']), 0, 95)
+                    : null;
+
+                $categoryCode = isset($row['category_code']) && trim((string)$row['category_code']) !== ''
+                    ? mb_substr(trim((string)$row['category_code']), 0, 45)
+                    : null;
+
                 $categoryName = isset($row['category_name']) && trim((string)$row['category_name']) !== ''
-                    ? strtoupper(trim((string)$row['category_name']))
+                    ? mb_substr(mb_strtoupper(trim((string)$row['category_name'])), 0, 240)
                     : 'GENERAL';
+
                 $stockStatus = isset($row['stock_status']) && trim((string)$row['stock_status']) !== ''
-                    ? trim((string)$row['stock_status'])
+                    ? mb_substr(trim((string)$row['stock_status']), 0, 95)
                     : 'Disponible';
 
                 $insertBatch[] = [
                     'supplier_id' => $supplierId,
-                    'supplier_name' => $supplierName,
+                    'supplier_name' => mb_substr($supplierName, 0, 140),
                     'code' => $code,
                     'description' => $description,
                     'reference' => $reference,
@@ -263,8 +324,12 @@ class DistributorCatalogController extends Controller
                     'imported_count' => $importedCount,
                 ]
             ]);
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('Error en importación de catálogo distribuidor: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'status' => 500,
                 'success' => false,
