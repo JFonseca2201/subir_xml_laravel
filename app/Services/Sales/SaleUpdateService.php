@@ -393,7 +393,7 @@ class SaleUpdateService
             if ($request->has('document_type') && $request->document_type === 'invoice' && $sale->document_type !== 'invoice') {
                 $updateData['document_type'] = 'invoice';
                 if (empty($updateData['document_number']) || $updateData['document_number'] === $oldDocumentNumber) {
-                    $updateData['document_number'] = SequenceService::getNextInvoiceNumber();
+                    $updateData['document_number'] = SequenceService::getNextInvoiceNumber($request->document_number);
                 }
             }
 

@@ -87,6 +87,7 @@ Route::group(
         Route::resource('users', UserController::class);
 
         // ============= RUTAS DE SUCURSALES ==============
+        Route::get('configuracion-facturacion', [SucursaleController::class, 'configuracionFacturacion']);
         Route::get('sucursales/{id}', [SucursaleController::class, 'show']);
         Route::match(['put', 'post'], 'sucursales/{id}', [SucursaleController::class, 'update']);
 

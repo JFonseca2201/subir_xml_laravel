@@ -58,6 +58,28 @@ class SucursaleController extends Controller
     }
 
     /**
+     * Obtener configuración de facturación y ambiente SRI de la sucursal activa.
+     */
+    public function configuracionFacturacion(): JsonResponse
+    {
+        try {
+            $user = auth('api')->user() ?? auth()->user();
+            $sucursalId = $user?->sucursale_id ?? 1;
+            $sucursal = Sucursale::find($sucursalId) ?? Sucursale::first();
+
+            return response()->json([
+                'status' => 200,
+                'sucursal' => $sucursal,
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'status' => 500,
+                'message' => $th->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, string $id): JsonResponse

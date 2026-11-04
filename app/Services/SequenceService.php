@@ -341,6 +341,11 @@ class SequenceService
         return self::formatNumber(self::getNextSequenceValue('sale_note'), null);
     }
 
+    public static function getNextInvoiceNumber(?string $requestedNumber = null): string
+    {
+        return self::consumeNumber('invoice', $requestedNumber);
+    }
+
     public static function previewNextQuoteNumber(): string
     {
         return self::previewNumber('quote_sequence');

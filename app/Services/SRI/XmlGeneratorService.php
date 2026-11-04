@@ -20,8 +20,8 @@ class XmlGeneratorService
     {
         $claveAcceso = $this->generarClaveAcceso($sale, $sucursal);
 
-        // Guardar la clave de acceso en la venta si no existe
-        if (!$sale->sri_access_key) {
+        // Guardar o actualizar la clave de acceso si no existe o aún no está autorizada
+        if (!$sale->sri_access_key || $sale->sri_status !== 'AUTORIZADA') {
             $sale->update(['sri_access_key' => $claveAcceso]);
         }
 
@@ -277,7 +277,7 @@ class XmlGeneratorService
         $sale->loadMissing(['details.product', 'client', 'vehicle']);
 
         $claveAcceso = $this->generarClaveAccesoNotaCredito($creditNote, $sucursal);
-        if (!$creditNote->sri_access_key) {
+        if (!$creditNote->sri_access_key || $creditNote->sri_status !== 'AUTORIZADA') {
             $creditNote->update(['sri_access_key' => $claveAcceso]);
         }
 

@@ -245,9 +245,14 @@ class SaleController extends Controller
                 ], 404);
             }
 
+            $sucursalId = $sale->client->sucursale_id ?? optional($sale->user)->sucursale_id ?? 1;
+            $sucursal = \App\Models\Config\Sucursale::find($sucursalId) ?? \App\Models\Config\Sucursale::first();
+
             return response()->json([
                 'success' => true,
-                'data' => $sale
+                'data' => $sale,
+                'sucursal' => $sucursal,
+                'sri_ambiente' => (string) ($sucursal?->ambiente ?? '2'),
             ], 200);
         } catch (Exception $e) {
             Log::error('Error al obtener el detalle de la venta: ' . $e->getMessage());
