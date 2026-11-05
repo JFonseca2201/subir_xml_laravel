@@ -18,15 +18,17 @@ class FinanzasController extends Controller
     //
     public function getDashboardData()
     {
-        // 1. Obtener movimientos recientes con sus relaciones completas
+        // 1. Obtener movimientos recientes con sus relaciones completas y comprobantes
         $movements = FinancialMovement::with([
             'account',
+            'attachments',
             'movable' => function ($morphTo) {
                 $morphTo->morphWith([
-                    \App\Models\Sales\Sale::class => ['client', 'vehicle', 'workOrder'],
-                    \App\Models\Finance\PaymentDistribution::class => ['financeRecord', 'account'],
-                    \App\Models\Finance\FinanceRecord::class => ['user'],
-                    \App\Models\Purchases\Purchase::class => ['provider'],
+                    \App\Models\Sales\Sale::class => ['client', 'vehicle', 'workOrder', 'attachments'],
+                    \App\Models\Finance\PaymentDistribution::class => ['financeRecord.attachments', 'account'],
+                    \App\Models\Finance\FinanceRecord::class => ['user', 'attachments'],
+                    \App\Models\Finance\InternalTransfer::class => ['attachments'],
+                    \App\Models\Partner\AporteCapital::class => ['attachments'],
                 ]);
             }
         ])
