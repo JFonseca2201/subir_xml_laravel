@@ -216,6 +216,7 @@ class DistributorCatalogPdfController extends Controller
                         $snippet = $this->generateSnippet($pageText, $searchTerm);
                         $fileUrl = $catalog->file_url;
                         $pageNumber = $pageItem['page'];
+                        $price = $this->detectPrice($pageText, $searchTerm);
 
                         $allMatches[] = [
                             'id'            => "cat_{$catalog->id}_p_{$pageNumber}",
@@ -225,6 +226,7 @@ class DistributorCatalogPdfController extends Controller
                             'catalog_title' => $catalog->title ?: $catalog->file_name,
                             'file_name'     => $catalog->file_name,
                             'page_number'   => $pageNumber,
+                            'price'         => $price,
                             'snippet'       => $snippet,
                             'pdf_url'       => "{$fileUrl}#page={$pageNumber}",
                             'created_at'    => $catalog->created_at?->format('Y-m-d H:i:s'),
@@ -481,5 +483,147 @@ class DistributorCatalogPdfController extends Controller
         }
 
         return $safeSnippet;
+    }
+
+    /**
+     * Normaliza y parsea cualquier formato numérico de precio:
+     * - Con miles y decimales en formato inglés (1,500.00 / 12,450.50)
+     * - Con miles y decimales en formato español/europeo (1.500,00 / 12.450,50)
+     * - Decimales simples con coma o punto (23,88 / 23.88 / 0.50)
+     */
+    private function parsePriceValue(string $raw): ?float
+    {
+        $clean = trim($raw);
+        $clean = preg_replace('/[^\d,\.]/', '', $clean);
+        if (empty($clean)) {
+            return null;
+        }
+
+        // Caso 1: Contiene punto y coma simultáneamente (ej: 1,500.50 o 1.500,50)
+        if (strpos($clean, '.') !== false && strpos($clean, ',') !== false) {
+            $lastDot = strrpos($clean, '.');
+            $lastComma = strrpos($clean, ',');
+            if ($lastDot > $lastComma) {
+                // Formato inglés: coma es separador de miles (1,500.50)
+                $clean = str_replace(',', '', $clean);
+            } else {
+                // Formato hispano: punto es miles, coma es decimal (1.500,50)
+                $clean = str_replace('.', '', $clean);
+                $clean = str_replace(',', '.', $clean);
+            }
+        } elseif (strpos($clean, ',') !== false) {
+            // Solo coma
+            $parts = explode(',', $clean);
+            if (count($parts) === 2 && strlen($parts[1]) === 2) {
+                // Decimal típico: 23,88
+                $clean = $parts[0] . '.' . $parts[1];
+            } else {
+                // Miles sin decimales: 1,500
+                $clean = str_replace(',', '', $clean);
+            }
+        }
+
+        $val = (float) $clean;
+
+        return ($val >= 0.10 && $val <= 99999) ? $val : null;
+    }
+
+    /**
+     * Extracción flexible de precios en cualquier posición (izquierda, derecha o en línea):
+     * - Detecta símbolos de moneda ($ o USD / US$) antes o después del número
+     * - Detecta patrones con miles y decimales (0.00, 1,500.00, 1.500,00)
+     * - Evalúa una ventana amplia alrededor de las palabras buscadas y pondera cercanía y etiquetas
+     */
+    private function detectPrice(string $content, string $searchTerm): ?string
+    {
+        if (empty($content) || empty($searchTerm)) {
+            return null;
+        }
+
+        $cleanContent = preg_replace('/\s+/', ' ', trim($content));
+        $lowerContent = mb_strtolower($cleanContent);
+        $lowerTerm = mb_strtolower(trim($searchTerm));
+
+        // Ubicar la posición del término completo o de las palabras clave
+        $pos = mb_strpos($lowerContent, $lowerTerm);
+        if ($pos === false) {
+            $words = array_filter(explode(' ', $lowerTerm), fn($w) => mb_strlen($w) >= 2);
+            foreach ($words as $word) {
+                $pos = mb_strpos($lowerContent, $word);
+                if ($pos !== false) {
+                    break;
+                }
+            }
+        }
+
+        if ($pos === false) {
+            $pos = 0;
+        }
+
+        // Ventana generosa de búsqueda: 320 caracteres antes y 320 después
+        $start = max(0, $pos - 320);
+        $length = 640;
+        $window = mb_substr($cleanContent, $start, $length);
+        $centerOffset = $pos - $start;
+
+        $candidates = [];
+
+        // 1. Patrón con símbolo explícito o prefijo monetario (Prioridad Alta)
+        // Ejemplo: $ 1,500.00 | $23.88 | USD 45,50 | PVP: 12.00 | PRECIO: $ 25.00
+        $prefixPattern = '/(?:[\$]|USD|US\$|U\$S|PVP|P\.V\.P|PRECIO|VALOR|COSTO)\s*:?\s*([0-9]{1,3}(?:[,\.][0-9]{3})*(?:[\.,][0-9]{2})|[0-9]+(?:[\.,][0-9]{2})?)/iu';
+        if (preg_match_all($prefixPattern, $window, $matches, PREG_OFFSET_CAPTURE)) {
+            foreach ($matches[1] as $m) {
+                $val = $this->parsePriceValue($m[0]);
+                if ($val !== null) {
+                    $dist = abs($m[1] - $centerOffset);
+                    $candidates[] = [
+                        'val'   => $val,
+                        'score' => 250 - $dist,
+                    ];
+                }
+            }
+        }
+
+        // Ejemplo sufijo: 1,500.00 $ | 23.88 USD | 45.00 dólares
+        $suffixPattern = '/([0-9]{1,3}(?:[,\.][0-9]{3})*(?:[\.,][0-9]{2})|[0-9]+(?:[\.,][0-9]{2})?)\s*(?:[\$]|USD|US\$|DOLARES|DÓLARES)/iu';
+        if (preg_match_all($suffixPattern, $window, $matches, PREG_OFFSET_CAPTURE)) {
+            foreach ($matches[1] as $m) {
+                $val = $this->parsePriceValue($m[0]);
+                if ($val !== null) {
+                    $dist = abs($m[1] - $centerOffset);
+                    $candidates[] = [
+                        'val'   => $val,
+                        'score' => 240 - $dist,
+                    ];
+                }
+            }
+        }
+
+        // 2. Patrón numérico con formato decimal estricto (con miles o sin miles)
+        // Ejemplo: 1,500.00 | 1.500,00 | 23.88 | 23,88
+        $decimalPattern = '/(?:^|[\s\(\[\:\;\-])([0-9]{1,3}(?:[,.][0-9]{3})+(?:[.,][0-9]{2})|[0-9]{1,5}[.,][0-9]{2})(?=$|[\s\)\]\,\;\.\-])/u';
+        if (preg_match_all($decimalPattern, $window, $matches, PREG_OFFSET_CAPTURE)) {
+            foreach ($matches[1] as $m) {
+                $val = $this->parsePriceValue($m[0]);
+                if ($val !== null) {
+                    $dist = abs($m[1] - $centerOffset);
+                    // Bonus si está justo después de la descripción (patrón común: Descripción -> Precio)
+                    $afterBonus = ($m[1] >= $centerOffset && ($m[1] - $centerOffset) <= 120) ? 35 : 0;
+                    $candidates[] = [
+                        'val'   => $val,
+                        'score' => 120 - $dist + $afterBonus,
+                    ];
+                }
+            }
+        }
+
+        if (empty($candidates)) {
+            return null;
+        }
+
+        // Ordenar candidatos por mayor puntuación
+        usort($candidates, fn($a, $b) => $b['score'] <=> $a['score']);
+
+        return number_format($candidates[0]['val'], 2, '.', '');
     }
 }
