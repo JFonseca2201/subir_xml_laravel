@@ -234,20 +234,20 @@ Route::group(
         Route::get('quotes/{id}/pdf', [QuoteController::class, 'generateSinglePDF']);
 
         // ============= RUTAS SRI FACTURACIÓN ELECTRÓNICA ==========
-        Route::get('sri/check-status',             [SaleController::class, 'checkSriStatus']);
-        Route::post('sales/{id}/sri/reenviar',     [SaleController::class, 'reenviarSri']);
-        Route::get('sales/{id}/sri/estado',        [SaleController::class, 'estadoSri']);
-        Route::get('sales/{id}/xml',               [SaleController::class, 'descargarXml']);
-        Route::get('sales/{id}/ride',              [SaleController::class, 'descargarRide']);
+        Route::get('sri/check-status', [SaleController::class, 'checkSriStatus']);
+        Route::post('sales/{id}/sri/reenviar', [SaleController::class, 'reenviarSri']);
+        Route::get('sales/{id}/sri/estado', [SaleController::class, 'estadoSri']);
+        Route::get('sales/{id}/xml', [SaleController::class, 'descargarXml']);
+        Route::get('sales/{id}/ride', [SaleController::class, 'descargarRide']);
         Route::post('sales/{id}/sri/enviar-email', [SaleController::class, 'enviarEmail']);
 
         // ============= RUTAS DE NOTAS DE CRÉDITO (SRI COMPROBANTE 04) ==========
-        Route::get('credit-notes',                [CreditNoteController::class, 'index']);
-        Route::post('credit-notes',               [CreditNoteController::class, 'store']);
-        Route::get('credit-notes/{id}',           [CreditNoteController::class, 'show']);
-        Route::post('credit-notes/{id}/resend',   [CreditNoteController::class, 'resendSri']);
-        Route::get('credit-notes/{id}/xml',       [CreditNoteController::class, 'descargarXml']);
-        Route::get('credit-notes/{id}/ride',      [CreditNoteController::class, 'descargarRide']);
+        Route::get('credit-notes', [CreditNoteController::class, 'index']);
+        Route::post('credit-notes', [CreditNoteController::class, 'store']);
+        Route::get('credit-notes/{id}', [CreditNoteController::class, 'show']);
+        Route::post('credit-notes/{id}/resend', [CreditNoteController::class, 'resendSri']);
+        Route::get('credit-notes/{id}/xml', [CreditNoteController::class, 'descargarXml']);
+        Route::get('credit-notes/{id}/ride', [CreditNoteController::class, 'descargarRide']);
 
         // ============= RUTAS DE DEVOLUCIONES ==========
         Route::get('returns', [ProductReturnController::class, 'index']);
@@ -305,7 +305,7 @@ Route::group(
         Route::post('distributor-catalog-pdf/upload', [DistributorCatalogPdfController::class, 'upload']);
         Route::get('distributor-catalog-pdf/list', [DistributorCatalogPdfController::class, 'index']);
         Route::get('distributor-catalog-pdf/{id}/status', [DistributorCatalogPdfController::class, 'getStatus']);
-        Route::get('distributor-catalog-pdf/{id}/file', [DistributorCatalogPdfController::class, 'viewFile']);
+        //Route::get('distributor-catalog-pdf/{id}/file', [DistributorCatalogPdfController::class, 'viewFile']);
         Route::delete('distributor-catalog-pdf/{id}', [DistributorCatalogPdfController::class, 'destroy']);
 
         // ============= RUTAS DE KARDEX INTEGRAL ==========
@@ -364,4 +364,4 @@ Route::group(
 // ============= REPORTES Y DESCARGAS PÚBLICAS / DIRECTAS DE PRODUCTOS ==========
 Route::get('products-excel', [ProductController::class, 'download_excel']);
 Route::get('products-pdf', [ProductController::class, 'download_pdf']);
-
+Route::get('distributor-catalog-pdf/{id}/file', [DistributorCatalogPdfController::class, 'viewFile']);
