@@ -18,21 +18,23 @@ class FinanzasController extends Controller
     //
     public function getDashboardData(Request $request)
     {
-        // 0. Obtener lista completa de meses disponibles en la base de datos (histórico completo sin límites)
+        // 0. Obtener lista completa de meses disponibles en la base de datos (solo en carga inicial completa)
         $availableMonths = [];
-        try {
-            $availableMonths = FinancialMovement::selectRaw("DISTINCT SUBSTRING(COALESCE(entry_date, created_at), 1, 7) as ym")
-                ->whereNotNull('entry_date')
-                ->orWhereNotNull('created_at')
-                ->orderBy('ym', 'desc')
-                ->pluck('ym')
-                ->filter(function ($val) {
-                    return !empty($val) && preg_match('/^\d{4}-\d{2}$/', $val);
-                })
-                ->values()
-                ->toArray();
-        } catch (\Exception $e) {
-            Log::warning("Error obteniendo available_months en dashboard: " . $e->getMessage());
+        if (!$request->boolean('only_movements')) {
+            try {
+                $availableMonths = FinancialMovement::selectRaw("DISTINCT SUBSTRING(COALESCE(entry_date, created_at), 1, 7) as ym")
+                    ->whereNotNull('entry_date')
+                    ->orWhereNotNull('created_at')
+                    ->orderBy('ym', 'desc')
+                    ->pluck('ym')
+                    ->filter(function ($val) {
+                        return !empty($val) && preg_match('/^\d{4}-\d{2}$/', $val);
+                    })
+                    ->values()
+                    ->toArray();
+            } catch (\Exception $e) {
+                Log::warning("Error obteniendo available_months en dashboard: " . $e->getMessage());
+            }
         }
 
         // 1. Query base de movimientos con relaciones completas
@@ -114,21 +116,24 @@ class FinanzasController extends Controller
             });
         }
 
-        $total = (clone $query)->count();
         $perPage = (int) $request->input('per_page', 20);
         $currentPage = max(1, (int) $request->input('page', 1));
 
-        // Paginación desde el backend ÚNICAMENTE cuando se filtra por mes y hay más de 20 registros
-        if ($isFilteringByMonth && $total > $perPage) {
+        if ($isFilteringByMonth) {
+            // Cuando se filtra por mes: paginación completa para el mes seleccionado
+            $total = (clone $query)->count();
+            $lastPage = max(1, (int) ceil($total / $perPage));
+
             $movements = $query->skip(($currentPage - 1) * $perPage)
                 ->take($perPage)
                 ->get();
-            $isPaginated = true;
-            $lastPage = (int) ceil($total / $perPage);
+
+            $isPaginated = true; // Cuando se selecciona un mes se activa la paginación
         } else {
-            // Cuando no se filtra por mes o hay 20 o menos registros:
-            // SE ENVIAN TODOS LOS REGISTROS que existan en la BD sin límite artificial (sin take(40))
-            $movements = $query->get();
+            // Al iniciar o sin mes seleccionado ('all'):
+            // ÚNICAMENTE los primeros 20 registros, sin paginación
+            $movements = $query->take(20)->get();
+            $total = $movements->count();
             $isPaginated = false;
             $lastPage = 1;
             $currentPage = 1;
@@ -147,7 +152,6 @@ class FinanzasController extends Controller
             return response()->json([
                 'movements' => $movements,
                 'pagination' => $pagination,
-                'available_months' => $availableMonths,
             ]);
         }
 
