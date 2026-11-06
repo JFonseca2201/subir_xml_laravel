@@ -83,9 +83,16 @@ class SaleController extends Controller
                                 ->orWhere('n_document', 'like', "%{$searchTerm}%");
                         })
                         ->orWhereHas('vehicle', function ($vehicleQuery) use ($searchTerm, $matchingBrandIds) {
-                            $vehicleQuery->where('license_plate', 'like', "%{$searchTerm}%")
-                                ->orWhere('model', 'like', "%{$searchTerm}%")
-                                ->orWhere('brand', 'like', "%{$searchTerm}%");
+                            $cleanTerm = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)$searchTerm));
+                            $vehicleQuery->where(function ($vPlateQ) use ($searchTerm, $cleanTerm) {
+                                $vPlateQ->where('license_plate', 'like', "%{$searchTerm}%");
+                                if (!empty($cleanTerm)) {
+                                    $vPlateQ->orWhere('license_plate', 'like', "%{$cleanTerm}%")
+                                            ->orWhereRaw("REPLACE(license_plate, '-', '') like ?", ["%{$cleanTerm}%"]);
+                                }
+                            })
+                            ->orWhere('model', 'like', "%{$searchTerm}%")
+                            ->orWhere('brand', 'like', "%{$searchTerm}%");
                             if (!empty($matchingBrandIds)) {
                                 $vehicleQuery->orWhereIn('brand', array_unique($matchingBrandIds));
                             }

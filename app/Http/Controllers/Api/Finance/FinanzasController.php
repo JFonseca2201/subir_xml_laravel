@@ -77,7 +77,12 @@ class FinanzasController extends Controller
                           $cQ->where('name', 'like', "%{$search}%")
                              ->orWhere('surname', 'like', "%{$search}%");
                       })->orWhereHas('vehicle', function ($vQ) use ($search) {
+                          $cleanSearch = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)$search));
                           $vQ->where('license_plate', 'like', "%{$search}%");
+                          if (!empty($cleanSearch)) {
+                              $vQ->orWhere('license_plate', 'like', "%{$cleanSearch}%")
+                                 ->orWhereRaw("REPLACE(license_plate, '-', '') like ?", ["%{$cleanSearch}%"]);
+                          }
                       });
                   })
                   ->orWhereHasMorph('movable', [\App\Models\Finance\PaymentDistribution::class], function ($mQuery) use ($search) {

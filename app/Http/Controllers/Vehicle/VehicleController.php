@@ -44,11 +44,19 @@ class VehicleController extends Controller
                 }
             }
 
-            $query->where(function ($q) use ($search, $matchingBrandIds) {
-                $q->where('license_plate', 'like', "%{$search}%")
-                    ->orWhere('model', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('brand', 'like', "%{$search}%");
+            $cleanSearch = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $search));
+
+            $query->where(function ($q) use ($search, $cleanSearch, $matchingBrandIds) {
+                $q->where(function ($plateQ) use ($search, $cleanSearch) {
+                    $plateQ->where('license_plate', 'like', "%{$search}%");
+                    if (!empty($cleanSearch)) {
+                        $plateQ->orWhere('license_plate', 'like', "%{$cleanSearch}%")
+                               ->orWhereRaw("REPLACE(license_plate, '-', '') like ?", ["%{$cleanSearch}%"]);
+                    }
+                })
+                ->orWhere('model', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%")
+                ->orWhere('brand', 'like', "%{$search}%");
 
                 if (!empty($matchingBrandIds)) {
                     $q->orWhereIn('brand', array_unique($matchingBrandIds));
@@ -146,11 +154,19 @@ class VehicleController extends Controller
                 }
             }
 
-            $query->where(function ($q) use ($search, $matchingBrandIds) {
-                $q->where('license_plate', 'like', "%{$search}%")
-                    ->orWhere('model', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('brand', 'like', "%{$search}%");
+            $cleanSearch = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $search));
+
+            $query->where(function ($q) use ($search, $cleanSearch, $matchingBrandIds) {
+                $q->where(function ($plateQ) use ($search, $cleanSearch) {
+                    $plateQ->where('license_plate', 'like', "%{$search}%");
+                    if (!empty($cleanSearch)) {
+                        $plateQ->orWhere('license_plate', 'like', "%{$cleanSearch}%")
+                               ->orWhereRaw("REPLACE(license_plate, '-', '') like ?", ["%{$cleanSearch}%"]);
+                    }
+                })
+                ->orWhere('model', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%")
+                ->orWhere('brand', 'like', "%{$search}%");
 
                 if (!empty($matchingBrandIds)) {
                     $q->orWhereIn('brand', array_unique($matchingBrandIds));
@@ -182,13 +198,14 @@ class VehicleController extends Controller
      */
     public function store(Request $request)
     {
-        $cleanPlate = strtoupper(trim((string)$request->license_plate));
-        $exists = Vehicle::whereRaw('LOWER(TRIM(license_plate)) = ?', [strtolower($cleanPlate)])->first();
+        $cleanPlate = Vehicle::cleanPlate((string)$request->license_plate);
+        $exists = Vehicle::whereRaw("REPLACE(license_plate, '-', '') = ?", [$cleanPlate])->first();
         if ($exists) {
+            $displayPlate = Vehicle::formatPlate($cleanPlate) ?: $cleanPlate;
             return response()->json([
                 'status' => 422,
-                'message' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado',
-                'errors' => ['license_plate' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado'],
+                'message' => 'El vehículo con la placa ' . $displayPlate . ' ya se encuentra registrado',
+                'errors' => ['license_plate' => 'El vehículo con la placa ' . $displayPlate . ' ya se encuentra registrado'],
             ], 422);
         }
 
@@ -198,6 +215,7 @@ class VehicleController extends Controller
         $allowedBrands = array_keys(config('vehicle_brands', []));
 
         $requestData = $request->all();
+        $requestData['license_plate'] = $cleanPlate;
 
         // Extraer valores si el frontend los envía como objetos (comportamiento de Vuetify v-select)
         foreach (['vehicle_type', 'brand', 'color'] as $field) {
@@ -214,8 +232,8 @@ class VehicleController extends Controller
                 'required',
                 'string',
                 'unique:vehicles,license_plate',
-                // Regex de Ecuador: soporta los 4 formatos de Ecuador + formatos genéricos de sin placa
-                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3}|SIN-PLACA|SIN PLACA|S\/P|S\/P-[A-Z0-9]+|SP-\d{3,4})$/i'
+                // Regex de Ecuador: soporta los 4 formatos de Ecuador con o sin guion + formatos genéricos de sin placa
+                'regex:/^([A-Z]{3}-?\d{3,4}|[A-Z]-?\d{3}[A-Z]|\d{4}-?[A-Z]{3}|SIN-PLACA|SIN PLACA|S\/P|S\/P-[A-Z0-9]+|SP-\d{3,4})$/i'
             ],
             'brand' => 'required',
             'model' => 'required|string|max:100',
@@ -345,26 +363,28 @@ class VehicleController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $cleanPlate = strtoupper(trim((string)$request->license_plate));
+        $cleanPlate = Vehicle::cleanPlate((string)$request->license_plate);
         $vehicle = Vehicle::find($id);
 
         if (!$vehicle) {
             return response()->json(['status' => 404, 'message' => 'No encontrado'], 404);
         }
 
-        $exists = Vehicle::whereRaw('LOWER(TRIM(license_plate)) = ?', [strtolower($cleanPlate)])
+        $exists = Vehicle::whereRaw("REPLACE(license_plate, '-', '') = ?", [$cleanPlate])
             ->where('id', '!=', $id)
             ->first();
 
         if ($exists) {
+            $displayPlate = Vehicle::formatPlate($cleanPlate) ?: $cleanPlate;
             return response()->json([
                 'status' => 422,
-                'message' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado',
-                'errors' => ['license_plate' => 'El vehículo con la placa ' . $cleanPlate . ' ya se encuentra registrado'],
+                'message' => 'El vehículo con la placa ' . $displayPlate . ' ya se encuentra registrado',
+                'errors' => ['license_plate' => 'El vehículo con la placa ' . $displayPlate . ' ya se encuentra registrado'],
             ], 422);
         }
 
         $requestData = $request->all();
+        $requestData['license_plate'] = $cleanPlate;
 
         // Extraer valores si el frontend los envía como objetos (comportamiento de Vuetify v-select)
         foreach (['vehicle_type', 'brand', 'color', 'usage_type'] as $field) {
@@ -380,7 +400,7 @@ class VehicleController extends Controller
                 'required',
                 'string',
                 Rule::unique('vehicles')->ignore($id),
-                'regex:/^([A-Z]{3}-\d{3,4}|[A-Z]-\d{3}[A-Z]|\d{4}-[A-Z]{3}|SIN-PLACA|SIN PLACA|S\/P|S\/P-[A-Z0-9]+|SP-\d{3,4})$/i'
+                'regex:/^([A-Z]{3}-?\d{3,4}|[A-Z]-?\d{3}[A-Z]|\d{4}-?[A-Z]{3}|SIN-PLACA|SIN PLACA|S\/P|S\/P-[A-Z0-9]+|SP-\d{3,4})$/i'
             ],
             'brand' => 'required',
             'model' => 'required|string|max:100',
