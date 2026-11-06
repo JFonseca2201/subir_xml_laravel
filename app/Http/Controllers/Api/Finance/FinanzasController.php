@@ -16,10 +16,27 @@ use App\Models\WorkOrder\WorkOrder;
 class FinanzasController extends Controller
 {
     //
-    public function getDashboardData()
+    public function getDashboardData(Request $request)
     {
-        // 1. Obtener movimientos recientes con sus relaciones completas y comprobantes
-        $movements = FinancialMovement::with([
+        // 0. Obtener lista completa de meses disponibles en la base de datos (histórico completo sin límites)
+        $availableMonths = [];
+        try {
+            $availableMonths = FinancialMovement::selectRaw("DISTINCT SUBSTRING(COALESCE(entry_date, created_at), 1, 7) as ym")
+                ->whereNotNull('entry_date')
+                ->orWhereNotNull('created_at')
+                ->orderBy('ym', 'desc')
+                ->pluck('ym')
+                ->filter(function ($val) {
+                    return !empty($val) && preg_match('/^\d{4}-\d{2}$/', $val);
+                })
+                ->values()
+                ->toArray();
+        } catch (\Exception $e) {
+            Log::warning("Error obteniendo available_months en dashboard: " . $e->getMessage());
+        }
+
+        // 1. Query base de movimientos con relaciones completas
+        $query = FinancialMovement::with([
             'account',
             'attachments',
             'movable' => function ($morphTo) {
@@ -29,13 +46,110 @@ class FinanzasController extends Controller
                     \App\Models\Finance\FinanceRecord::class => ['user', 'attachments'],
                     \App\Models\Finance\InternalTransfer::class => ['attachments'],
                     \App\Models\Partner\AporteCapital::class => ['attachments'],
+                    \App\Models\WorkOrder\WorkOrder::class => ['attachments'],
+                    \App\Models\Employee\EmployeePayment::class => ['attachments'],
+                    \App\Models\Employee\EmployeeAdvance::class => ['attachments'],
                 ]);
             }
         ])
             ->orderBy('entry_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->take(40)
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        // Filtrar por tipo si se especifica y no es 'all'
+        if ($request->filled('type') && $request->type !== 'all') {
+            $query->where('type', $request->type);
+        }
+
+        // Filtrar por búsqueda si se especifica
+        if ($request->filled('search') && trim($request->search) !== '') {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%")
+                  ->orWhere('amount', 'like', "%{$search}%")
+                  ->orWhere('metadata->invoice', 'like', "%{$search}%")
+                  ->orWhere('metadata->work_order', 'like', "%{$search}%")
+                  ->orWhere('metadata->invoice_number', 'like', "%{$search}%")
+                  ->orWhere('metadata->work_order_number', 'like', "%{$search}%")
+                  ->orWhere('metadata->license_plate', 'like', "%{$search}%")
+                  ->orWhere('metadata->client_name', 'like', "%{$search}%")
+                  ->orWhereHasMorph('movable', [\App\Models\Sales\Sale::class], function ($sQ) use ($search) {
+                      $sQ->whereHas('client', function ($cQ) use ($search) {
+                          $cQ->where('name', 'like', "%{$search}%")
+                             ->orWhere('surname', 'like', "%{$search}%");
+                      })->orWhereHas('vehicle', function ($vQ) use ($search) {
+                          $vQ->where('license_plate', 'like', "%{$search}%");
+                      });
+                  })
+                  ->orWhereHasMorph('movable', [\App\Models\Finance\PaymentDistribution::class], function ($mQuery) use ($search) {
+                      $mQuery->whereHas('financeRecord', function ($frQuery) use ($search) {
+                          $frQuery->where('work_order_number', 'like', "%{$search}%")
+                                  ->orWhere('invoice_number', 'like', "%{$search}%")
+                                  ->orWhere('description', 'like', "%{$search}%");
+                      });
+                  })
+                  ->orWhereHasMorph('movable', [\App\Models\Finance\FinanceRecord::class], function ($mQuery) use ($search) {
+                      $mQuery->where('work_order_number', 'like', "%{$search}%")
+                             ->orWhere('invoice_number', 'like', "%{$search}%")
+                             ->orWhere('description', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Filtro por mes (ej. '2026-05', '2026-10')
+        $month = $request->input('month');
+        $isFilteringByMonth = !empty($month) && $month !== 'all';
+
+        if ($isFilteringByMonth) {
+            $year = substr($month, 0, 4);
+            $m = substr($month, 5, 2);
+            $query->where(function ($q) use ($year, $m) {
+                $q->where(function ($sub) use ($year, $m) {
+                    $sub->whereYear('entry_date', $year)
+                        ->whereMonth('entry_date', $m);
+                })->orWhere(function ($sub) use ($year, $m) {
+                    $sub->whereNull('entry_date')
+                        ->whereYear('created_at', $year)
+                        ->whereMonth('created_at', $m);
+                });
+            });
+        }
+
+        $total = (clone $query)->count();
+        $perPage = (int) $request->input('per_page', 20);
+        $currentPage = max(1, (int) $request->input('page', 1));
+
+        // Paginación desde el backend ÚNICAMENTE cuando se filtra por mes y hay más de 20 registros
+        if ($isFilteringByMonth && $total > $perPage) {
+            $movements = $query->skip(($currentPage - 1) * $perPage)
+                ->take($perPage)
+                ->get();
+            $isPaginated = true;
+            $lastPage = (int) ceil($total / $perPage);
+        } else {
+            // Cuando no se filtra por mes o hay 20 o menos registros:
+            // SE ENVIAN TODOS LOS REGISTROS que existan en la BD sin límite artificial (sin take(40))
+            $movements = $query->get();
+            $isPaginated = false;
+            $lastPage = 1;
+            $currentPage = 1;
+        }
+
+        $pagination = [
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $currentPage,
+            'last_page' => $lastPage,
+            'is_paginated' => $isPaginated,
+        ];
+
+        // Si solo se solicitan los movimientos (para paginación o filtros dinámicos)
+        if ($request->boolean('only_movements')) {
+            return response()->json([
+                'movements' => $movements,
+                'pagination' => $pagination,
+                'available_months' => $availableMonths,
+            ]);
+        }
 
         // 2. Calcular resumen del mes actual
         $startOfMonth = now()->startOfMonth();
@@ -91,6 +205,8 @@ class FinanzasController extends Controller
 
         return response()->json([
             'movements' => $movements,
+            'pagination' => $pagination,
+            'available_months' => $availableMonths,
             'summary' => $summary,
             'workOrdersStats' => $workOrdersStats,
             'activeWorkOrders' => $activeWorkOrders,
