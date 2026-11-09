@@ -47,9 +47,11 @@ class SaleFinanceService
         // 2. Si ya existe, revertir los saldos de las distribuciones anteriores
         if ($financeRecord) {
             foreach ($financeRecord->paymentDistributions as $distribution) {
-                $account = Account::find($distribution->account_id);
-                if ($account) {
-                    $account->updateBalance($distribution->amount, FinanceRecord::TYPE_EXPENSE); // Restar
+                if (!$distribution->is_advance) {
+                    $account = Account::find($distribution->account_id);
+                    if ($account) {
+                        $account->updateBalance($distribution->amount, FinanceRecord::TYPE_EXPENSE); // Restar
+                    }
                 }
             }
             // Eliminar las distribuciones anteriores
@@ -80,25 +82,69 @@ class SaleFinanceService
         $paymentMethod = $requestData['payment_method'] ?? $sale->payment_method ?? 'Efectivo';
 
         // 🔍 Verificar si la orden de trabajo vinculada ya tenía anticipos/abonos previos
-        $linkedWorkOrder = $sale->work_order_id ? \App\Models\WorkOrder\WorkOrder::with('advances')->find($sale->work_order_id) : null;
-        $totalAdvances = $linkedWorkOrder ? (float) $linkedWorkOrder->total_advances : 0.0;
+        $linkedWorkOrder = $sale->work_order_id ? \App\Models\WorkOrder\WorkOrder::with(['advances.account'])->find($sale->work_order_id) : null;
+        $workOrderAdvances = $linkedWorkOrder ? $linkedWorkOrder->advances()->whereNull('deleted_at')->get() : collect();
+        $totalAdvances = (float) $workOrderAdvances->sum('amount');
+        $advanceIds = $workOrderAdvances->pluck('id')->all();
         $balanceToCollectToday = max(0, (float) $sale->total - $totalAdvances);
 
-        $totalPaid = 0;
-        if ($sale->payment_status === 'pending') {
-            $totalPaid = 0;
-        } elseif (!empty($requestData['payment_distributions']) && is_array($requestData['payment_distributions']) && count($requestData['payment_distributions']) > 0) {
-            $totalPaid = collect($requestData['payment_distributions'])->sum('amount');
-        } else {
-            if ($sale->payment_status === 'paid') {
-                $totalPaid = $totalAdvances > 0 ? $balanceToCollectToday : (float) $sale->total;
-            } else {
-                $totalPaid = $sale->financeRecord ? $sale->financeRecord->paymentDistributions->sum('amount') : ($totalAdvances > 0 ? $balanceToCollectToday : (float) $sale->total);
+        $incomingDists = $requestData['payment_distributions'] ?? [];
+        if (!is_array($incomingDists)) {
+            $incomingDists = [];
+        }
+
+        // Si la OT tiene anticipos previos, asegurar que el desglose de pagos refleje el anticipo de forma dividida
+        if ($totalAdvances > 0) {
+            $hasAdvanceDist = collect($incomingDists)->contains(fn ($d) => !empty($d['is_advance']));
+
+            if (!$hasAdvanceDist) {
+                $advanceDists = [];
+                foreach ($workOrderAdvances as $adv) {
+                    $advanceDists[] = [
+                        'account_id' => $adv->account_id,
+                        'amount' => (float) $adv->amount,
+                        'payment_method' => $adv->payment_method ?: 'Efectivo',
+                        'is_advance' => true,
+                        'work_order_advance_id' => $adv->id,
+                    ];
+                }
+
+                $incomingSum = array_sum(array_column($incomingDists, 'amount'));
+
+                // Si se envió solo el saldo a cobrar hoy (ej. $100) o vino vacío:
+                if (abs($incomingSum - $balanceToCollectToday) <= 0.05 || count($incomingDists) === 0) {
+                    $incomingDists = array_merge($advanceDists, $incomingDists);
+                } elseif (abs($incomingSum - (float) $sale->total) <= 0.05) {
+                    // Si se envió el total ($120) completo sin separar el anticipo, separar para no duplicar
+                    $adjustedRegular = [];
+                    $remAdvance = $totalAdvances;
+                    foreach ($incomingDists as $d) {
+                        $amt = (float) $d['amount'];
+                        if ($remAdvance > 0) {
+                            if ($amt <= $remAdvance) {
+                                $remAdvance -= $amt;
+                            } else {
+                                $d['amount'] = round($amt - $remAdvance, 2);
+                                $d['is_advance'] = false;
+                                $remAdvance = 0;
+                                $adjustedRegular[] = $d;
+                            }
+                        } else {
+                            $d['is_advance'] = false;
+                            $adjustedRegular[] = $d;
+                        }
+                    }
+                    $incomingDists = array_merge($advanceDists, $adjustedRegular);
+                } else {
+                    $incomingDists = array_merge($advanceDists, $incomingDists);
+                }
             }
         }
 
-        $primaryAccountId = !empty($requestData['payment_distributions'][0]['account_id'])
-            ? $requestData['payment_distributions'][0]['account_id']
+        $totalPaid = !empty($incomingDists) ? collect($incomingDists)->sum('amount') : (float) $sale->total;
+
+        $primaryAccountId = !empty($incomingDists[0]['account_id'])
+            ? $incomingDists[0]['account_id']
             : (Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id ?? 1);
 
         $docTypeLabel = match (strtolower($sale->document_type ?? '')) {
@@ -110,7 +156,7 @@ class SaleFinanceService
 
         $financeDescription = 'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number;
         if ($totalAdvances > 0) {
-            $financeDescription .= " (Saldo cobrado hoy tras abono previo de \${$totalAdvances})";
+            $financeDescription .= " (Incluye anticipo de \${$totalAdvances} y saldo de \${$balanceToCollectToday})";
         }
 
         // 3. Crear/Actualizar el registro financiero principal
@@ -130,17 +176,47 @@ class SaleFinanceService
         ]);
         $financeRecord->save();
 
-        // 4. Procesar pagos distribuidos si existen (solo si no es pendiente)
-        if ($sale->payment_status !== 'pending') {
-            if (!empty($requestData['payment_distributions']) && is_array($requestData['payment_distributions']) && count($requestData['payment_distributions']) > 0) {
-                foreach ($requestData['payment_distributions'] as $distribution) {
-                    PaymentDistribution::create([
-                        'finance_record_id' => $financeRecord->id,
-                        'account_id' => $distribution['account_id'],
-                        'amount' => $distribution['amount'],
-                        'payment_method' => $distribution['payment_method'],
-                    ]);
+        // 4. Procesar pagos distribuidos de forma dividida (Anticipo vs Saldo)
+        if (!empty($incomingDists)) {
+            foreach ($incomingDists as $distribution) {
+                $isAdvance = !empty($distribution['is_advance'])
+                    || (isset($distribution['work_order_advance_id']) && in_array($distribution['work_order_advance_id'], $advanceIds));
 
+                $advId = $distribution['work_order_advance_id'] ?? null;
+                if (!$advId && $isAdvance && $workOrderAdvances->isNotEmpty()) {
+                    $matchAdv = $workOrderAdvances->firstWhere('account_id', $distribution['account_id']) ?? $workOrderAdvances->first();
+                    $advId = $matchAdv?->id;
+                }
+
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $distribution['account_id'],
+                    'amount' => $distribution['amount'],
+                    'payment_method' => $distribution['payment_method'],
+                    'is_advance' => $isAdvance,
+                    'work_order_advance_id' => $advId,
+                ]);
+
+                if ($isAdvance) {
+                    // ⚠️ El dinero ya ingresó físicamente y a bancos cuando se registró el anticipo en la OT.
+                    // NO se incrementa la cuenta contable para evitar duplicidad de saldos.
+                    // NO se genera un nuevo movimiento de ingreso en financial_movements.
+                    // Se vincula el movimiento del anticipo existente con la factura para trazabilidad.
+                    \App\Models\Finance\FinancialMovement::where('movable_type', \App\Models\WorkOrder\WorkOrder::class)
+                        ->where('movable_id', $sale->work_order_id)
+                        ->where(function ($q) use ($distribution, $advId) {
+                            if ($advId) {
+                                $q->where('metadata->work_order_advance_id', $advId);
+                            }
+                            $q->orWhere('amount', $distribution['amount']);
+                        })
+                        ->update([
+                            'metadata->invoice_id' => $sale->id,
+                            'metadata->invoice_number' => $sale->document_number,
+                            'metadata->applied_to_invoice' => true,
+                        ]);
+                } else {
+                    // ✅ Saldo real ingresado al facturar
                     $account = Account::find($distribution['account_id']);
                     if ($account) {
                         $account->updateBalance($distribution['amount'], FinanceRecord::TYPE_INCOME);
@@ -150,43 +226,85 @@ class SaleFinanceService
                         $distribution['account_id'],
                         'income',
                         $distribution['amount'],
-                        'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'] . ($totalAdvances > 0 ? " (Abono previo de \${$totalAdvances})" : ''),
+                        'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number . ' - ' . $distribution['payment_method'] . ($totalAdvances > 0 ? " (Saldo tras anticipo previo de \${$totalAdvances})" : ''),
                         $entryDate,
                         [
                             'document_type' => $sale->document_type,
                             'document_number' => $sale->document_number,
                             'payment_method' => $distribution['payment_method'],
                             'finance_record_id' => $financeRecord->id,
+                            'work_order_id' => $sale->work_order_id,
                         ]
                     );
                 }
+            }
+        } elseif ($sale->payment_status !== 'pending') {
+            // Fallback si no hay distribuciones (método único)
+            if (strtolower($paymentMethod) === 'transferencia' || strtolower($paymentMethod) === 'transfer') {
+                $accountId = Account::where('type', 'bank')->first()?->id ?? Account::first()?->id;
             } else {
-                // Si no hay pagos distribuidos, usar el método de pago único y buscar la cuenta dinámicamente
-                if (strtolower($paymentMethod) === 'transferencia' || strtolower($paymentMethod) === 'transfer') {
-                    $accountId = Account::where('type', 'bank')->first()?->id ?? Account::first()?->id;
-                } else {
-                    $accountId = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id;
-                }
+                $accountId = Account::where('type', 'cash')->orWhere('name', 'like', '%caja%')->first()?->id ?? Account::first()?->id;
+            }
 
-                $amountToAccount = $totalAdvances > 0 ? $balanceToCollectToday : (float) $sale->total;
+            if ($totalAdvances > 0) {
+                // Registrar anticipo previo
+                $advAccount = $workOrderAdvances->first()?->account_id ?? $accountId;
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $advAccount,
+                    'amount' => $totalAdvances,
+                    'payment_method' => $workOrderAdvances->first()?->payment_method ?? 'Efectivo',
+                    'is_advance' => true,
+                    'work_order_advance_id' => $workOrderAdvances->first()?->id,
+                ]);
 
+                // Registrar saldo restante
                 PaymentDistribution::create([
                     'finance_record_id' => $financeRecord->id,
                     'account_id' => $accountId,
-                    'amount' => $amountToAccount,
+                    'amount' => $balanceToCollectToday,
                     'payment_method' => $paymentMethod,
+                    'is_advance' => false,
                 ]);
 
                 $account = Account::find($accountId);
                 if ($account) {
-                    $account->updateBalance($amountToAccount, FinanceRecord::TYPE_INCOME);
+                    $account->updateBalance($balanceToCollectToday, FinanceRecord::TYPE_INCOME);
                 }
 
                 $sale->registerMovement(
                     $accountId,
                     'income',
-                    $amountToAccount,
-                    'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number . ' - ' . $paymentMethod . ($totalAdvances > 0 ? " (Saldo cobrado tras abono previo de \${$totalAdvances})" : ''),
+                    $balanceToCollectToday,
+                    'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number . ' - ' . $paymentMethod . " (Saldo tras anticipo previo de \${$totalAdvances})",
+                    $entryDate,
+                    [
+                        'document_type' => $sale->document_type,
+                        'document_number' => $sale->document_number,
+                        'payment_method' => $paymentMethod,
+                        'finance_record_id' => $financeRecord->id,
+                        'work_order_id' => $sale->work_order_id,
+                    ]
+                );
+            } else {
+                PaymentDistribution::create([
+                    'finance_record_id' => $financeRecord->id,
+                    'account_id' => $accountId,
+                    'amount' => (float) $sale->total,
+                    'payment_method' => $paymentMethod,
+                    'is_advance' => false,
+                ]);
+
+                $account = Account::find($accountId);
+                if ($account) {
+                    $account->updateBalance((float) $sale->total, FinanceRecord::TYPE_INCOME);
+                }
+
+                $sale->registerMovement(
+                    $accountId,
+                    'income',
+                    (float) $sale->total,
+                    'Venta: ' . $docTypeLabel . ' - ' . $sale->document_number . ' - ' . $paymentMethod,
                     $entryDate,
                     [
                         'document_type' => $sale->document_type,

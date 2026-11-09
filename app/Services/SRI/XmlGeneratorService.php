@@ -112,10 +112,20 @@ class XmlGeneratorService
             : null;
 
         if ($pagosDist) {
+            // Agrupar pagos por código de formaPago del SRI para evitar duplicados del mismo método
+            $groupedPagos = [];
             foreach ($pagosDist as $pd) {
+                $code = $this->mapFormaPago($pd->payment_method ?? ($pd->account->name ?? 'cash'), $pd->account ?? null);
+                if (!isset($groupedPagos[$code])) {
+                    $groupedPagos[$code] = 0.0;
+                }
+                $groupedPagos[$code] += (float)$pd->amount;
+            }
+
+            foreach ($groupedPagos as $code => $amt) {
                 $xml->startElement('pago');
-                $xml->writeElement('formaPago', $this->mapFormaPago($pd->payment_method ?? ($pd->account->name ?? 'cash'), $pd->account ?? null));
-                $xml->writeElement('total',     number_format((float)$pd->amount, 2, '.', ''));
+                $xml->writeElement('formaPago', $code);
+                $xml->writeElement('total',     number_format($amt, 2, '.', ''));
                 $xml->writeElement('plazo',     '0');
                 $xml->writeElement('unidadTiempo', 'dias');
                 $xml->endElement(); // pago
@@ -618,6 +628,12 @@ class XmlGeneratorService
 
         if ($m === '01' || $m === 'cash' || $m === 'efectivo' || str_contains($m, 'efectivo') || str_contains($m, 'sin utilizacion') || str_contains($m, 'sin utilización')) {
             return '01'; // SIN UTILIZACION DEL SISTEMA FINANCIERO
+        }
+        if (str_contains($m, 'anticipo') || str_contains($m, 'abono')) {
+            if (str_contains($m, 'transfer') || str_contains($m, 'banco') || $accType === 'bank') {
+                return '20'; // OTROS CON UTILIZACION DEL SISTEMA FINANCIERO
+            }
+            return '01'; // SIN UTILIZACION DEL SISTEMA FINANCIERO (Efectivo por defecto)
         }
         if ($m === '16' || str_contains($m, 'debito') || str_contains($m, 'débito')) {
             return '16'; // TARJETA DE DÉBITO

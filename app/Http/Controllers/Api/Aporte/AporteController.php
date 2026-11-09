@@ -335,7 +335,7 @@ class AporteController extends Controller
                     'cuenta_id' => $request->cuenta_id,
                     'tipo' => 'INGRESO',
                     'monto' => $request->monto,
-                    'descripcion' => "Aporte de capital (editado): {$request->descripcion}",
+                    'descripcion' => "Aporte de capital: {$request->descripcion}",
                     'referencia' => 'aporte_capital',
                     'referencia_id' => $aporte->id,
                     'fecha' => $request->fecha_aporte,
@@ -356,14 +356,25 @@ class AporteController extends Controller
                 'fecha_aporte' => $request->fecha_aporte,
                 'hora_aporte' => $request->hora_aporte,
             ]);
-            $aporte->registerMovement(
-            $request->cuenta_id,
-            'income',
-            $request->monto,
-            "Aporte de capital (editado): {$request->descripcion}",
-            $request->fecha_aporte,
-            ['metodo' => $request->metodo_pago, 'edit_log' => 'editado_manualmente']
-        );
+
+            // Recargar relación del socio para asegurar datos frescos
+            $aporte->load('partner');
+
+            // Actualizar el movimiento financiero existente (in-place) sin duplicar filas
+            $partnerName = $aporte->partner ? ($aporte->partner->name ?? $aporte->partner->nombre_completo) : 'SOCIO';
+            $aporte->updateMovement(
+                $request->cuenta_id,
+                'income',
+                $request->monto,
+                "Aporte de socio: {$partnerName} - {$request->descripcion}",
+                $request->fecha_aporte,
+                [
+                    'metodo' => $request->metodo_pago,
+                    'aporte_id' => $aporte->id,
+                    'partner_id' => $aporte->partner_id,
+                    'partner_name' => $partnerName,
+                ]
+            );
 
             // Adjuntar comprobantes si fueron enviados en el request
             if ($request->hasFile('receipts')) {

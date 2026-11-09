@@ -53,4 +53,9 @@ class WorkOrderAdvance extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function paymentDistributions()
+    {
+        return $this->hasMany(\App\Models\Finance\PaymentDistribution::class, 'work_order_advance_id');
+    }
 }

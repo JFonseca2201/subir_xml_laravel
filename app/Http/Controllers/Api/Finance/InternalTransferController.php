@@ -279,27 +279,29 @@ class InternalTransferController extends Controller
 
             $entryDate = $validated['transfer_date'] ?? $transfer->created_at;
 
-            // Actualizar a un único movimiento de tipo 'transfer'
-            $transfer->registerMovement(
-                $validated['from_account_id'],
-                'transfer',
-                $validated['amount'],
-                "Transferencia interna (Actualizada): " . ($validated['description'] ?? 'Sin descripción'),
-                $entryDate,
-                [
-                    'type' => 'internal_transfer_updated', 
-                    'from_account' => $validated['from_account_id'], 
-                    'to_account' => $validated['to_account_id'], 
-                    'reference' => $validated['reference_number'] ?? null
-                ]
-            );
-
-            // 3. Aplicar nuevos saldos
+            // 3. Obtener cuentas y aplicar nuevos saldos
             $newFromAccount = Account::findOrFail($validated['from_account_id']);
             $newToAccount = Account::findOrFail($validated['to_account_id']);
 
             $newFromAccount->updateBalance($validated['amount'], 1); // Resta del nuevo origen
             $newToAccount->updateBalance($validated['amount'], 0);   // Sumar al nuevo destino
+
+            // Actualizar el único movimiento de tipo 'transfer' sin duplicar registros
+            $transfer->updateMovement(
+                $validated['from_account_id'],
+                'transfer',
+                $validated['amount'],
+                "Transferencia interna: " . ($validated['description'] ?? 'Sin descripción'),
+                $entryDate,
+                [
+                    'type' => 'internal_transfer', 
+                    'from_account' => $validated['from_account_id'], 
+                    'to_account' => $validated['to_account_id'], 
+                    'from_account_name' => $newFromAccount->name,
+                    'to_account_name' => $newToAccount->name,
+                    'reference' => $validated['reference_number'] ?? null
+                ]
+            );
 
             // Actualizar FinanceRecord de Origen (Egreso)
             $financeRecordFrom = FinanceRecord::where('invoice_number', 'TRANSFER-OUT-' . $transfer->id)->first();
@@ -308,7 +310,7 @@ class InternalTransferController extends Controller
                     'account_id' => $newFromAccount->id,
                     'payment_method' => $newFromAccount->id === 1 ? 'cash' : 'transfer',
                     'amount' => $validated['amount'],
-                    'description' => "Transferencia interna enviada (Actualizada): " . ($validated['description'] ?? 'Sin descripción'),
+                    'description' => "Transferencia interna enviada a {$newToAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
                     'entry_date' => $entryDate,
                 ]);
                 
@@ -328,7 +330,7 @@ class InternalTransferController extends Controller
                     'account_id' => $newToAccount->id,
                     'payment_method' => $newToAccount->id === 1 ? 'cash' : 'transfer',
                     'amount' => $validated['amount'],
-                    'description' => "Transferencia interna recibida (Actualizada): " . ($validated['description'] ?? 'Sin descripción'),
+                    'description' => "Transferencia interna recibida de {$newFromAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
                     'entry_date' => $entryDate,
                 ]);
                 

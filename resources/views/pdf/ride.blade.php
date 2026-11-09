@@ -1413,23 +1413,39 @@
 
                                         $formasPago = [];
                                         if ($sale->financeRecord && $sale->financeRecord->paymentDistributions && $sale->financeRecord->paymentDistributions->count() > 0) {
-                                        foreach ($sale->financeRecord->paymentDistributions as $pd) {
-                                        $formasPago[] = [
-                                        'descripcion' => $mapSriFormaPago($pd->payment_method ?? ($pd->account->name ?? 'cash'), $pd->account ?? null),
-                                        'total' => (float)$pd->amount,
-                                        'plazo' => '0',
-                                        'tiempo' => 'días',
-                                        ];
-                                        }
+                                            $groupedFp = [];
+                                            foreach ($sale->financeRecord->paymentDistributions as $pd) {
+                                                $desc = $mapSriFormaPago($pd->payment_method ?? ($pd->account->name ?? 'cash'), $pd->account ?? null);
+                                                if (!isset($groupedFp[$desc])) {
+                                                    $groupedFp[$desc] = 0.0;
+                                                }
+                                                $groupedFp[$desc] += (float)$pd->amount;
+                                            }
+                                            foreach ($groupedFp as $desc => $totalAmt) {
+                                                $formasPago[] = [
+                                                    'descripcion' => $desc,
+                                                    'total' => $totalAmt,
+                                                    'plazo' => '0',
+                                                    'tiempo' => 'días',
+                                                ];
+                                            }
                                         } elseif (isset($sale->payments) && $sale->payments->count() > 0) {
-                                        foreach ($sale->payments as $p) {
-                                        $formasPago[] = [
-                                        'descripcion' => $mapSriFormaPago($p->method_payment ?? ($p->payment_method ?? 'cash')),
-                                        'total' => (float)$p->amount,
-                                        'plazo' => '0',
-                                        'tiempo' => 'días',
-                                        ];
-                                        }
+                                            $groupedFp = [];
+                                            foreach ($sale->payments as $p) {
+                                                $desc = $mapSriFormaPago($p->method_payment ?? ($p->payment_method ?? 'cash'));
+                                                if (!isset($groupedFp[$desc])) {
+                                                    $groupedFp[$desc] = 0.0;
+                                                }
+                                                $groupedFp[$desc] += (float)$p->amount;
+                                            }
+                                            foreach ($groupedFp as $desc => $totalAmt) {
+                                                $formasPago[] = [
+                                                    'descripcion' => $desc,
+                                                    'total' => $totalAmt,
+                                                    'plazo' => '0',
+                                                    'tiempo' => 'días',
+                                                ];
+                                            }
                                         }
 
                                         if (empty($formasPago)) {

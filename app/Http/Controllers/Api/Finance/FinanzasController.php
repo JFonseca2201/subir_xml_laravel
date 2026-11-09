@@ -47,7 +47,7 @@ class FinanzasController extends Controller
                     \App\Models\Finance\PaymentDistribution::class => ['financeRecord.attachments', 'account'],
                     \App\Models\Finance\FinanceRecord::class => ['user', 'attachments'],
                     \App\Models\Finance\InternalTransfer::class => ['attachments'],
-                    \App\Models\Partner\AporteCapital::class => ['attachments'],
+                    \App\Models\Partner\AporteCapital::class => ['attachments', 'partner'],
                     \App\Models\WorkOrder\WorkOrder::class => ['attachments'],
                     \App\Models\Employee\EmployeePayment::class => ['attachments'],
                     \App\Models\Employee\EmployeeAdvance::class => ['attachments'],
@@ -661,7 +661,12 @@ class FinanzasController extends Controller
     public function updateMovement(Request $request, int $id)
     {
         try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
             $movement = FinancialMovement::with(['movable'])->findOrFail($id);
+
+            $oldAccountId = $movement->account_id;
+            $oldAmount = (float) $movement->amount;
 
             // Determinar monto
             $amount = $movement->amount;
@@ -705,6 +710,23 @@ class FinanzasController extends Controller
             }
             $movement->metadata = $metadata;
             $movement->save();
+
+            // Si cambió la cuenta o el monto, ajustar saldos de cuenta
+            if ($oldAccountId != $movement->account_id || $oldAmount != (float) $movement->amount) {
+                if ($movement->type === 'income') {
+                    $oldAcc = Account::find($oldAccountId);
+                    if ($oldAcc) $oldAcc->decrement('saldo_actual', $oldAmount);
+
+                    $newAcc = Account::find($movement->account_id);
+                    if ($newAcc) $newAcc->increment('saldo_actual', (float) $movement->amount);
+                } elseif ($movement->type === 'expense') {
+                    $oldAcc = Account::find($oldAccountId);
+                    if ($oldAcc) $oldAcc->increment('saldo_actual', $oldAmount);
+
+                    $newAcc = Account::find($movement->account_id);
+                    if ($newAcc) $newAcc->decrement('saldo_actual', (float) $movement->amount);
+                }
+            }
 
             // Sincronizar con el modelo polimórfico de origen (movable)
             if ($movement->movable) {
@@ -751,13 +773,15 @@ class FinanzasController extends Controller
                 }
                 // Caso 4: Pagos o Anticipos de Empleado
                 elseif (str_contains((string)$movement->movable_type, 'EmployeePayment')) {
-                    $movable->monto = $amount;
-                    if (isset($movable->fecha)) $movable->fecha = $movement->entry_date;
+                    $movable->amount = $amount;
+                    if (isset($movable->payment_date)) $movable->payment_date = $movement->entry_date;
+                    if ($accountId) $movable->account_id = $accountId;
                     $movable->save();
                 }
                 elseif (str_contains((string)$movement->movable_type, 'EmployeeAdvance')) {
-                    $movable->monto = $amount;
-                    if (isset($movable->fecha)) $movable->fecha = $movement->entry_date;
+                    $movable->amount = $amount;
+                    if (isset($movable->advance_date)) $movable->advance_date = $movement->entry_date;
+                    if ($accountId) $movable->account_id = $accountId;
                     $movable->save();
                 }
             }
@@ -779,12 +803,15 @@ class FinanzasController extends Controller
                 }
             }
 
+            \Illuminate\Support\Facades\DB::commit();
+
             return response()->json([
                 'status' => 200,
                 'message' => 'Movimiento actualizado correctamente',
                 'movement' => $movement,
             ]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
             Log::error('Error actualizando movimiento: ' . $e->getMessage());
             return response()->json([
                 'status' => 500,

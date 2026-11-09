@@ -31,8 +31,15 @@ class SaleCreationService
     public function createSale(Request $request, int $userId): array
     {
         $linkedWorkOrder = null;
+        $workOrderAdvances = collect();
+        $totalAdvances = 0.0;
         if ($request->work_order_id) {
             $linkedWorkOrder = WorkOrderSaleSync::assertReadyForInvoicing((int) $request->work_order_id);
+            if ($linkedWorkOrder) {
+                $linkedWorkOrder->loadMissing(['advances.account']);
+                $workOrderAdvances = $linkedWorkOrder->advances()->whereNull('deleted_at')->get();
+                $totalAdvances = (float) $workOrderAdvances->sum('amount');
+            }
         }
 
         $isDraft = $request->boolean('is_draft');
@@ -71,16 +78,73 @@ class SaleCreationService
             }
         }
 
-        // Validar pagos distribuidos solo si no es cotización y no es borrador
+        // Validar y estructurar pagos distribuidos solo si no es cotización y no es borrador
         if ($request->document_type !== 'quote' && !$isDraft) {
+            $incomingDists = $request->payment_distributions ?? [];
+            if (!is_array($incomingDists)) {
+                $incomingDists = [];
+            }
+
+            // Si la OT tiene anticipos previos, asegurar que el desglose de pagos refleje el anticipo de forma dividida
+            if ($totalAdvances > 0) {
+                $hasAdvanceDist = collect($incomingDists)->contains(fn ($d) => !empty($d['is_advance']));
+
+                if (!$hasAdvanceDist) {
+                    $advanceDists = [];
+                    foreach ($workOrderAdvances as $adv) {
+                        $advanceDists[] = [
+                            'account_id' => $adv->account_id,
+                            'amount' => (float) $adv->amount,
+                            'payment_method' => $adv->payment_method ?: 'Efectivo',
+                            'is_advance' => true,
+                            'work_order_advance_id' => $adv->id,
+                        ];
+                    }
+
+                    $incomingSum = array_sum(array_column($incomingDists, 'amount'));
+                    $expectedBalance = max(0, (float) $request->total - $totalAdvances);
+
+                    // Si el cliente envió el saldo a cobrar hoy (ej. $100) o no envió distribuciones:
+                    if (abs($incomingSum - $expectedBalance) <= 0.05 || count($incomingDists) === 0) {
+                        $incomingDists = array_merge($advanceDists, $incomingDists);
+                    } elseif (abs($incomingSum - (float) $request->total) <= 0.05) {
+                        // Si se envió el total completo ($120) sin separar el anticipo, separar para no duplicar
+                        $adjustedRegular = [];
+                        $remAdvance = $totalAdvances;
+                        foreach ($incomingDists as $d) {
+                            $amt = (float) $d['amount'];
+                            if ($remAdvance > 0) {
+                                if ($amt <= $remAdvance) {
+                                    $remAdvance -= $amt;
+                                } else {
+                                    $d['amount'] = round($amt - $remAdvance, 2);
+                                    $d['is_advance'] = false;
+                                    $remAdvance = 0;
+                                    $adjustedRegular[] = $d;
+                                }
+                            } else {
+                                $d['is_advance'] = false;
+                                $adjustedRegular[] = $d;
+                            }
+                        }
+                        $incomingDists = array_merge($advanceDists, $adjustedRegular);
+                    } else {
+                        $incomingDists = array_merge($advanceDists, $incomingDists);
+                    }
+
+                    $request->merge(['payment_distributions' => $incomingDists]);
+                }
+            }
+
             if ($request->payment_status === 'pending' || $request->boolean('is_credited')) {
+                $pStatus = $totalAdvances > 0 ? 'partial' : 'pending';
                 $request->merge([
-                    'payment_status' => 'pending',
+                    'payment_status' => $pStatus,
                     'is_credited' => true,
-                    'payment_method' => $request->payment_method ?: 'Crédito / Pendiente',
+                    'payment_method' => $request->payment_method ?: ($totalAdvances > 0 ? 'Anticipo / Crédito' : 'Crédito / Pendiente'),
                 ]);
             } else {
-                $hasDistributions = $request->has('payment_distributions') && is_array($request->payment_distributions) && count($request->payment_distributions) > 0;
+                $hasDistributions = !empty($incomingDists) && count($incomingDists) > 0;
 
                 if (!$hasDistributions) {
                     return [
@@ -93,7 +157,7 @@ class SaleCreationService
                     ];
                 }
 
-                $totalDist = array_sum(array_column($request->payment_distributions, 'amount'));
+                $totalDist = array_sum(array_column($incomingDists, 'amount'));
 
                 if ($totalDist <= 0) {
                     return [
@@ -106,7 +170,7 @@ class SaleCreationService
                     ];
                 }
 
-                if ($totalDist > $request->total + 0.01) {
+                if ($totalDist > $request->total + 0.05) {
                     return [
                         'status' => 400,
                         'data' => [
@@ -117,7 +181,7 @@ class SaleCreationService
                     ];
                 }
 
-                if (abs($totalDist - $request->total) <= 0.01) {
+                if (abs($totalDist - $request->total) <= 0.05) {
                     $paymentStatus = 'paid';
                 } elseif ($totalDist > 0) {
                     $paymentStatus = 'partial';

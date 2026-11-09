@@ -597,7 +597,7 @@ class EmployeeExpenseController extends Controller
                     'cuenta_id' => $request->account_id,
                     'tipo' => 'EGRESO',
                     'monto' => $request->amount,
-                    'descripcion' => "Pago a empleado (editado): {$request->description}",
+                    'descripcion' => "Pago a empleado: {$request->description}",
                     'referencia' => 'employee_payment',
                     'referencia_id' => $expense->id,
                     'fecha' => $request->payment_date,
@@ -617,12 +617,20 @@ class EmployeeExpenseController extends Controller
                 'payment_method' => $request->payment_method,
                 'reference' => $request->reference,
             ]);
-            $expense->registerMovement(
+
+            $employee = $expense->employee;
+            $employeeName = $employee ? ($employee->first_name . ' ' . $employee->last_name) : 'Empleado';
+
+            $expense->updateMovement(
                 $request->account_id,
                 'expense',
                 $request->amount,
-                "Pago editado: " . $request->description,
-                $request->payment_date
+                "Pago de nómina a: {$employeeName} - {$request->description}",
+                $request->payment_date,
+                [
+                    'payment_method' => $request->payment_method,
+                    'reference' => $request->reference,
+                ]
             );
 
             // Actualizar FinanceRecord
@@ -632,7 +640,7 @@ class EmployeeExpenseController extends Controller
                     'account_id' => $request->account_id,
                     'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
                     'amount' => $request->amount,
-                    'description' => "Pago a empleado (editado): {$request->description}",
+                    'description' => "Pago a empleado: {$request->description}",
                     'entry_date' => $request->payment_date,
                 ]);
 
@@ -701,7 +709,7 @@ class EmployeeExpenseController extends Controller
                     'cuenta_id' => $request->account_id,
                     'tipo' => 'EGRESO',
                     'monto' => $request->amount,
-                    'descripcion' => "Adelanto a empleado (editado): {$request->description}",
+                    'descripcion' => "Adelanto a empleado: {$request->description}",
                     'referencia' => 'employee_advance',
                     'referencia_id' => $advance->id,
                     'fecha' => $request->advance_date,
@@ -722,12 +730,19 @@ class EmployeeExpenseController extends Controller
                 'reason' => $request->reason,
             ]);
 
-            $advance->registerMovement(
+            $employee = $advance->employee;
+            $employeeName = $employee ? ($employee->first_name . ' ' . $employee->last_name) : 'Empleado';
+
+            $advance->updateMovement(
                 $request->account_id,
                 'expense',
                 $request->amount,
-                "Adelanto editado: " . $request->description,
-                $request->advance_date
+                "Adelanto a empleado: {$employeeName} - {$request->description}",
+                $request->advance_date,
+                [
+                    'payment_method' => $request->payment_method,
+                    'reason' => $request->reason,
+                ]
             );
 
             // Actualizar FinanceRecord
@@ -737,7 +752,7 @@ class EmployeeExpenseController extends Controller
                     'account_id' => $request->account_id,
                     'payment_method' => $request->payment_method === 'EFECTIVO' ? 'cash' : 'transfer',
                     'amount' => $request->amount,
-                    'description' => "Adelanto a empleado (editado): {$request->description}",
+                    'description' => "Adelanto a empleado: {$request->description}",
                     'entry_date' => $request->advance_date,
                 ]);
 

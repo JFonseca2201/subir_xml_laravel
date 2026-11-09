@@ -12,6 +12,7 @@ class PartnerController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $perPage = (int) $request->input('per_page', 100);
 
         $partners = Partner::query()
             ->when($search, function ($query) use ($search) {
@@ -19,7 +20,7 @@ class PartnerController extends Controller
                     ->orWhere('identification', 'like', "%{$search}%");
             })
             ->latest()
-            ->paginate(10);
+            ->paginate($perPage);
 
         return response()->json([
             'status' => 200,
