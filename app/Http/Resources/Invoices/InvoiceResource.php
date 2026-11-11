@@ -27,6 +27,7 @@ class InvoiceResource extends JsonResource
                 : null,
             'invoice_number' => $this->invoice_number,
             'invoice_process' => $this->invoice_process,
+            'is_expense' => (bool) $this->is_expense,
             'access_key' => $this->access_key,
             'issue_date' => \Carbon\Carbon::parse($this->issue_date)->format('Y-m-d'),
             'subtotal' => (float) $this->subtotal,

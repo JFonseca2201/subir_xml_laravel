@@ -25,6 +25,7 @@ class Invoice extends Model
         'tax',
         'total',
         'invoice_process',
+        'is_expense',
         'customer_id',
         'created_by',
         'sucursal_id',
@@ -39,6 +40,7 @@ class Invoice extends Model
         'total' => 'decimal:2',
         'issue_date' => 'date',
         'invoice_process' => 'integer',
+        'is_expense' => 'boolean',
     ];
 
     protected static function boot()
@@ -62,6 +64,11 @@ class Invoice extends Model
     public function invoice_items()
     {
         return $this->hasMany(InvoiceItem::class , 'invoice_id');
+    }
+
+    public function expenseDetails()
+    {
+        return $this->hasMany(ExpenseDetail::class, 'invoice_id');
     }
 
     public function customer()

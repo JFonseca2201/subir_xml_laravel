@@ -420,7 +420,13 @@ class InvoiceXmlImportController extends Controller
 
     public function show($id)
     {
-        $invoice = Invoice::with(['supplier', 'invoice_items', 'financeRecords.paymentDistributions.account', 'accountPayable'])->findOrFail($id);
+        $invoice = Invoice::with([
+            'supplier',
+            'invoice_items',
+            'expenseDetails',
+            'financeRecords.paymentDistributions.account',
+            'accountPayable',
+        ])->findOrFail($id);
 
         return response()->json(
             [
@@ -437,12 +443,14 @@ class InvoiceXmlImportController extends Controller
                     ],
                     'invoice_number' => $invoice->invoice_number,
                     'invoice_process' => $invoice->invoice_process,
+                    'is_expense' => (bool) $invoice->is_expense,
                     'issue_date' => $invoice->issue_date,
                     'subtotal' => $invoice->subtotal,
                     'discount' => $invoice->discount,
                     'tax' => $invoice->tax,
                     'total' => $invoice->total,
                     'invoice_items' => $invoice->invoice_items,
+                    'expense_details' => $invoice->expenseDetails,
                     'finance_records' => $invoice->financeRecords,
                     'account_payable' => $invoice->accountPayable,
                 ],
@@ -838,8 +846,8 @@ class InvoiceXmlImportController extends Controller
             try {
                 $invoice = Invoice::findOrFail($id);
 
-                // 1. Revertir inventario si la factura fue procesada
-                if ((int) $invoice->invoice_process === 1) {
+                // 1. Revertir inventario si es ingreso de inventario y la factura fue procesada
+                if (!$invoice->is_expense && (int) $invoice->invoice_process === 1) {
                     $invoiceItems = InvoiceItem::where('invoice_id', $invoice->id)->get();
                     foreach ($invoiceItems as $item) {
                         if ((int) $item->item_type === 1) { // 1 = Producto físico inventariable
@@ -906,7 +914,8 @@ class InvoiceXmlImportController extends Controller
                     }
                 }
 
-                // 4. Borrar items y la factura
+                // 4. Borrar detalles (gastos o items) y la factura
+                \App\Models\Invoice\ExpenseDetail::where('invoice_id', $invoice->id)->delete();
                 InvoiceItem::where('invoice_id', $invoice->id)->delete();
                 $invoice->delete();
 
