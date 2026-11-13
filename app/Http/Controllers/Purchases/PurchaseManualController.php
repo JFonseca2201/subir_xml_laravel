@@ -318,6 +318,7 @@ class PurchaseManualController extends Controller
             $profit = max(0.0, $salePrice - $realPurchasePrice);
             $maxDiscount = round($profit * 0.50, 2);
             $discountPercentage = $salePrice > 0 ? round(($maxDiscount / $salePrice) * 100, 2) : 0.0;
+            $brand = !empty($item['brand']) ? trim($item['brand']) : 'SM';
 
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
@@ -331,6 +332,7 @@ class PurchaseManualController extends Controller
                 'total' => $item['total'],
                 'item_type' => $item['item_type'],
                 'product_categorie_id' => $itemCatId,
+                'brand' => $brand,
             ]);
 
             $selectedForInventory = !isset($item['selected_for_inventory'])
@@ -352,7 +354,7 @@ class PurchaseManualController extends Controller
                     })
                     ->first();
 
-                $brand = !empty($item['brand']) ? trim($item['brand']) : 'Genérico';
+                $brand = !empty($item['brand']) ? trim($item['brand']) : ($product?->brand ?? 'SM');
 
                 if (!$product) {
                     Product::create([

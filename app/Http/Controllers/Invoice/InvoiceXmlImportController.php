@@ -464,6 +464,7 @@ class InvoiceXmlImportController extends Controller
         $request->validate([
             'item_type' => 'required|int|max:55',
             'product_categorie_id' => 'nullable|int|exists:product_categories,id',
+            'brand' => 'nullable|string|max:100',
         ]);
         $invoiceItem = InvoiceItem::find($id);
         if (!$invoiceItem) {
@@ -474,6 +475,18 @@ class InvoiceXmlImportController extends Controller
         // Actualizar categoría si se proporciona
         if ($request->has('product_categorie_id')) {
             $invoiceItem->product_categorie_id = $request->input('product_categorie_id');
+        }
+
+        // Actualizar marca si se proporciona
+        if ($request->has('brand')) {
+            $newBrand = trim($request->input('brand')) ?: 'SM';
+            $invoiceItem->brand = $newBrand;
+
+            if (!empty($invoiceItem->code)) {
+                Product::where('sku', $invoiceItem->code)
+                    ->orWhere('code_aux', $invoiceItem->code)
+                    ->update(['brand' => $newBrand]);
+            }
         }
 
         $invoiceItem->save();
@@ -613,7 +626,7 @@ class InvoiceXmlImportController extends Controller
                             'tax_rate' => 15,
                             'max_discount' => $maxDiscount,
                             'discount_percentage' => $discountPercentage,
-                            'brand' => 'SM',
+                            'brand' => !empty($invoiceItem->brand) ? $invoiceItem->brand : 'SM',
                             'stock' => $quantity,
                             'item_type' => $item_type,
                             'min_stock' => 1,
@@ -639,6 +652,9 @@ class InvoiceXmlImportController extends Controller
                         $product->purchase_price = $realPurchasePrice;
                         $product->max_discount = $maxDiscount;
                         $product->discount_percentage = $discountPercentage;
+                        if (!empty($invoiceItem->brand) && $invoiceItem->brand !== 'SM') {
+                            $product->brand = $invoiceItem->brand;
+                        }
                         if (empty($product->code_aux) && !empty($codeAux)) {
                             $product->code_aux = $codeAux;
                         }

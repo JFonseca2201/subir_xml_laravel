@@ -22,6 +22,7 @@ class InvoiceItem extends Model
         'total',
         'item_type',
         'product_categorie_id',
+        'brand',
     ];
 
     protected $casts = [
