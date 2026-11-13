@@ -268,7 +268,7 @@ class DailyCashCountController extends Controller
                 'grand_total'     => $grandTotal,
                 'cash_details'    => $details,
                 'observations'    => $request->observations,
-                'user_id'         => auth()->id() ?? $request->user_id ?? 1,
+                'user_id'         => auth('api')->id() ?? auth()->id() ?? $request->user_id ?? \App\Models\User::first()?->id ?? 1,
             ]
         );
 

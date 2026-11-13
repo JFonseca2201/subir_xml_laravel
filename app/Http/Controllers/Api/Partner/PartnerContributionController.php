@@ -67,14 +67,17 @@ class PartnerContributionController extends Controller
             $account->increment('saldo_actual', $validated['amount']);
 
             // Crear FinanceRecord (Ingreso)
+            $userId = auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1;
+            $paymentMethod = ($account->type === 'cash' || str_contains(strtolower($account->name), 'caja')) ? 'cash' : 'transfer';
+
             $financeRecord = FinanceRecord::create([
                 'type' => FinanceRecord::TYPE_INCOME,
                 'account_id' => $account->id,
-                'payment_method' => $account->id === 1 ? 'cash' : 'transfer',
+                'payment_method' => $paymentMethod,
                 'amount' => $validated['amount'],
                 'description' => 'Aporte de socio ID: ' . $validated['partner_id'] . ' - ' . $validated['contribution_date'],
                 'entry_date' => $validated['contribution_date'],
-                'user_id' => auth()->id() ?? 1,
+                'user_id' => $userId,
                 'invoice_number' => 'APORTE-SOCIO-' . $contribution->id,
             ]);
 
@@ -82,7 +85,7 @@ class PartnerContributionController extends Controller
                 'finance_record_id' => $financeRecord->id,
                 'account_id' => $account->id,
                 'amount' => $validated['amount'],
-                'payment_method' => $account->id === 1 ? 'cash' : 'transfer',
+                'payment_method' => $paymentMethod,
             ]);
 
             DB::commit();

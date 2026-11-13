@@ -566,8 +566,10 @@ class SaleUpdateService
                     'total' => $total,
                 ]);
 
+                $currentUserId = auth('api')->id() ?? auth()->id() ?? $sale->user_id ?? \App\Models\User::first()?->id ?? 1;
+
                 if (!$wasQuote && !$wasDraft && $sale->document_type !== 'quote' && $sale->status !== 'draft') {
-                    $this->financeService->processFinancialRecord($sale, $request->all(), auth()->id() ?? 1);
+                    $this->financeService->processFinancialRecord($sale, $request->all(), $currentUserId);
                 }
 
                 if (($wasQuote && $isNowSale) || $isFinishingDraft) {
@@ -585,7 +587,7 @@ class SaleUpdateService
                     }
 
                     if ($request->document_type !== 'quote') {
-                        $this->financeService->processFinancialRecord($sale, $request->all(), auth()->id() ?? 1);
+                        $this->financeService->processFinancialRecord($sale, $request->all(), $currentUserId);
 
                         if ($sale->work_order_id) {
                             $linkedWorkOrder = WorkOrder::find($sale->work_order_id);

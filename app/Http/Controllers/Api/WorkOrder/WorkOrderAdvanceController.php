@@ -72,7 +72,7 @@ class WorkOrderAdvanceController extends Controller
             : now('America/Guayaquil')->toDateString();
 
         $account = Account::findOrFail($validated['account_id']);
-        $userId = auth('api')->id() ?? auth()->id() ?? 1;
+        $userId = auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1;
 
         $clientName = $workOrder->client ? ($workOrder->client->full_name ?? ($workOrder->client->name . ' ' . $workOrder->client->surname)) : 'Cliente';
 

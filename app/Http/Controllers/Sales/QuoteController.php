@@ -159,7 +159,7 @@ class QuoteController extends Controller
                     'total' => $total,
                     'status' => 'pending',
                     'observations' => $request->observations,
-                    'user_id' => auth()->id() ?? $request->user_id ?? 1,
+                    'user_id' => auth('api')->id() ?? auth()->id() ?? $request->user_id ?? \App\Models\User::first()?->id ?? 1,
                 ]);
 
                 // Guardar items
@@ -459,7 +459,7 @@ class QuoteController extends Controller
                     'is_credited' => $request->boolean('is_credited'),
                     'payment_method' => $request->payment_method,
                     'observations' => $quote->observations,
-                    'user_id' => auth()->id() ?? $quote->user_id ?? 1,
+                    'user_id' => auth('api')->id() ?? auth()->id() ?? $quote->user_id ?? \App\Models\User::first()?->id ?? 1,
                 ]);
 
                 // Copiar los detalles
@@ -627,7 +627,7 @@ class QuoteController extends Controller
                     'number' => $workOrderNumber,
                     'client_id' => $quote->client_id,
                     'vehicle_id' => $quote->vehicle_id,
-                    'user_id' => auth()->id() ?? $quote->user_id ?? 1,
+                    'user_id' => auth('api')->id() ?? auth()->id() ?? $quote->user_id ?? \App\Models\User::first()?->id ?? 1,
                     'mileage' => $request->filled('mileage') ? $request->mileage : $quote->mileage,
                     'fuel_level' => $request->input('fuel_level', '1/2'),
                     'observations' => $request->input('observations', $quote->observations),

@@ -386,7 +386,7 @@ class EmployeeExpenseController extends Controller
                 'amount' => $finalPaymentAmount,
                 'description' => "Pago de nómina {$month}: {$employee->first_name} {$employee->last_name}",
                 'entry_date' => $request->payment_date,
-                'user_id' => auth()->id() ?? 1,
+                'user_id' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
                 'invoice_number' => 'PAGO-EMP-' . $payment->id,
             ]);
 
@@ -531,7 +531,7 @@ class EmployeeExpenseController extends Controller
                 'amount' => $request->amount,
                 'description' => "Adelanto a empleado: {$request->description}",
                 'entry_date' => $request->advance_date,
-                'user_id' => auth()->id() ?? 1,
+                'user_id' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
                 'invoice_number' => 'ADELANTO-EMP-' . $advance->id,
             ]);
 

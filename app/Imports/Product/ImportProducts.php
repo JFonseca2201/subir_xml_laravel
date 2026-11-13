@@ -96,7 +96,7 @@ class ImportProducts implements ToModel, WithHeadingRow, WithValidation
             'price' => floatval($row['price'] ?? 0),
             'price_sale' => floatval($row['price_sale'] ?? 0),
             'purchase_price' => floatval($row['purchase_price'] ?? 0),
-            'tax_rate' => floatval($row['tax_rate'] ?? 15),
+            'tax_rate' => floatval($row['tax_rate'] ?? config('app.default_tax_rate', 15.00)),
             'max_discount' => floatval($row['max_discount'] ?? 0),
             'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
             'brand' => strtoupper(trim($row['marca'] ?? '')),

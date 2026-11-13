@@ -185,15 +185,19 @@ class InternalTransferController extends Controller
                 $fromAccount->updateBalance($validated['amount'], 1); // 1 = Egreso
                 $toAccount->updateBalance($validated['amount'], 0);   // 0 = Ingreso
 
+                $userId = auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1;
+                $fromPaymentMethod = ($fromAccount->type === 'cash' || str_contains(strtolower($fromAccount->name), 'caja')) ? 'cash' : 'transfer';
+                $toPaymentMethod = ($toAccount->type === 'cash' || str_contains(strtolower($toAccount->name), 'caja')) ? 'cash' : 'transfer';
+
                 // Crear FinanceRecord para la cuenta de origen (Egreso)
                 $financeRecordFrom = FinanceRecord::create([
                     'type' => FinanceRecord::TYPE_EXPENSE,
                     'account_id' => $fromAccount->id,
-                    'payment_method' => $fromAccount->id === 1 ? 'cash' : 'transfer',
+                    'payment_method' => $fromPaymentMethod,
                     'amount' => $validated['amount'],
                     'description' => "Transferencia interna enviada a {$toAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
                     'entry_date' => $entryDate,
-                    'user_id' => auth()->id() ?? 1,
+                    'user_id' => $userId,
                     'invoice_number' => 'TRANSFER-OUT-' . $transfer->id,
                 ]);
 
@@ -201,18 +205,18 @@ class InternalTransferController extends Controller
                     'finance_record_id' => $financeRecordFrom->id,
                     'account_id' => $fromAccount->id,
                     'amount' => $validated['amount'],
-                    'payment_method' => $fromAccount->id === 1 ? 'cash' : 'transfer',
+                    'payment_method' => $fromPaymentMethod,
                 ]);
 
                 // Crear FinanceRecord para la cuenta de destino (Ingreso)
                 $financeRecordTo = FinanceRecord::create([
                     'type' => FinanceRecord::TYPE_INCOME,
                     'account_id' => $toAccount->id,
-                    'payment_method' => $toAccount->id === 1 ? 'cash' : 'transfer',
+                    'payment_method' => $toPaymentMethod,
                     'amount' => $validated['amount'],
                     'description' => "Transferencia interna recibida de {$fromAccount->name}: " . ($validated['description'] ?? 'Sin descripción'),
                     'entry_date' => $entryDate,
-                    'user_id' => auth()->id() ?? 1,
+                    'user_id' => $userId,
                     'invoice_number' => 'TRANSFER-IN-' . $transfer->id,
                 ]);
 
@@ -220,7 +224,7 @@ class InternalTransferController extends Controller
                     'finance_record_id' => $financeRecordTo->id,
                     'account_id' => $toAccount->id,
                     'amount' => $validated['amount'],
-                    'payment_method' => $toAccount->id === 1 ? 'cash' : 'transfer',
+                    'payment_method' => $toPaymentMethod,
                 ]);
 
                 // Guardar comprobantes adjuntos si fueron enviados

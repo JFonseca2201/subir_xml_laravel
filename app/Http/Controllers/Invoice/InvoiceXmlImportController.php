@@ -572,6 +572,9 @@ class InvoiceXmlImportController extends Controller
             }
 
             $processedCount = 0;
+            $defaultWarehouseId = \App\Models\Config\Warehouse::first()?->id ?? 1;
+            $defaultUnitId = \App\Models\Config\Unit::first()?->id ?? 1;
+            $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
 
             // Procesar cada ítem de la factura
             foreach ($invoiceItems as $invoiceItem) {
@@ -617,13 +620,13 @@ class InvoiceXmlImportController extends Controller
                             'code_aux' => $codeAux,
                             'uses' => null,
                             'product_categorie_id' => $category,
-                            'warehouse_id' => 1,
-                            'unit_id' => 1,
+                            'warehouse_id' => $defaultWarehouseId,
+                            'unit_id' => $defaultUnitId,
                             'supplier_id' => $invoiceModel->supplier_id,
                             'price' => $realPurchasePrice,
                             'price_sale' => $salePrice,
                             'purchase_price' => $realPurchasePrice,
-                            'tax_rate' => 15,
+                            'tax_rate' => $defaultTaxRate,
                             'max_discount' => $maxDiscount,
                             'discount_percentage' => $discountPercentage,
                             'brand' => !empty($invoiceItem->brand) ? $invoiceItem->brand : 'SM',

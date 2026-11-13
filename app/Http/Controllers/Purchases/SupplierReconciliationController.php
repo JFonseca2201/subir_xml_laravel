@@ -145,7 +145,7 @@ class SupplierReconciliationController extends Controller
                     'amount' => $actualPayment,
                     'description' => "Pago conciliado a proveedor: {$supplier->name} (Ref: {$reference})",
                     'invoice_number' => $reference,
-                    'user_id' => auth()->id() ?? 1,
+                    'user_id' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
                     'entry_date' => $paymentDate,
                 ]);
 
@@ -241,7 +241,7 @@ class SupplierReconciliationController extends Controller
                             'amount' => $difference,
                             'description' => "Reembolso/Devolución de excedente de pago: {$supplier->name} (Ref: {$reference})",
                             'invoice_number' => 'DEV-' . $reference,
-                            'user_id' => auth()->id() ?? 1,
+                            'user_id' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
                             'entry_date' => $paymentDate,
                         ]);
 
@@ -405,7 +405,7 @@ class SupplierReconciliationController extends Controller
                     'amount' => $refundAmount,
                     'description' => "Devolución de saldo a favor de proveedor: {$supplierName}" . ($request->notes ? " ({$request->notes})" : ""),
                     'invoice_number' => 'DEV-CRED-' . $credit->id,
-                    'user_id' => auth()->id() ?? 1,
+                    'user_id' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
                     'entry_date' => now()->toDateString(),
                 ]);
 

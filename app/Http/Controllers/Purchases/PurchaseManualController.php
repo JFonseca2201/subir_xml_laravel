@@ -144,7 +144,7 @@ class PurchaseManualController extends Controller
                 'total' => $request->total,
                 'invoice_process' => 1, // Ya procesado (inventario o gasto general)
                 'is_expense' => $isExpense,
-                'created_by' => auth()->id() ?? 1,
+                'created_by' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
             ]);
 
             // 3. Guardar detalles según el tipo de compra (Gasto General vs Ingreso de Inventario)
@@ -199,7 +199,7 @@ class PurchaseManualController extends Controller
                     'amount' => $expenseAmount,
                     'invoice_number' => $request->invoice_number,
                     'description' => $desc,
-                    'user_id' => auth()->id() ?? 1,
+                    'user_id' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
                     'entry_date' => $issueDate->toDateString(),
                 ]);
 
@@ -292,6 +292,7 @@ class PurchaseManualController extends Controller
         $defaultWarehouseId = \App\Models\Config\Warehouse::first()?->id ?? 1;
         $defaultUnitId = \App\Models\Config\Unit::first()?->id ?? 1;
         $defaultCatId = \App\Models\Config\ProductCategorie::first()?->id ?? 1;
+        $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
 
         foreach ($items as $item) {
             $isProduct = (int) $item['item_type'] === 1;
@@ -368,7 +369,7 @@ class PurchaseManualController extends Controller
                         'price' => $realPurchasePrice,
                         'price_sale' => $salePrice,
                         'purchase_price' => $realPurchasePrice,
-                        'tax_rate' => 15,
+                        'tax_rate' => $defaultTaxRate,
                         'max_discount' => $maxDiscount,
                         'discount_percentage' => $discountPercentage,
                         'brand' => $brand,
