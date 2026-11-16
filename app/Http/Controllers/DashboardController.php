@@ -32,10 +32,11 @@ class DashboardController extends Controller
             ->whereRaw('stock <= min_stock')
             ->count();
 
-        // Get details of all low stock products to show in the list
+        // Get details of all low stock products to show in the list (limited to initial batch)
         $lowStockProducts = Product::where('item_type', 1)
             ->whereRaw('stock <= min_stock')
             ->orderBy('stock', 'asc')
+            ->take(20)
             ->get(['id', 'description', 'sku', 'stock', 'min_stock']);
 
         // Date ranges for current month and current year YTD
@@ -290,14 +291,14 @@ class DashboardController extends Controller
         // SLA (Días para cerrar OTs)
         $slas = \App\Models\WorkOrder\WorkOrder::whereIn('status', ['CERRADA_OK', 'FINALIZADA', 'FINALIZADO'])
             ->get(['created_at', 'updated_at']);
-        
+
         $slaBuckets = [
             '1 día' => 0,
             '2-3 días' => 0,
             '4-7 días' => 0,
             '+8 días' => 0
         ];
-        
+
         foreach ($slas as $sla) {
             if ($sla->created_at && $sla->updated_at) {
                 $days = $sla->created_at->diffInDays($sla->updated_at);
@@ -493,15 +494,15 @@ class DashboardController extends Controller
 
         // Fetch sales details aggregated by item
         $details = SaleDetail::select(
-                'sale_details.product_id',
-                DB::raw('COALESCE(products.description, sale_details.description) as item_name'),
-                'products.sku',
-                DB::raw('COALESCE(products.item_type, 2) as item_type'),
-                DB::raw('SUM(sale_details.quantity) as total_quantity'),
-                DB::raw('SUM(sale_details.total) as total_revenue'),
-                DB::raw('AVG(sale_details.price) as avg_price'),
-                DB::raw('COUNT(DISTINCT sale_details.sale_id) as sales_count')
-            )
+            'sale_details.product_id',
+            DB::raw('COALESCE(products.description, sale_details.description) as item_name'),
+            'products.sku',
+            DB::raw('COALESCE(products.item_type, 2) as item_type'),
+            DB::raw('SUM(sale_details.quantity) as total_quantity'),
+            DB::raw('SUM(sale_details.total) as total_revenue'),
+            DB::raw('AVG(sale_details.price) as avg_price'),
+            DB::raw('COUNT(DISTINCT sale_details.sale_id) as sales_count')
+        )
             ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
             ->leftJoin('products', 'products.id', '=', 'sale_details.product_id')
             ->where('sales.status', '!=', 'draft')
@@ -614,6 +615,47 @@ class DashboardController extends Controller
             'products' => $productsList,
             'services' => $servicesList,
             'available_months' => $availableMonths,
+        ]);
+    }
+
+    /**
+     * Get paginated products under minimum stock with infinite scroll and search support.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return JsonResponse
+     */
+    public function lowStockProducts(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $page = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 20);
+        $search = trim($request->get('search', ''));
+
+        $query = Product::where('item_type', 1)
+            ->whereRaw('stock <= min_stock');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%")
+                    ->orWhere('sku', 'like', "%{$search}%");
+            });
+        }
+
+        $total = $query->count();
+
+        $items = $query->orderBy('stock', 'asc')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get(['id', 'description', 'sku', 'stock', 'min_stock']);
+
+        $hasMore = ($page * $perPage) < $total;
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'has_more' => $hasMore,
         ]);
     }
 }

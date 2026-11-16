@@ -320,6 +320,7 @@ Route::group(
         // ============= RUTAS DE DASHBOARD GENERAL ==========
         Route::get('dashboard/search', [DashboardController::class, 'search']);
         Route::get('dashboard/monthly-sales-breakdown', [DashboardController::class, 'monthlySalesBreakdown']);
+        Route::get('dashboard/low-stock-products', [DashboardController::class, 'lowStockProducts']);
         Route::get('dashboard', [DashboardController::class, 'index']);
 
         // ============= RUTAS DE GESTIÓN Y BÚSQUEDA DE REPUESTOS POR VEHÍCULO =============

@@ -18,18 +18,130 @@ class AporteController extends Controller
      */
     public function index(Request $request)
     {
-        $aportes = AporteCapital::with(['partner', 'user', 'cuenta', 'attachments'])
-            ->whereNull('deleted_at')
-            ->orderBy('fecha_aporte', 'desc')
+        $timezone = 'America/Guayaquil';
+        $now = Carbon::now($timezone);
+        $today = Carbon::today($timezone);
+
+        // 1. Totales de Resumen calculados globalmente
+        $totalHoy = (float) AporteCapital::whereNull('deleted_at')
+            ->whereDate('fecha_aporte', $today)
+            ->sum('monto');
+
+        $totalMes = (float) AporteCapital::whereNull('deleted_at')
+            ->whereYear('fecha_aporte', $now->year)
+            ->whereMonth('fecha_aporte', $now->month)
+            ->sum('monto');
+
+        $totalGeneral = (float) AporteCapital::whereNull('deleted_at')->sum('monto');
+
+        // 2. Query de Aportes con filtros y paginación para Scroll Infinito
+        $query = AporteCapital::with(['partner', 'user', 'cuenta', 'attachments'])
+            ->whereNull('deleted_at');
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('descripcion', 'like', "%{$search}%")
+                  ->orWhere('monto', 'like', "%{$search}%")
+                  ->orWhereHas('partner', function ($pq) use ($search) {
+                      $pq->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('cuenta', function ($cq) use ($search) {
+                      $cq->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('user', function ($uq) use ($search) {
+                      $uq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $filter = $request->input('filter', 'all');
+        if ($filter === 'today') {
+            $query->whereDate('fecha_aporte', $today);
+        } elseif ($filter === 'month') {
+            $query->whereYear('fecha_aporte', $now->year)
+                  ->whereMonth('fecha_aporte', $now->month);
+        }
+
+        $total = (clone $query)->count();
+        $perPage = max(1, min((int) $request->input('per_page', 25), 100));
+        $page = max(1, (int) $request->input('page', 1));
+        $lastPage = max(1, (int) ceil($total / $perPage));
+
+        $aportes = $query->orderBy('fecha_aporte', 'desc')
             ->orderBy('hora_aporte', 'desc')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
             ->get();
 
-        // Agrupar por fecha
-        $agrupados = $aportes->groupBy(function ($aporte) {
-            $timezone = 'America/Guayaquil';
-            $fechaFormat = Carbon::parse($aporte->fecha_aporte)->format('Y-m-d');
-            $fecha = Carbon::parse($fechaFormat, $timezone);
+        $hasMore = $page < $lastPage;
 
+        // Formatear datos
+        $aportesFormateados = $aportes->map(function ($aporte) {
+            $attachmentsList = $aporte->attachments;
+            if ($attachmentsList->isEmpty()) {
+                $movement = \App\Models\Finance\FinancialMovement::where('movable_type', get_class($aporte))
+                    ->where('movable_id', $aporte->id)
+                    ->first();
+                $finRecordId = $movement ? ($movement->metadata['finance_record_id'] ?? null) : null;
+
+                $attachmentsList = \App\Models\Attachment::where(function($q) use ($aporte, $movement, $finRecordId) {
+                    $q->where(function($q2) use ($aporte) {
+                        $q2->where('attachable_type', get_class($aporte))
+                           ->where('attachable_id', $aporte->id);
+                    })->orWhere(function($q2) use ($aporte) {
+                        $q2->where('attachable_type', \App\Models\Finance\FinanceRecord::class)
+                           ->where('attachable_id', $aporte->id);
+                    });
+
+                    if ($movement) {
+                        $q->orWhere(function($q2) use ($movement) {
+                            $q2->where('attachable_type', \App\Models\Finance\FinancialMovement::class)
+                               ->where('attachable_id', $movement->id);
+                        });
+                    }
+                    if ($finRecordId) {
+                        $q->orWhere(function($q2) use ($finRecordId) {
+                            $q2->where('attachable_type', \App\Models\Finance\FinanceRecord::class)
+                               ->where('attachable_id', $finRecordId);
+                        });
+                    }
+                })->get();
+            }
+
+            return [
+                'id' => $aporte->id,
+                'partner_nombre' => $aporte->partner->name ?? 'N/A',
+                'partner_id' => $aporte->partner_id,
+                'monto' => (float) $aporte->monto,
+                'descripcion' => $aporte->descripcion,
+                'cuenta' => $aporte->cuenta->name ?? 'N/A',
+                'cuenta_id' => $aporte->cuenta_id,
+                'metodo_pago' => $aporte->metodo_pago,
+                'fecha_aporte' => $aporte->fecha_aporte,
+                'hora_aporte' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
+                'hora' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
+                'user_nombre' => $aporte->user->name ?? 'N/A',
+                'attachments' => $attachmentsList->map(function ($att) {
+                    return [
+                        'id' => $att->id,
+                        'file_name' => $att->file_name,
+                        'file_path' => $att->file_path,
+                        'url' => $att->url,
+                        'download_url' => url("api/attachments/{$att->id}/download"),
+                        'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
+                        'is_pdf' => ($att->mime_type === 'application/pdf'),
+                        'mime_type' => $att->mime_type,
+                        'file_size' => $att->file_size,
+                    ];
+                })->values(),
+            ];
+        });
+
+        // Agrupar por fecha los aportes de esta página para compatibilidad con respuesta agrupada
+        $agrupados = $aportesFormateados->groupBy(function ($aporte) use ($timezone) {
+            $fechaFormat = Carbon::parse($aporte['fecha_aporte'])->format('Y-m-d');
+            $fecha = Carbon::parse($fechaFormat, $timezone);
             $hoy = Carbon::now($timezone)->format('Y-m-d');
             $ayer = Carbon::now($timezone)->subDay()->format('Y-m-d');
 
@@ -42,96 +154,14 @@ class AporteController extends Controller
             }
         });
 
-        // Formatear datos
         $data = [];
-        $totalHoy = 0;
-        $totalMes = 0;
-        $totalGeneral = 0;
-
-        foreach ($agrupados as $fecha => $aportesDia) {
-            $totalDia = $aportesDia->sum('monto');
-
-            $aportesFormateados = $aportesDia->map(function ($aporte) {
-                $attachmentsList = $aporte->attachments;
-                if ($attachmentsList->isEmpty()) {
-                    $movement = \App\Models\Finance\FinancialMovement::where('movable_type', get_class($aporte))
-                        ->where('movable_id', $aporte->id)
-                        ->first();
-                    $finRecordId = $movement ? ($movement->metadata['finance_record_id'] ?? null) : null;
-
-                    $attachmentsList = \App\Models\Attachment::where(function($q) use ($aporte, $movement, $finRecordId) {
-                        $q->where(function($q2) use ($aporte) {
-                            $q2->where('attachable_type', get_class($aporte))
-                               ->where('attachable_id', $aporte->id);
-                        })->orWhere(function($q2) use ($aporte) {
-                            $q2->where('attachable_type', \App\Models\Finance\FinanceRecord::class)
-                               ->where('attachable_id', $aporte->id);
-                        });
-
-                        if ($movement) {
-                            $q->orWhere(function($q2) use ($movement) {
-                                $q2->where('attachable_type', \App\Models\Finance\FinancialMovement::class)
-                                   ->where('attachable_id', $movement->id);
-                            });
-                        }
-                        if ($finRecordId) {
-                            $q->orWhere(function($q2) use ($finRecordId) {
-                                $q2->where('attachable_type', \App\Models\Finance\FinanceRecord::class)
-                                   ->where('attachable_id', $finRecordId);
-                            });
-                        }
-                    })->get();
-                }
-
-                return [
-                    'id' => $aporte->id,
-                    'partner_nombre' => $aporte->partner->name ?? 'N/A',
-                    'partner_id' => $aporte->partner_id,
-                    'monto' => (float) $aporte->monto,
-                    'descripcion' => $aporte->descripcion,
-                    'cuenta' => $aporte->cuenta->name ?? 'N/A',
-                    'cuenta_id' => $aporte->cuenta_id,
-                    'metodo_pago' => $aporte->metodo_pago,
-                    'fecha_aporte' => $aporte->fecha_aporte,
-                    'hora_aporte' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
-                    'hora' => Carbon::parse($aporte->hora_aporte)->format('H:i'),
-                    'user_nombre' => $aporte->user->name ?? 'N/A',
-                    'attachments' => $attachmentsList->map(function ($att) {
-                        return [
-                            'id' => $att->id,
-                            'file_name' => $att->file_name,
-                            'file_path' => $att->file_path,
-                            'url' => $att->url,
-                            'download_url' => url("api/attachments/{$att->id}/download"),
-                            'is_image' => str_starts_with($att->mime_type ?? '', 'image/'),
-                            'is_pdf' => ($att->mime_type === 'application/pdf'),
-                            'mime_type' => $att->mime_type,
-                            'file_size' => $att->file_size,
-                        ];
-                    })->values(),
-                ];
-            });
-
+        foreach ($agrupados as $fechaLabel => $aportesDia) {
             $data[] = [
-                'fecha' => $aportesDia->first()->fecha_aporte,
-                'label' => $fecha,
-                'total_dia' => (float) $totalDia,
-                'aportes' => $aportesFormateados,
+                'fecha' => $aportesDia->first()['fecha_aporte'],
+                'label' => $fechaLabel,
+                'total_dia' => (float) $aportesDia->sum('monto'),
+                'aportes' => $aportesDia->values(),
             ];
-
-            // Acumular totales
-            $totalGeneral += $totalDia;
-
-            if ($fecha === 'Hoy') {
-                $totalHoy += $totalDia;
-            }
-
-            if (
-                Carbon::parse($aportesDia->first()->fecha_aporte)->month === now()->month &&
-                Carbon::parse($aportesDia->first()->fecha_aporte)->year === now()->year
-            ) {
-                $totalMes += $totalDia;
-            }
         }
 
         return response()->json([
@@ -141,6 +171,14 @@ class AporteController extends Controller
                 'total_general' => (float) $totalGeneral,
             ],
             'data' => $data,
+            'items' => $aportesFormateados->values(),
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'has_more' => $hasMore,
+            ],
         ]);
     }
 
