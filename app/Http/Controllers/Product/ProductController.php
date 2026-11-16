@@ -36,12 +36,13 @@ class ProductController extends Controller
             $disponibilidad = $request->get('disponibilidad');
             $is_gift = $request->get('is_gift');
             $supplier_id = $request->get('supplier_id');
+            $inventory_status = $request->get('inventory_status');
             $page = $request->get('page', 1);
             $per_page = $request->get('per_page', 10);
 
             // Aplicar filtros usando el scope
             $products = Product::with(['categorie', 'warehouse', 'unit', 'supplier'])
-                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id)
+                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id, $inventory_status)
                 ->orderBy('id', 'desc')
                 ->paginate($per_page, ['*'], 'page', $page);
 
@@ -110,7 +111,7 @@ class ProductController extends Controller
 
                 if (strlen($cleanSku) >= 2) {
                     $q->orWhereRaw("REPLACE(REPLACE(REPLACE(sku, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSku}%"])
-                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(code_aux, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSku}%"]);
+                        ->orWhereRaw("REPLACE(REPLACE(REPLACE(code_aux, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSku}%"]);
                 }
 
                 if (count($segments) > 1) {
@@ -119,10 +120,10 @@ class ProductController extends Controller
                             $cleanSeg = ltrim($seg, '0');
                             $sq->where(function ($inner) use ($seg, $cleanSeg) {
                                 $inner->where('sku', 'like', "%{$seg}%")
-                                      ->orWhere('code_aux', 'like', "%{$seg}%");
+                                    ->orWhere('code_aux', 'like', "%{$seg}%");
                                 if (strlen($cleanSeg) >= 1) {
                                     $inner->orWhere('sku', 'like', "%{$cleanSeg}%")
-                                          ->orWhere('code_aux', 'like', "%{$cleanSeg}%");
+                                        ->orWhere('code_aux', 'like', "%{$cleanSeg}%");
                                 }
                             });
                         }
@@ -154,7 +155,7 @@ class ProductController extends Controller
 
                 if (strlen($cleanSearch) >= 2) {
                     $q->orWhereRaw("REPLACE(REPLACE(REPLACE(sku, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSearch}%"])
-                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(code_aux, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSearch}%"]);
+                        ->orWhereRaw("REPLACE(REPLACE(REPLACE(code_aux, '-', ''), ' ', ''), '_', '') LIKE ?", ["%{$cleanSearch}%"]);
                 }
 
                 if (count($words) > 1) {
@@ -162,8 +163,8 @@ class ProductController extends Controller
                         foreach ($words as $w) {
                             $wq->where(function ($inner) use ($w) {
                                 $inner->where('description', 'like', "%{$w}%")
-                                      ->orWhere('sku', 'like', "%{$w}%")
-                                      ->orWhere('brand', 'like', "%{$w}%");
+                                    ->orWhere('sku', 'like', "%{$w}%")
+                                    ->orWhere('brand', 'like', "%{$w}%");
                             });
                         }
                     });
@@ -175,11 +176,11 @@ class ProductController extends Controller
                             $cleanSeg = ltrim($seg, '0');
                             $sq->where(function ($inner) use ($seg, $cleanSeg) {
                                 $inner->where('sku', 'like', "%{$seg}%")
-                                      ->orWhere('code_aux', 'like', "%{$seg}%")
-                                      ->orWhere('description', 'like', "%{$seg}%");
+                                    ->orWhere('code_aux', 'like', "%{$seg}%")
+                                    ->orWhere('description', 'like', "%{$seg}%");
                                 if (strlen($cleanSeg) >= 1) {
                                     $inner->orWhere('sku', 'like', "%{$cleanSeg}%")
-                                          ->orWhere('code_aux', 'like', "%{$cleanSeg}%");
+                                        ->orWhere('code_aux', 'like', "%{$cleanSeg}%");
                                 }
                             });
                         }
@@ -336,8 +337,6 @@ class ProductController extends Controller
         }
     }
 
-
-
     public function download_pdf(Request $request)
     {
         try {
@@ -450,7 +449,7 @@ class ProductController extends Controller
     {
         try {
             $cleanDesc = trim($request->description ?? '');
-            $cleanSku = !empty(trim((string)($request->sku ?? ''))) ? trim((string)$request->sku) : null;
+            $cleanSku = !empty(trim((string) ($request->sku ?? ''))) ? trim((string) $request->sku) : null;
             $request->merge([
                 'sku' => $cleanSku,
                 'description' => $cleanDesc,
@@ -537,7 +536,7 @@ class ProductController extends Controller
             ], $customMessages);
 
             if (array_key_exists('sku', $data)) {
-                $data['sku'] = !empty(trim((string)$data['sku'])) ? trim((string)$data['sku']) : null;
+                $data['sku'] = !empty(trim((string) $data['sku'])) ? trim((string) $data['sku']) : null;
             }
 
             // Sanitizar valores si es servicio (item_type = 2)
@@ -641,8 +640,8 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
 
-            $cleanSku = !empty(trim((string)($request->sku ?? ''))) ? trim((string)$request->sku) : null;
-            $cleanDesc = !empty(trim((string)($request->description ?? ''))) ? trim((string)$request->description) : null;
+            $cleanSku = !empty(trim((string) ($request->sku ?? ''))) ? trim((string) $request->sku) : null;
+            $cleanDesc = !empty(trim((string) ($request->description ?? ''))) ? trim((string) $request->description) : null;
             $request->merge([
                 'sku' => $cleanSku,
                 'description' => $cleanDesc,
@@ -732,13 +731,18 @@ class ProductController extends Controller
 
             // Sanitizar valores si es servicio (item_type = 2)
 
-            if ($request->input('item_type') == 2) {
+            if ($request->input('item_type') == 2 || $product->item_type == 2) {
                 $data['stock'] = 0.00;
                 $data['min_stock'] = 0.00;
                 $data['max_stock'] = 0.00;
                 $data['purchase_price'] = 0.00;
                 $data['warehouse_id'] = $request->input('warehouse_id', 1) ?: 1;
                 $data['imagen'] = null;
+
+                // Si es servicio, no se permite modificar la categoría ni el stock
+                if ($product->item_type == 2) {
+                    $data['product_categorie_id'] = $product->product_categorie_id;
+                }
 
                 // Eliminar archivo físico anterior si existía
                 if ($product->imagen) {
@@ -752,7 +756,35 @@ class ProductController extends Controller
             }
 
             if (array_key_exists('sku', $data)) {
-                $data['sku'] = !empty(trim((string)$data['sku'])) ? trim((string)$data['sku']) : null;
+                $data['sku'] = !empty(trim((string) $data['sku'])) ? trim((string) $data['sku']) : null;
+            }
+
+            // Gestión de estado de inventariado (Solo Superadmin y Administrador)
+            if ($request->has('is_inventoried')) {
+                $authUser = auth('api')->user() ?? auth()->user();
+                $canManageInventory = $authUser && (
+                    $authUser->hasRole(['Super-Admin', 'Admin', 'Administrador']) ||
+                    (int) $authUser->role_id === 1 ||
+                    in_array(strtolower($authUser->role?->name ?? ''), ['super-admin', 'superadmin', 'admin', 'administrador'])
+                );
+
+                if ($canManageInventory) {
+                    $rawVal = $request->input('is_inventoried');
+                    $isInventoried = filter_var($rawVal, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($isInventoried === null) {
+                        $isInventoried = in_array((string) $rawVal, ['1', 'true', 'yes'], true);
+                    }
+
+                    if ($isInventoried) {
+                        // Si se marca como inventariado y no tenía fecha previa, asignar now()
+                        if (empty($product->inventoried_at)) {
+                            $data['inventoried_at'] = now();
+                        }
+                    } else {
+                        // Si se desmarca, resetear a null
+                        $data['inventoried_at'] = null;
+                    }
+                }
             }
 
             $product->update($data);

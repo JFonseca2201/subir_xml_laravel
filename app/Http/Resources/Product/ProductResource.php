@@ -58,6 +58,7 @@ class ProductResource extends JsonResource
             'is_gift' => (int) $this->is_gift,
             'notes' => trim($this->notes),
             'state' => (int) $this->state,
+            'inventoried_at' => $this->inventoried_at ? $this->inventoried_at->format('Y-m-d H:i:s') : null,
             'created_at' => $this->created_at->format('Y/m/d h:i:s'),
             'updated_at' => $this->updated_at->format('Y/m/d h:i:s'),
         ];

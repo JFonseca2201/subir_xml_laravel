@@ -46,11 +46,13 @@ class Product extends Model
         'is_gift',
         'notes',
         'state',
+        'inventoried_at',
     ];
 
     protected $casts = [
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
+        'inventoried_at' => 'datetime',
         'price' => 'decimal:2',
         'price_sale' => 'decimal:2',
         'purchase_price' => 'decimal:2',
@@ -90,7 +92,7 @@ class Product extends Model
         return $link;
     }
 
-    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id = null)
+    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id = null, $inventory_status = null)
     {
         if ($search) {
             $cleanSearch = str_replace(['-', ' ', '_', '.'], '', $search);
@@ -135,6 +137,11 @@ class Product extends Model
         }
         if ($supplier_id) {
             $query->where('supplier_id', $supplier_id);
+        }
+        if ($inventory_status === 'inventoried') {
+            $query->whereNotNull('inventoried_at');
+        } elseif ($inventory_status === 'pending') {
+            $query->whereNull('inventoried_at');
         }
 
         return $query;
