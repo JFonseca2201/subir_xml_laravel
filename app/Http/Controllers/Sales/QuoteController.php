@@ -553,11 +553,14 @@ class QuoteController extends Controller
                     }
                 }
 
-                // Stock decrement
+                // Stock decrement con bloqueo pesimista y validación de stock
                 foreach ($newSale->details as $detail) {
                     if ($detail->product_id) {
-                        $product = ModelsProduct::find($detail->product_id);
-                        if ($product && $product->stock !== null) {
+                        $product = ModelsProduct::where('id', $detail->product_id)->lockForUpdate()->first();
+                        if ($product && (int) $product->item_type === 1) {
+                            if ($product->stock < $detail->quantity) {
+                                throw new Exception("Stock insuficiente para convertir la cotización para el producto '{$product->description}'. Disponible: {$product->stock}, Solicitado: {$detail->quantity}");
+                            }
                             $product->decrement('stock', $detail->quantity);
                         }
                     }

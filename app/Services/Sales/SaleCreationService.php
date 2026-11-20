@@ -195,19 +195,25 @@ class SaleCreationService
 
         // 2. Validar stock antes de procesar la venta (solo si no es cotización y es producto físico)
         if ($request->document_type !== 'quote' && !$isDraft) {
+            $requestedQuantities = [];
             foreach ($request->items as $item) {
                 if (isset($item['product_id']) && $item['product_id']) {
-                    $product = ModelsProduct::find($item['product_id']);
-                    if ($product && $product->item_type == 1 && $product->stock < $item['quantity']) {
-                        return [
-                            'status' => 400,
-                            'data' => [
-                                'success' => false,
-                                'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$item['quantity']}",
-                                'error' => 'stock_insufficient'
-                            ]
-                        ];
-                    }
+                    $pid = (int) $item['product_id'];
+                    $requestedQuantities[$pid] = ($requestedQuantities[$pid] ?? 0) + (float) ($item['quantity'] ?? 1);
+                }
+            }
+
+            foreach ($requestedQuantities as $productId => $totalQty) {
+                $product = ModelsProduct::find($productId);
+                if ($product && (int) $product->item_type === 1 && $product->stock < $totalQty) {
+                    return [
+                        'status' => 400,
+                        'data' => [
+                            'success' => false,
+                            'message' => "Stock insuficiente para el producto: {$product->description}. Stock disponible: {$product->stock}, Solicitado: {$totalQty}",
+                            'error' => 'stock_insufficient'
+                        ]
+                    ];
                 }
             }
         }
@@ -320,7 +326,7 @@ class SaleCreationService
                 // Deducir stock de forma atómica y segura con bloqueo pesimista solo si no es cotización y es producto físico
                 if ($request->document_type !== 'quote' && !$isDraft && isset($item['product_id']) && $item['product_id']) {
                     $product = ModelsProduct::where('id', $item['product_id'])->lockForUpdate()->first();
-                    if ($product && $product->item_type == 1) {
+                    if ($product && (int) $product->item_type === 1) {
                         if ($product->stock < $qty) {
                             throw new \Exception("Stock insuficiente durante el procesamiento para el producto: {$product->description}. Disponible: {$product->stock}, Solicitado: {$qty}");
                         }

@@ -578,10 +578,13 @@ class SaleUpdateService
 
                     foreach ($request->items as $item) {
                         if (isset($item['product_id']) && $item['product_id']) {
-                            $product = ModelsProduct::find($item['product_id']);
-                            if ($product && $product->item_type == 1) {
-                                $product->stock -= $item['quantity'];
-                                $product->save();
+                            $product = ModelsProduct::where('id', $item['product_id'])->lockForUpdate()->first();
+                            if ($product && (int) $product->item_type === 1) {
+                                $qty = (float) ($item['quantity'] ?? 1);
+                                if ($product->stock < $qty) {
+                                    throw new \Exception("Stock insuficiente al finalizar venta para el producto '{$product->description}'. Disponible: {$product->stock}, Solicitado: {$qty}");
+                                }
+                                $product->decrement('stock', $qty);
                             }
                         }
                     }
@@ -660,14 +663,13 @@ class SaleUpdateService
                 $sale->financialMovement()->delete();
             }
 
-            // 3. Revertir stock si era una venta activa
-            if ($sale->document_type !== 'quote' && $sale->status !== 'canceled') {
+            // 3. Revertir stock si era una venta activa (nunca para cotizaciones ni borradores ni ya canceladas)
+            if ($sale->document_type !== 'quote' && $sale->status !== 'canceled' && $sale->status !== 'draft') {
                 foreach ($sale->details as $detail) {
                     if ($detail->product_id) {
-                        $product = ModelsProduct::find($detail->product_id);
-                        if ($product && $product->item_type == 1) {
-                            $product->stock += $detail->quantity;
-                            $product->save();
+                        $product = ModelsProduct::where('id', $detail->product_id)->lockForUpdate()->first();
+                        if ($product && (int) $product->item_type === 1) {
+                            $product->increment('stock', $detail->quantity);
                         }
                     }
                 }
