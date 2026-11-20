@@ -67,7 +67,7 @@ class WorkOrderAdvanceController extends Controller
         ]);
 
         $amount = (float) $validated['amount'];
-        $advanceDate = !empty($validated['advance_date']) 
+        $advanceDate = !empty($validated['advance_date'])
             ? Carbon::parse($validated['advance_date'])->format('Y-m-d')
             : now('America/Guayaquil')->toDateString();
 
@@ -79,7 +79,7 @@ class WorkOrderAdvanceController extends Controller
         $advance = DB::transaction(function () use ($workOrder, $account, $amount, $advanceDate, $validated, $userId, $clientName) {
             // 1. Generar número de recibo de abono
             $countAdvances = $workOrder->advances()->withTrashed()->count() + 1;
-            $cleanOt = preg_replace('/[^0-9]/', '', $workOrder->number ?: (string)$workOrder->id);
+            $cleanOt = preg_replace('/[^0-9]/', '', $workOrder->number ?: (string) $workOrder->id);
             $receiptNumber = 'REC-ABONO-' . str_pad($cleanOt, 6, '0', STR_PAD_LEFT) . '-' . $countAdvances;
 
             // 2. Crear el registro en finanzas (FinanceRecord)
@@ -213,9 +213,9 @@ class WorkOrderAdvanceController extends Controller
      */
     public function printReceipt(int $workOrderId, int $advanceId)
     {
-        $workOrder = WorkOrder::with(['client', 'vehicle', 'items', 'advances.account'])->findOrFail($workOrderId);
+        $workOrder = WorkOrder::with(['client', 'vehicle', 'items', 'advances.account', 'user.sucursale'])->findOrFail($workOrderId);
         $advance = WorkOrderAdvance::with(['account', 'user'])->where('work_order_id', $workOrderId)->findOrFail($advanceId);
-        $sucursal = Sucursale::first();
+        $sucursal = ($workOrder->user && $workOrder->user->sucursale ? $workOrder->user->sucursale : null) ?? Sucursale::first();
 
         $data = [
             'workOrder' => $workOrder,

@@ -100,16 +100,62 @@
     </style>
 </head>
 <body>
+    @php
+        $tradeName = $sucursal->trade_name ?? '';
+        $companyName = $sucursal->name ?? ($sucursal->company_name ?? ($sucursal->razon_social ?? 'LUXURY EVYS CIA. LTDA.'));
+        $ruc = $sucursal->ruc ?? '1793192550001';
+        $address = $sucursal->address ?? ($sucursal->direccion_matriz ?? 'SUR DE QUITO SECTOR EL BEATERIO S49B Y E1C');
+        $phone = $sucursal->phone ?? ($sucursal->telefono ?? '');
+        $email = $sucursal->email ?? '';
+
+        // Cargar logo en base64 para evitar errores de renderizado en dompdf
+        $logoBase64 = null;
+        if ($sucursal && $sucursal->logo) {
+            $cleanLogo = str_replace('storage/', '', ltrim($sucursal->logo, '/'));
+            $candidates = [
+                storage_path('app/public/' . $cleanLogo),
+                public_path($sucursal->logo),
+                public_path('storage/' . $cleanLogo),
+                public_path('assets/img/brand/logo.png'),
+                public_path('logo.png'),
+            ];
+            foreach ($candidates as $cand) {
+                if (file_exists($cand)) {
+                    $type = pathinfo($cand, PATHINFO_EXTENSION);
+                    $bytes = @file_get_contents($cand);
+                    if ($bytes) {
+                        $logoBase64 = 'data:image/' . ($type === 'svg' ? 'svg+xml' : $type) . ';base64,' . base64_encode($bytes);
+                    }
+                    break;
+                }
+            }
+        }
+    @endphp
+
     <div class="header">
-        <h1>{{ $sucursal->razon_social ?? 'TALLER AUTOMOTRIZ' }}</h1>
-        @if(!empty($sucursal->ruc))
-            <p>RUC: {{ $sucursal->ruc }}</p>
+        @if(!empty($logoBase64))
+            <div style="text-align: center; margin-bottom: 3px;">
+                <img src="{{ $logoBase64 }}" alt="Logo" style="max-height: 42px; max-width: 130px; object-fit: contain;">
+            </div>
         @endif
-        @if(!empty($sucursal->direccion_matriz))
-            <p>{{ $sucursal->direccion_matriz }}</p>
+
+        <h1>{{ !empty($tradeName) ? $tradeName : $companyName }}</h1>
+        @if(!empty($tradeName) && !empty($companyName) && strtoupper(trim($tradeName)) !== strtoupper(trim($companyName)))
+            <p style="font-size: 8.5px; font-weight: bold; color: #1e293b; margin: 1px 0;">{{ $companyName }}</p>
         @endif
-        @if(!empty($sucursal->telefono))
-            <p>Tel: {{ $sucursal->telefono }}</p>
+
+        @if(!empty($ruc))
+            <p><strong>RUC:</strong> {{ $ruc }}</p>
+        @endif
+        @if(!empty($address))
+            <p>{{ $address }}</p>
+        @endif
+        @if(!empty($phone) || !empty($email))
+            <p>
+                @if(!empty($phone)) Telf.: {{ $phone }} @endif
+                @if(!empty($phone) && !empty($email)) &nbsp;|&nbsp; @endif
+                @if(!empty($email)) {{ $email }} @endif
+            </p>
         @endif
     </div>
 
