@@ -234,6 +234,10 @@ class SaleFinanceService
                             'payment_method' => $distribution['payment_method'],
                             'finance_record_id' => $financeRecord->id,
                             'work_order_id' => $sale->work_order_id,
+                            'work_order_number' => $sale->work_order_number,
+                            'total_sale' => (float) $sale->total,
+                            'total_advances' => (float) $totalAdvances,
+                            'is_balance' => $totalAdvances > 0,
                         ]
                     );
                 }
@@ -284,6 +288,10 @@ class SaleFinanceService
                         'payment_method' => $paymentMethod,
                         'finance_record_id' => $financeRecord->id,
                         'work_order_id' => $sale->work_order_id,
+                        'work_order_number' => $sale->work_order_number,
+                        'total_sale' => (float) $sale->total,
+                        'total_advances' => (float) $totalAdvances,
+                        'is_balance' => $totalAdvances > 0,
                     ]
                 );
             } else {

@@ -14,10 +14,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 use App\Traits\SerializeDateLocal;
 use App\Traits\HasAttachments;
+use App\Traits\RecordsFinancialMovements;
 
 class WorkOrder extends Model
 {
-    use SoftDeletes, SerializeDateLocal, HasAttachments;
+    use SoftDeletes, SerializeDateLocal, HasAttachments, RecordsFinancialMovements;
 
     protected $fillable = [
         'number',

@@ -106,25 +106,7 @@ class WorkOrderAdvanceController extends Controller
             // 4. Actualizar el saldo de la cuenta contable
             $account->updateBalance($amount, FinanceRecord::TYPE_INCOME);
 
-            // 5. Registrar el movimiento financiero
-            if (method_exists($workOrder, 'registerMovement')) {
-                $workOrder->registerMovement(
-                    $account->id,
-                    'income',
-                    $amount,
-                    "Abono OT {$workOrder->number} - {$validated['payment_method']}",
-                    $advanceDate,
-                    [
-                        'work_order_id' => $workOrder->id,
-                        'work_order_number' => $workOrder->number,
-                        'receipt_number' => $receiptNumber,
-                        'finance_record_id' => $financeRecord->id,
-                        'type' => 'work_order_advance'
-                    ]
-                );
-            }
-
-            // 6. Crear el registro de WorkOrderAdvance
+            // 5. Crear el registro de WorkOrderAdvance
             $advance = WorkOrderAdvance::create([
                 'work_order_id' => $workOrder->id,
                 'account_id' => $account->id,
@@ -136,6 +118,25 @@ class WorkOrderAdvanceController extends Controller
                 'notes' => $validated['notes'] ?? null,
                 'user_id' => $userId,
             ]);
+
+            // 6. Registrar el movimiento financiero en financial_movements
+            $workOrder->registerMovement(
+                $account->id,
+                'income',
+                $amount,
+                "Abono OT {$workOrder->number} - {$validated['payment_method']}",
+                $advanceDate,
+                [
+                    'work_order_id' => $workOrder->id,
+                    'work_order_number' => $workOrder->number,
+                    'work_order_advance_id' => $advance->id,
+                    'receipt_number' => $receiptNumber,
+                    'finance_record_id' => $financeRecord->id,
+                    'client_name' => $clientName,
+                    'license_plate' => $workOrder->vehicle?->license_plate,
+                    'type' => 'work_order_advance',
+                ]
+            );
 
             return $advance;
         });

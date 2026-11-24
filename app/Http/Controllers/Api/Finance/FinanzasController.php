@@ -48,7 +48,7 @@ class FinanzasController extends Controller
                     \App\Models\Finance\FinanceRecord::class => ['user', 'attachments'],
                     \App\Models\Finance\InternalTransfer::class => ['attachments'],
                     \App\Models\Partner\AporteCapital::class => ['attachments', 'partner'],
-                    \App\Models\WorkOrder\WorkOrder::class => ['attachments'],
+                    \App\Models\WorkOrder\WorkOrder::class => ['attachments', 'client', 'vehicle'],
                     \App\Models\Employee\EmployeePayment::class => ['attachments'],
                     \App\Models\Employee\EmployeeAdvance::class => ['attachments'],
                 ]);
