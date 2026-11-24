@@ -37,12 +37,13 @@ class ProductController extends Controller
             $is_gift = $request->get('is_gift');
             $supplier_id = $request->get('supplier_id');
             $inventory_status = $request->get('inventory_status');
+            $usage_type = $request->get('usage_type');
             $page = $request->get('page', 1);
             $per_page = $request->get('per_page', 10);
 
             // Aplicar filtros usando el scope
             $products = Product::with(['categorie', 'warehouse', 'unit', 'supplier'])
-                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id, $inventory_status)
+                ->filterAdvance($search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id, $inventory_status, $usage_type)
                 ->orderBy('id', 'desc')
                 ->paginate($per_page, ['*'], 'page', $page);
 
@@ -86,6 +87,7 @@ class ProductController extends Controller
             'sku',
             'code_aux',
             'item_type',
+            'usage_type',
             'price_sale',
             'price',
             'is_taxable',
@@ -100,6 +102,16 @@ class ProductController extends Controller
             'imagen',
             'state'
         ])->with(['unit', 'categorie', 'warehouse']);
+
+        $forWorkshop = $request->boolean('for_workshop', false) || $request->get('usage_type') === 'workshop_stock_unit';
+        $includeAll = $request->boolean('include_all', false) || $request->boolean('include_workshop', false);
+
+        if ($forWorkshop) {
+            $query->workshopSupplies();
+        } elseif (!$includeAll) {
+            // Regla de integridad: En el POS y ventas regulares se excluyen los insumos internos de taller
+            $query->forSale();
+        }
 
         if (!empty($sku)) {
             $cleanSku = str_replace(['-', ' ', '_', '.'], '', $sku);

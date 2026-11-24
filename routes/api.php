@@ -42,6 +42,7 @@ use App\Http\Controllers\Invoice\InvoiceFileController;
 use App\Http\Controllers\ParallelTransactionController;
 use App\Http\Controllers\Purchases\PurchaseManualController;
 use App\Http\Controllers\Purchases\SupplierReconciliationController;
+use App\Http\Controllers\Workshop\WorkshopConsumptionController;
 use App\Http\Controllers\Sales\CreditNoteController;
 use App\Http\Controllers\SparePartRequestController;
 use App\Http\Controllers\Supplier\PedidoDistribuidorController;
@@ -115,6 +116,11 @@ Route::group(
         Route::put('/invoices/{id}', [InvoiceXmlImportController::class, 'update']);
         Route::delete('/invoices/{id}', [InvoiceXmlImportController::class, 'destroy']);
         Route::put('/invoice-items/{id}', [InvoiceXmlImportController::class, 'updateType']);
+
+        // ============= RUTAS DE CONSUMOS E INSUMOS DE TALLER ==============
+        Route::get('workshop-consumptions', [WorkshopConsumptionController::class, 'index']);
+        Route::get('workshop-supplies', [WorkshopConsumptionController::class, 'supplies']);
+        Route::post('workshop-consumptions', [WorkshopConsumptionController::class, 'store']);
 
         // ============= RUTAS DE CONCILIACIÓN Y SALDOS A FAVOR DE PROVEEDORES ==============
         Route::get('supplier-reconciliation/pending-invoices/{supplierId}', [SupplierReconciliationController::class, 'getPendingInvoices']);

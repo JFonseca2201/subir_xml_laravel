@@ -463,6 +463,7 @@ class InvoiceXmlImportController extends Controller
     {
         $request->validate([
             'item_type' => 'required|int|max:55',
+            'usage_type' => 'nullable|string|in:commercial_product,workshop_consumable,workshop_stock_unit',
             'product_categorie_id' => 'nullable|int|exists:product_categories,id',
             'brand' => 'nullable|string|max:100',
         ]);
@@ -471,6 +472,14 @@ class InvoiceXmlImportController extends Controller
             return response()->json(['message' => 'Item de factura no encontrado'], 404);
         }
         $invoiceItem->item_type = (int) $request->input('item_type');
+
+        if ($request->has('usage_type')) {
+            $invoiceItem->usage_type = $request->input('usage_type');
+        } else {
+            $invoiceItem->usage_type = $invoiceItem->item_type == 3 
+                ? 'workshop_stock_unit' 
+                : ($invoiceItem->item_type == 2 ? 'workshop_consumable' : 'commercial_product');
+        }
 
         // Actualizar categoría si se proporciona
         if ($request->has('product_categorie_id')) {
@@ -487,6 +496,13 @@ class InvoiceXmlImportController extends Controller
                     ->orWhere('code_aux', $invoiceItem->code)
                     ->update(['brand' => $newBrand]);
             }
+        }
+
+        // Sincronizar usage_type en el producto si ya existe en catálogo
+        if (!empty($invoiceItem->code)) {
+            Product::where('sku', $invoiceItem->code)
+                ->orWhere('code_aux', $invoiceItem->code)
+                ->update(['usage_type' => $invoiceItem->usage_type]);
         }
 
         $invoiceItem->save();
@@ -561,12 +577,13 @@ class InvoiceXmlImportController extends Controller
                 ], 404);
             }
 
-            // Validar que todos los ítems de tipo producto físico (1) tengan categoría asignada
+            // Validar que todos los ítems de tipo producto comercial para venta tengan categoría asignada
             foreach ($invoiceItems as $invoiceItem) {
-                if ($invoiceItem->item_type == 1 && empty($invoiceItem->product_categorie_id)) {
+                $isCommercial = (int) $invoiceItem->item_type === 1 || $invoiceItem->usage_type === Product::USAGE_COMMERCIAL_PRODUCT;
+                if ($isCommercial && empty($invoiceItem->product_categorie_id) && empty($validated['categorie_id'])) {
                     return response()->json([
                         'status' => 422,
-                        'message' => 'No se puede procesar la factura porque hay productos físicos sin categoría asignada. Por favor, asigne categorías en el detalle de la factura antes de procesarla.',
+                        'message' => 'No se puede procesar la factura porque hay productos físicos de venta sin categoría asignada. Por favor, asigne categorías en el detalle de la factura antes de procesarla.',
                     ], 422);
                 }
             }
@@ -576,19 +593,34 @@ class InvoiceXmlImportController extends Controller
             $defaultUnitId = \App\Models\Config\Unit::first()?->id ?? 1;
             $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
 
-            // Procesar cada ítem de la factura
+            // Procesar cada ítem de la factura según su clasificación (Comercial vs Insumo Taller)
             foreach ($invoiceItems as $invoiceItem) {
-                // Usar la categoría del request si se proporciona, sino la del ítem
                 $category = $validated['categorie_id'] ?? $invoiceItem->product_categorie_id;
 
-                $item_type = $invoiceItem->item_type;
+                $item_type = (int) $invoiceItem->item_type;
+                $usage_type = $invoiceItem->usage_type ?: ($item_type === 3 ? Product::USAGE_WORKSHOP_STOCK_UNIT : ($item_type === 2 ? Product::USAGE_WORKSHOP_CONSUMABLE : Product::USAGE_COMMERCIAL_PRODUCT));
                 $code = $invoiceItem->code;
                 $description = $invoiceItem->description;
-                $quantity = $invoiceItem->quantity;
-                $subtotal = $invoiceItem->subtotal; // Subtotal sin IVA, con descuentos aplicados
+                $quantity = (float) $invoiceItem->quantity;
+                $subtotal = (float) $invoiceItem->subtotal; // Subtotal sin IVA, con descuentos aplicados
+                $itemTotal = (float) $invoiceItem->total;
 
-                if ($item_type == 1) {
-                    // Buscar producto por SKU o descripción (incluyendo soft-deleted)
+                $isCommercial = $usage_type === Product::USAGE_COMMERCIAL_PRODUCT || $item_type === 1;
+                $isWorkshopStock = $usage_type === Product::USAGE_WORKSHOP_STOCK_UNIT || $item_type === 3;
+                $isWorkshopConsumable = $usage_type === Product::USAGE_WORKSHOP_CONSUMABLE || $item_type === 2;
+
+                $realPurchasePrice = $quantity > 0 ? ($subtotal / $quantity) : 0;
+                $salePrice = $realPurchasePrice * 1.5; // Margen referencial del 50%
+                $profit = max(0.0, $salePrice - $realPurchasePrice);
+                $maxDiscount = round($profit * 0.50, 2);
+                $discountPercentage = $salePrice > 0 ? round(($maxDiscount / $salePrice) * 100, 2) : 0.0;
+
+                $codeAux = !empty($invoiceItem->code_aux) 
+                    ? $invoiceItem->code_aux 
+                    : (!empty($code) ? ('LE' . $code) : null);
+
+                // 1. PRODUCTO COMERCIAL PARA VENTA (Inventario regular en POS)
+                if ($isCommercial) {
                     $product = Product::withTrashed()
                         ->where(function ($q) use ($code, $description) {
                             $q->where('sku', $code);
@@ -598,21 +630,7 @@ class InvoiceXmlImportController extends Controller
                         })
                         ->first();
 
-                    // Calcular precio real de adquisición y venta
-                    $realPurchasePrice = $quantity > 0 ? ($subtotal / $quantity) : 0;
-                    $salePrice = $realPurchasePrice * 1.5; // Margen del 50%
-
-                    // Descuento máximo permitido: 50% de la ganancia
-                    $profit = max(0.0, $salePrice - $realPurchasePrice);
-                    $maxDiscount = round($profit * 0.50, 2);
-                    $discountPercentage = $salePrice > 0 ? round(($maxDiscount / $salePrice) * 100, 2) : 0.0;
-
-                    $codeAux = !empty($invoiceItem->code_aux) 
-                        ? $invoiceItem->code_aux 
-                        : (!empty($code) ? ('LE' . $code) : null);
-
                     if (!$product) {
-                        // Crear nuevo producto con el costo de adquisición calculado
                         $product = Product::create([
                             'description' => $description,
                             'sku' => $code,
@@ -631,7 +649,8 @@ class InvoiceXmlImportController extends Controller
                             'discount_percentage' => $discountPercentage,
                             'brand' => !empty($invoiceItem->brand) ? $invoiceItem->brand : 'SM',
                             'stock' => $quantity,
-                            'item_type' => $item_type,
+                            'item_type' => 1,
+                            'usage_type' => Product::USAGE_COMMERCIAL_PRODUCT,
                             'min_stock' => 1,
                             'max_stock' => 5,
                             'is_taxable' => 1,
@@ -641,15 +660,15 @@ class InvoiceXmlImportController extends Controller
                         ]);
                         $processedCount++;
                     } else {
-                        // Si el producto estaba en la papelera (SoftDeletes), restaurarlo
                         if ($product->trashed()) {
                             $product->restore();
                             $product->stock = 0;
                         }
 
-                        // Actualizar producto existente (stock y precios en base a última compra)
                         $product->stock += $quantity;
                         $product->state = 1;
+                        $product->item_type = 1;
+                        $product->usage_type = Product::USAGE_COMMERCIAL_PRODUCT;
                         $product->price = $realPurchasePrice;
                         $product->price_sale = $salePrice;
                         $product->purchase_price = $realPurchasePrice;
@@ -664,6 +683,79 @@ class InvoiceXmlImportController extends Controller
                         $product->save();
                         $processedCount++;
                     }
+                }
+                // 2. INSUMO POR CAJA/ENVASE (Stock interno de taller)
+                elseif ($isWorkshopStock) {
+                    $product = Product::withTrashed()
+                        ->where(function ($q) use ($code, $description) {
+                            $q->where('sku', $code);
+                            if (!empty($description)) {
+                                $q->orWhere('description', $description);
+                            }
+                        })
+                        ->first();
+
+                    if (!$product) {
+                        $product = Product::create([
+                            'description' => $description,
+                            'sku' => $code,
+                            'imagen' => null,
+                            'code_aux' => $codeAux,
+                            'uses' => null,
+                            'product_categorie_id' => $category ?: \App\Models\Config\ProductCategorie::first()?->id,
+                            'warehouse_id' => $defaultWarehouseId,
+                            'unit_id' => $defaultUnitId,
+                            'supplier_id' => $invoiceModel->supplier_id,
+                            'price' => $realPurchasePrice,
+                            'price_sale' => $realPurchasePrice,
+                            'purchase_price' => $realPurchasePrice,
+                            'tax_rate' => $defaultTaxRate,
+                            'brand' => !empty($invoiceItem->brand) ? $invoiceItem->brand : 'N/A',
+                            'stock' => $quantity, // Envases / cajas en taller
+                            'item_type' => 3,
+                            'usage_type' => Product::USAGE_WORKSHOP_STOCK_UNIT,
+                            'min_stock' => 1,
+                            'max_stock' => 10,
+                            'is_taxable' => 1,
+                            'is_gift' => 2,
+                            'notes' => 'Insumo Taller por Envase de Factura: ' . $invoiceModel->invoice_number,
+                            'state' => 1,
+                        ]);
+                        $processedCount++;
+                    } else {
+                        if ($product->trashed()) {
+                            $product->restore();
+                            $product->stock = 0;
+                        }
+
+                        $product->stock += $quantity;
+                        $product->state = 1;
+                        $product->item_type = 3;
+                        $product->usage_type = Product::USAGE_WORKSHOP_STOCK_UNIT;
+                        $product->price = $realPurchasePrice;
+                        $product->purchase_price = $realPurchasePrice;
+                        if (!empty($invoiceItem->brand) && $invoiceItem->brand !== 'SM') {
+                            $product->brand = $invoiceItem->brand;
+                        }
+                        $product->save();
+                        $processedCount++;
+                    }
+
+                    ExpenseDetail::create([
+                        'invoice_id' => $invoiceModel->id,
+                        'description' => trim((string) $description) . " ({$quantity} envases/cajas)",
+                        'category' => 'Insumos Taller (Stock Envases)',
+                        'total' => $itemTotal,
+                    ]);
+                }
+                // 3. INSUMO DIRECTO / GASTO OPERATIVO INMEDIATO
+                else {
+                    ExpenseDetail::create([
+                        'invoice_id' => $invoiceModel->id,
+                        'description' => trim((string) $description),
+                        'category' => 'Insumos Directos de Taller',
+                        'total' => $itemTotal,
+                    ]);
                 }
             }
 
@@ -869,7 +961,7 @@ class InvoiceXmlImportController extends Controller
                 if (!$invoice->is_expense && (int) $invoice->invoice_process === 1) {
                     $invoiceItems = InvoiceItem::where('invoice_id', $invoice->id)->get();
                     foreach ($invoiceItems as $item) {
-                        if ((int) $item->item_type === 1) { // 1 = Producto físico inventariable
+                        if ((int) $item->item_type === 1 || (int) $item->item_type === 3 || $item->usage_type === Product::USAGE_WORKSHOP_STOCK_UNIT) { // 1 = Mercadería comercial, 3 = Insumo por envase
                             $product = null;
                             if (!empty($item->code)) {
                                 $product = Product::where('sku', $item->code)->first();

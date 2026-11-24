@@ -21,6 +21,7 @@ class InvoiceItem extends Model
         'tax',
         'total',
         'item_type',
+        'usage_type',
         'product_categorie_id',
         'brand',
     ];

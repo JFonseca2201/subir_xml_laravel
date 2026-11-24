@@ -20,6 +20,7 @@ class InvoiceItemResource extends JsonResource
             'tax' => (float) $this->tax,
             'total' => (float) $this->total,
             'item_type' => (int) $this->item_type,
+            'usage_type' => $this->usage_type ?: ((int) $this->item_type === 1 ? 'commercial_product' : ((int) $this->item_type === 2 ? 'workshop_consumable' : 'workshop_stock_unit')),
         ];
     }
 }

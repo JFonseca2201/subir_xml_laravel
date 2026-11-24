@@ -20,7 +20,8 @@ class PurchaseManualController extends Controller
 {
     public function store(Request $request)
     {
-        $isExpense = $request->boolean('is_expense');
+        $purchaseType = $request->input('purchase_type', 'products'); // 'products' | 'supplies' | 'expenses'
+        $isExpense = $request->boolean('is_expense') || in_array($purchaseType, ['supplies', 'expenses']);
 
         $rules = [
             'supplier_id' => 'nullable',
@@ -37,12 +38,29 @@ class PurchaseManualController extends Controller
             'tax' => 'required|numeric|min:0',
             'total' => 'required|numeric|min:0',
             'is_expense' => 'nullable|boolean',
+            'purchase_type' => 'nullable|string|in:products,supplies,expenses',
             'is_shared' => 'nullable|boolean',
             'terceros_total' => 'nullable|numeric|min:0',
             'taller_total' => 'nullable|numeric|min:0',
         ];
 
-        if ($isExpense) {
+        if ($request->has('items') && is_array($request->items) && count($request->items) > 0) {
+            $rules = array_merge($rules, [
+                'items' => 'required|array|min:1',
+                'items.*.code' => 'nullable',
+                'items.*.description' => 'required',
+                'items.*.quantity' => 'required|numeric|min:0.0001',
+                'items.*.unit_price' => 'required|numeric|min:0',
+                'items.*.subtotal' => 'required|numeric|min:0',
+                'items.*.discount' => 'nullable|numeric|min:0',
+                'items.*.tax' => 'required|numeric|min:0',
+                'items.*.total' => 'required|numeric|min:0',
+                'items.*.item_type' => 'required',
+                'items.*.usage_type' => 'nullable|string',
+                'items.*.product_categorie_id' => 'nullable',
+                'items.*.brand' => 'nullable',
+            ]);
+        } elseif ($isExpense && $request->has('expense_details')) {
             $rules = array_merge($rules, [
                 'expense_details' => 'required|array|min:1',
                 'expense_details.*.description' => 'required|string|max:255',
@@ -52,15 +70,16 @@ class PurchaseManualController extends Controller
         } else {
             $rules = array_merge($rules, [
                 'items' => 'required|array|min:1',
-                'items.*.code' => 'required',
+                'items.*.code' => 'nullable',
                 'items.*.description' => 'required',
-                'items.*.quantity' => 'required|numeric|min:0.01',
+                'items.*.quantity' => 'required|numeric|min:0.0001',
                 'items.*.unit_price' => 'required|numeric|min:0',
                 'items.*.subtotal' => 'required|numeric|min:0',
                 'items.*.discount' => 'nullable|numeric|min:0',
                 'items.*.tax' => 'required|numeric|min:0',
                 'items.*.total' => 'required|numeric|min:0',
                 'items.*.item_type' => 'required',
+                'items.*.usage_type' => 'nullable|string',
                 'items.*.product_categorie_id' => 'nullable',
                 'items.*.brand' => 'nullable',
             ]);
@@ -147,20 +166,29 @@ class PurchaseManualController extends Controller
                 'created_by' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
             ]);
 
-            // 3. Guardar detalles según el tipo de compra (Gasto General vs Ingreso de Inventario)
-            if ($isExpense) {
-                $this->storeExpenseDetails($invoice, $request->expense_details);
-            } else {
-                $this->storeInventoryItems(
+            // 3. Guardar detalles según el tipo de compra (Mercadería Comercial vs Insumos Taller vs Gasto General)
+            $breakdown = [
+                'hasCommercialProduct' => false,
+                'commercialTotal' => 0.0,
+                'workshopTotal' => 0.0,
+            ];
+
+            if ($request->has('items') && is_array($request->items) && count($request->items) > 0) {
+                $breakdown = $this->storeInventoryItems(
                     $invoice,
                     $request->items,
                     $supplierId,
                     (string) $request->invoice_number
                 );
+            } elseif ($request->has('expense_details')) {
+                $this->storeExpenseDetails($invoice, $request->expense_details);
+                $breakdown['workshopTotal'] = (float) $request->total;
             }
 
+            $hasProducts = $breakdown['hasCommercialProduct'];
+
             // 4. Financial Integration
-            $expenseAmount = ($isExpense || !$request->is_shared)
+            $expenseAmount = (!$hasProducts || !$request->is_shared)
                 ? (float) $request->total
                 : (float) ($request->taller_total ?? ($request->total - ($request->terceros_total ?? 0)));
 
@@ -168,12 +196,20 @@ class PurchaseManualController extends Controller
                 $supplier = \App\Models\Supplier\Supplier::find($supplierId);
                 $supplierName = $supplier ? ($supplier->trade_name ?? $supplier->name) : ('#' . $supplierId);
 
-                if ($isExpense) {
-                    $desc = 'Pago por Gasto General a Proveedor ' . $supplierName;
+                if (!$hasProducts) {
+                    $typeTitle = $purchaseType === 'supplies' ? 'Insumos de Taller' : 'Gasto General';
+                    $desc = 'Pago por ' . $typeTitle . ' a Proveedor ' . $supplierName;
                 } else {
-                    $desc = 'Pago por Compra a Proveedor ' . $supplierName
-                        . ($request->is_shared ? ' [Factura Compartida: Taller $' . number_format($expenseAmount, 2) . ' / Total $' . number_format($request->total, 2) . ']' : '')
-                        . ' - Costo de Ventas';
+                    $desc = 'Pago por Compra a Proveedor ' . $supplierName;
+                    if ($breakdown['commercialTotal'] > 0 && $breakdown['workshopTotal'] > 0) {
+                        $desc .= ' [Mercadería Comercial: $' . number_format($breakdown['commercialTotal'], 2) . ' | Insumos Taller: $' . number_format($breakdown['workshopTotal'], 2) . ']';
+                    } elseif ($breakdown['commercialTotal'] > 0) {
+                        $desc .= ' [Mercadería Comercial: $' . number_format($breakdown['commercialTotal'], 2) . ']';
+                    }
+                    if ($request->is_shared) {
+                        $desc .= ' [Factura Compartida: Taller $' . number_format($expenseAmount, 2) . ' / Total $' . number_format($request->total, 2) . ']';
+                    }
+                    $desc .= ' - Costo Operativo y Ventas';
                 }
 
                 $accountId = null;
@@ -247,8 +283,13 @@ class PurchaseManualController extends Controller
 
             return response()->json([
                 'status' => 201,
-                'message' => $isExpense ? 'Gasto general registrado con éxito' : 'Compra manual registrada con éxito',
+                'message' => $isExpense ? 'Gasto general registrado con éxito' : 'Compra registrada con éxito',
                 'data' => $invoice->load('invoice_items', 'expenseDetails', 'supplier'),
+                'breakdown' => [
+                    'commercial_inventory' => round($breakdown['commercialTotal'], 2),
+                    'workshop_expenses' => round($breakdown['workshopTotal'], 2),
+                    'total' => round((float) $invoice->total, 2),
+                ],
             ], 201);
 
         } catch (\Throwable $th) {
@@ -285,41 +326,103 @@ class PurchaseManualController extends Controller
     }
 
     /**
-     * Guarda los ítems de inventario de la factura y actualiza o crea los productos en stock.
+     * Guarda los ítems de la factura (Productos Comerciales, Insumos Directos o Insumos por Envase).
+     *
+     * @return array Resumen de separación entre mercadería comercial e insumos/gastos operativos
      */
-    private function storeInventoryItems(Invoice $invoice, array $items, int $supplierId, string $invoiceNumber): void
+    private function storeInventoryItems(Invoice $invoice, array $items, int $supplierId, string $invoiceNumber): array
     {
         $defaultWarehouseId = \App\Models\Config\Warehouse::first()?->id ?? 1;
         $defaultUnitId = \App\Models\Config\Unit::first()?->id ?? 1;
         $defaultCatId = \App\Models\Config\ProductCategorie::first()?->id ?? 1;
         $defaultTaxRate = (float) config('app.default_tax_rate', 15.00);
 
-        foreach ($items as $item) {
-            $isProduct = (int) $item['item_type'] === 1;
-            $itemCatId = $isProduct ? ($item['product_categorie_id'] ?? $defaultCatId) : null;
+        $hasCommercialProduct = false;
+        $commercialTotal = 0.0;
+        $workshopTotal = 0.0;
 
-            $itemCode = trim((string) $item['code']);
+        foreach ($items as $item) {
+            $rawItemType = (int) ($item['item_type'] ?? 1);
+            $rawUsageType = trim((string) ($item['usage_type'] ?? ''));
+
+            $itemCode = trim((string) ($item['code'] ?? ''));
             $itemCodeAux = !empty($item['code_aux']) && trim($item['code_aux']) !== '-'
                 ? trim($item['code_aux'])
                 : (!empty($itemCode) ? ('LE' . $itemCode) : null);
 
-            $itemQty = (float) $item['quantity'];
-            $itemUnitPrice = (float) $item['unit_price'];
-            $itemSubtotal = (float) $item['subtotal'];
+            // Recordar configuración previa del ítem si ya existe en el sistema
+            $existingProduct = Product::withTrashed()
+                ->where(function ($query) use ($itemCode, $itemCodeAux, $item) {
+                    if (!empty($itemCode)) {
+                        $query->where('sku', $itemCode);
+                    }
+                    if (!empty($itemCodeAux) && $itemCodeAux !== '-') {
+                        $query->orWhere('code_aux', $itemCodeAux);
+                    }
+                    if (!empty($item['description'])) {
+                        $query->orWhere('description', $item['description']);
+                    }
+                })
+                ->first();
 
-            if ($itemUnitPrice <= 0 && $itemQty > 0 && $itemSubtotal > 0) {
-                $itemUnitPrice = round($itemSubtotal / $itemQty, 4);
+            // Si el ítem ya existe en el sistema y no se envió un usage_type explícito, recordar la clasificación previa
+            if (empty($rawUsageType)) {
+                if ($existingProduct && !empty($existingProduct->usage_type)) {
+                    $rawUsageType = $existingProduct->usage_type;
+                    $rawItemType = ($rawUsageType === Product::USAGE_WORKSHOP_STOCK_UNIT) ? 3 : (($rawUsageType === Product::USAGE_WORKSHOP_CONSUMABLE) ? 2 : 1);
+                } else {
+                    if ($rawItemType === 3) {
+                        $rawUsageType = Product::USAGE_WORKSHOP_STOCK_UNIT;
+                    } elseif ($rawItemType === 2) {
+                        $rawUsageType = Product::USAGE_WORKSHOP_CONSUMABLE;
+                    } else {
+                        $rawUsageType = Product::USAGE_COMMERCIAL_PRODUCT;
+                    }
+                }
+            } else {
+                // Sincronizar item_type según usage_type
+                if ($rawUsageType === Product::USAGE_WORKSHOP_STOCK_UNIT) {
+                    $rawItemType = 3;
+                } elseif ($rawUsageType === Product::USAGE_WORKSHOP_CONSUMABLE) {
+                    $rawItemType = 2;
+                } else {
+                    $rawUsageType = Product::USAGE_COMMERCIAL_PRODUCT;
+                    $rawItemType = 1;
+                }
             }
 
-            // Costo real unitario de adquisición sin IVA (considerando descuentos aplicados en la línea)
+            $isCommercial = $rawUsageType === Product::USAGE_COMMERCIAL_PRODUCT;
+            $isWorkshopStock = $rawUsageType === Product::USAGE_WORKSHOP_STOCK_UNIT;
+            $isWorkshopConsumable = $rawUsageType === Product::USAGE_WORKSHOP_CONSUMABLE;
+
+            if (empty($itemCode)) {
+                $prefix = $isCommercial ? 'PROD-' : ($isWorkshopStock ? 'INS-BOX-' : 'INS-');
+                $itemCode = $prefix . strtoupper(Str::random(6));
+            }
+
+            if (empty($itemCodeAux) && !empty($itemCode)) {
+                $itemCodeAux = 'LE' . $itemCode;
+            }
+
+            $itemQty = (float) ($item['quantity'] ?? 1);
+            $itemUnitPrice = (float) ($item['unit_price'] ?? 0);
+            $itemSubtotal = (float) ($item['subtotal'] ?? 0);
+            $itemDiscount = (float) ($item['discount'] ?? 0);
+            $itemTax = (float) ($item['tax'] ?? 0);
+            $itemTotal = (float) ($item['total'] ?? ($itemSubtotal + $itemTax));
+
+            if ($itemUnitPrice <= 0 && $itemQty > 0 && $itemSubtotal > 0) {
+                $itemUnitPrice = round(($itemSubtotal + $itemDiscount) / $itemQty, 4);
+            }
+
             $realPurchasePrice = $itemQty > 0 ? round($itemSubtotal / $itemQty, 4) : $itemUnitPrice;
             $salePrice = round($realPurchasePrice * 1.55, 2);
 
-            // Descuento máximo permitido: 50% de la ganancia (margen de utilidad)
             $profit = max(0.0, $salePrice - $realPurchasePrice);
             $maxDiscount = round($profit * 0.50, 2);
             $discountPercentage = $salePrice > 0 ? round(($maxDiscount / $salePrice) * 100, 2) : 0.0;
-            $brand = !empty($item['brand']) ? trim($item['brand']) : 'SM';
+            $brand = !empty($item['brand']) ? trim($item['brand']) : ($isCommercial ? 'SM' : 'N/A');
+            $itemCatId = $isCommercial ? ($item['product_categorie_id'] ?? $defaultCatId) : null;
 
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
@@ -328,10 +431,11 @@ class PurchaseManualController extends Controller
                 'quantity' => $itemQty,
                 'unit_price' => $itemUnitPrice,
                 'subtotal' => $itemSubtotal,
-                'discount' => $item['discount'] ?? 0,
-                'tax' => $item['tax'],
-                'total' => $item['total'],
-                'item_type' => $item['item_type'],
+                'discount' => $itemDiscount,
+                'tax' => $itemTax,
+                'total' => $itemTotal,
+                'item_type' => $rawItemType,
+                'usage_type' => $rawUsageType,
                 'product_categorie_id' => $itemCatId,
                 'brand' => $brand,
             ]);
@@ -342,20 +446,13 @@ class PurchaseManualController extends Controller
                 || $item['selected_for_inventory'] === '1'
                 || $item['selected_for_inventory'] === 'true';
 
-            if ($isProduct && $selectedForInventory) {
-                $product = Product::withTrashed()
-                    ->where(function ($query) use ($itemCode, $itemCodeAux, $item) {
-                        $query->where('sku', $itemCode);
-                        if (!empty($itemCodeAux) && $itemCodeAux !== '-') {
-                            $query->orWhere('code_aux', $itemCodeAux);
-                        }
-                        if (!empty($item['description'])) {
-                            $query->orWhere('description', $item['description']);
-                        }
-                    })
-                    ->first();
+            // 1. PRODUCTO COMERCIAL PARA VENTA
+            if ($isCommercial && $selectedForInventory) {
+                $hasCommercialProduct = true;
+                $commercialTotal += $itemTotal;
 
-                $brand = !empty($item['brand']) ? trim($item['brand']) : ($product?->brand ?? 'SM');
+                $product = $existingProduct;
+                $finalBrand = !empty($item['brand']) ? trim($item['brand']) : ($product?->brand ?? 'SM');
 
                 if (!$product) {
                     Product::create([
@@ -372,14 +469,15 @@ class PurchaseManualController extends Controller
                         'tax_rate' => $defaultTaxRate,
                         'max_discount' => $maxDiscount,
                         'discount_percentage' => $discountPercentage,
-                        'brand' => $brand,
+                        'brand' => $finalBrand,
                         'stock' => $itemQty,
-                        'item_type' => $item['item_type'],
+                        'item_type' => 1,
+                        'usage_type' => Product::USAGE_COMMERCIAL_PRODUCT,
                         'min_stock' => 1,
                         'max_stock' => 5,
                         'is_taxable' => 1,
                         'is_gift' => 2,
-                        'notes' => 'Creado por Compra: ' . $invoiceNumber,
+                        'notes' => 'Creado por Compra Mercadería: ' . $invoiceNumber,
                         'state' => 1,
                     ]);
                 } else {
@@ -390,23 +488,104 @@ class PurchaseManualController extends Controller
 
                     $product->stock += $itemQty;
                     $product->state = 1;
+                    $product->item_type = 1;
+                    $product->usage_type = Product::USAGE_COMMERCIAL_PRODUCT;
                     $product->price = $realPurchasePrice;
                     $product->purchase_price = $realPurchasePrice;
                     $product->price_sale = $salePrice;
                     $product->max_discount = $maxDiscount;
                     $product->discount_percentage = $discountPercentage;
                     if (!empty($item['brand'])) {
-                        $product->brand = $brand;
+                        $product->brand = $finalBrand;
                     }
                     if (empty($product->code_aux) && !empty($itemCodeAux)) {
                         $product->code_aux = $itemCodeAux;
                     }
-                    if (!empty($item['product_categorie_id'])) {
-                        $product->product_categorie_id = $item['product_categorie_id'];
+                    if (!empty($itemCatId)) {
+                        $product->product_categorie_id = $itemCatId;
                     }
                     $product->save();
                 }
             }
+            // 2. INSUMO POR CAJA/ENVASE (STOCK INTERNO DE TALLER)
+            elseif ($isWorkshopStock && $selectedForInventory) {
+                $workshopTotal += $itemTotal;
+
+                $product = $existingProduct;
+                $finalBrand = !empty($item['brand']) ? trim($item['brand']) : ($product?->brand ?? 'N/A');
+
+                if (!$product) {
+                    Product::create([
+                        'description' => $item['description'],
+                        'sku' => $itemCode,
+                        'code_aux' => $itemCodeAux,
+                        'product_categorie_id' => $defaultCatId,
+                        'warehouse_id' => $defaultWarehouseId,
+                        'unit_id' => $defaultUnitId,
+                        'supplier_id' => $supplierId,
+                        'price' => $realPurchasePrice,
+                        'price_sale' => $realPurchasePrice,
+                        'purchase_price' => $realPurchasePrice,
+                        'tax_rate' => $defaultTaxRate,
+                        'brand' => $finalBrand,
+                        'stock' => $itemQty, // Cantidad de envases/cajas cerradas en taller
+                        'item_type' => 3,
+                        'usage_type' => Product::USAGE_WORKSHOP_STOCK_UNIT,
+                        'min_stock' => 1,
+                        'max_stock' => 10,
+                        'is_taxable' => 1,
+                        'is_gift' => 2,
+                        'notes' => 'Insumo Taller por Envase/Caja de Compra: ' . $invoiceNumber,
+                        'state' => 1,
+                    ]);
+                } else {
+                    if ($product->trashed()) {
+                        $product->restore();
+                        $product->stock = 0;
+                    }
+
+                    $product->stock += $itemQty;
+                    $product->state = 1;
+                    $product->item_type = 3;
+                    $product->usage_type = Product::USAGE_WORKSHOP_STOCK_UNIT;
+                    $product->price = $realPurchasePrice;
+                    $product->purchase_price = $realPurchasePrice;
+                    if (!empty($item['brand'])) {
+                        $product->brand = $finalBrand;
+                    }
+                    $product->save();
+                }
+
+                // Registrar en detalle contable de insumos operativos
+                ExpenseDetail::create([
+                    'invoice_id' => $invoice->id,
+                    'description' => trim((string) $item['description']) . " ({$itemQty} envases/cajas)",
+                    'category' => 'Insumos Taller (Stock Envases)',
+                    'total' => $itemTotal,
+                ]);
+            }
+            // 3. INSUMO DIRECTO / GASTO OPERATIVO INMEDIATO
+            else {
+                $workshopTotal += $itemTotal;
+
+                ExpenseDetail::create([
+                    'invoice_id' => $invoice->id,
+                    'description' => trim((string) $item['description']),
+                    'category' => $rawUsageType === Product::USAGE_WORKSHOP_CONSUMABLE ? 'Insumos Directos de Taller' : 'Gasto General',
+                    'total' => $itemTotal,
+                ]);
+            }
         }
+
+        // Si la compra no tiene productos comerciales inventariables, marcar como is_expense = true
+        if (!$hasCommercialProduct) {
+            $invoice->update(['is_expense' => true]);
+        }
+
+        return [
+            'hasCommercialProduct' => $hasCommercialProduct,
+            'commercialTotal' => $commercialTotal,
+            'workshopTotal' => $workshopTotal,
+        ];
     }
 }

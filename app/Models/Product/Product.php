@@ -17,9 +17,13 @@ use Illuminate\Support\Facades\DB;
  * @var array<int, string>
  */
 class Product extends Model
-
 {
     use HasFactory, SoftDeletes;
+
+    const USAGE_COMMERCIAL_PRODUCT = 'commercial_product';
+    const USAGE_WORKSHOP_CONSUMABLE = 'workshop_consumable';
+    const USAGE_WORKSHOP_STOCK_UNIT = 'workshop_stock_unit';
+    const USAGE_SERVICE = 'service';
 
     protected $fillable = [
         'description', //name
@@ -40,6 +44,7 @@ class Product extends Model
         'brand',
         'stock',
         'item_type',
+        'usage_type',
         'min_stock',
         'max_stock',
         'is_taxable',
@@ -92,7 +97,7 @@ class Product extends Model
         return $link;
     }
 
-    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id = null, $inventory_status = null)
+    public function scopeFilterAdvance($query, $search, $categorie_id, $warehouse_id, $unit_id, $disponibilidad, $is_gift, $supplier_id = null, $inventory_status = null, $usage_type = null)
     {
         if ($search) {
             $cleanSearch = str_replace(['-', ' ', '_', '.'], '', $search);
@@ -137,6 +142,13 @@ class Product extends Model
         }
         if ($supplier_id) {
             $query->where('supplier_id', $supplier_id);
+        }
+        if ($usage_type) {
+            if ($usage_type === 'for_sale') {
+                $query->forSale();
+            } else {
+                $query->where('usage_type', $usage_type);
+            }
         }
         if ($inventory_status === 'inventoried') {
             $query->whereNotNull('inventoried_at');
@@ -193,5 +205,27 @@ class Product extends Model
     public function supplier()
     {
         return $this->belongsTo(Supplier::class , 'supplier_id');
+    }
+
+    public function workshopConsumptions()
+    {
+        return $this->hasMany(\App\Models\Workshop\WorkshopConsumption::class, 'product_id');
+    }
+
+    public function scopeForSale($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('usage_type')
+              ->orWhere('usage_type', self::USAGE_COMMERCIAL_PRODUCT)
+              ->orWhere('item_type', 2);
+        })->where(function ($q) {
+            $q->whereNull('usage_type')
+              ->orWhereNotIn('usage_type', [self::USAGE_WORKSHOP_CONSUMABLE, self::USAGE_WORKSHOP_STOCK_UNIT]);
+        });
+    }
+
+    public function scopeWorkshopSupplies($query)
+    {
+        return $query->where('usage_type', self::USAGE_WORKSHOP_STOCK_UNIT);
     }
 }

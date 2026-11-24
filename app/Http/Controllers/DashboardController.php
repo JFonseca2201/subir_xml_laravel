@@ -51,6 +51,11 @@ class DashboardController extends Controller
         $totalSales = (float) Sale::where('status', '!=', 'draft')
             ->where('status', '!=', 'canceled')
             ->where('document_type', '!=', 'quote')
+            ->where(function ($q) {
+                $q->where('document_type', '!=', 'invoice')
+                    ->orWhereNull('sri_status')
+                    ->orWhereNotIn('sri_status', ['RECHAZADA', 'DEVUELTA']);
+            })
             ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->sum('total');
 
@@ -72,6 +77,11 @@ class DashboardController extends Controller
                 $q->where('status', '!=', 'draft')
                     ->where('status', '!=', 'canceled')
                     ->where('document_type', '!=', 'quote')
+                    ->where(function ($sub) {
+                        $sub->where('document_type', '!=', 'invoice')
+                            ->orWhereNull('sri_status')
+                            ->orWhereNotIn('sri_status', ['RECHAZADA', 'DEVUELTA']);
+                    })
                     ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
             })
             ->groupBy('product_id', 'description')
@@ -84,6 +94,11 @@ class DashboardController extends Controller
             $q->where('status', '!=', 'draft')
                 ->where('status', '!=', 'canceled')
                 ->where('document_type', '!=', 'quote')
+                ->where(function ($sub) {
+                    $sub->where('document_type', '!=', 'invoice')
+                        ->orWhereNull('sri_status')
+                        ->orWhereNotIn('sri_status', ['RECHAZADA', 'DEVUELTA']);
+                })
                 ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
         })
             ->where(function ($query) {
@@ -98,6 +113,11 @@ class DashboardController extends Controller
             $q->where('status', '!=', 'draft')
                 ->where('status', '!=', 'canceled')
                 ->where('document_type', '!=', 'quote')
+                ->where(function ($sub) {
+                    $sub->where('document_type', '!=', 'invoice')
+                        ->orWhereNull('sri_status')
+                        ->orWhereNotIn('sri_status', ['RECHAZADA', 'DEVUELTA']);
+                })
                 ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
         })
             ->whereHas('product', function ($q) {
@@ -110,6 +130,11 @@ class DashboardController extends Controller
             ->where('status', '!=', 'draft')
             ->where('status', '!=', 'canceled')
             ->where('document_type', '!=', 'quote')
+            ->where(function ($q) {
+                $q->where('document_type', '!=', 'invoice')
+                    ->orWhereNull('sri_status')
+                    ->orWhereNotIn('sri_status', ['RECHAZADA', 'DEVUELTA']);
+            })
             ->whereBetween('created_at', [$startOfYear, $endOfYear])
             ->groupBy('month')
             ->orderBy('month')
@@ -180,6 +205,11 @@ class DashboardController extends Controller
             ->where('status', '!=', 'draft')
             ->where('status', '!=', 'canceled')
             ->where('document_type', '!=', 'quote')
+            ->where(function ($q) {
+                $q->where('document_type', '!=', 'invoice')
+                    ->orWhereNull('sri_status')
+                    ->orWhereNotIn('sri_status', ['RECHAZADA', 'DEVUELTA']);
+            })
             ->whereBetween('created_at', [$startOfYear, $endOfYear])
             ->groupBy('client_id')
             ->orderByDesc('total_sales')
@@ -505,9 +535,15 @@ class DashboardController extends Controller
         )
             ->join('sales', 'sales.id', '=', 'sale_details.sale_id')
             ->leftJoin('products', 'products.id', '=', 'sale_details.product_id')
+            ->whereNull('sales.deleted_at')
             ->where('sales.status', '!=', 'draft')
             ->where('sales.status', '!=', 'canceled')
             ->where('sales.document_type', '!=', 'quote')
+            ->where(function ($q) {
+                $q->where('sales.document_type', '!=', 'invoice')
+                    ->orWhereNull('sales.sri_status')
+                    ->orWhereNotIn('sales.sri_status', ['RECHAZADA', 'DEVUELTA']);
+            })
             ->whereBetween('sales.created_at', [$startOfMonth, $endOfMonth])
             ->groupBy('sale_details.product_id', 'item_name', 'products.sku', 'products.item_type')
             ->get();
@@ -568,6 +604,11 @@ class DashboardController extends Controller
             ->where('status', '!=', 'draft')
             ->where('status', '!=', 'canceled')
             ->where('document_type', '!=', 'quote')
+            ->where(function ($q) {
+                $q->where('document_type', '!=', 'invoice')
+                    ->orWhereNull('sri_status')
+                    ->orWhereNotIn('sri_status', ['RECHAZADA', 'DEVUELTA']);
+            })
             ->groupBy('month_key')
             ->orderByDesc('month_key')
             ->take(12)

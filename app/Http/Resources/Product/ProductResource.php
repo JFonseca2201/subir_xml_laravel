@@ -52,6 +52,7 @@ class ProductResource extends JsonResource
             'brand' => strtoupper(trim($this->brand)),
             'stock' => (float) $this->stock,
             'item_type' => (int) $this->item_type,
+            'usage_type' => $this->usage_type ?: ($this->item_type == 2 ? 'service' : 'commercial_product'),
             'min_stock' => (float) $this->min_stock,
             'max_stock' => (float) $this->max_stock,
             'is_taxable' => (int) $this->is_taxable,
