@@ -25,6 +25,7 @@ class InvoiceResource extends JsonResource
                 })
                 ->first()
                 : null,
+            'document_type' => $this->document_type ?: 'invoice',
             'invoice_number' => $this->invoice_number,
             'invoice_process' => $this->invoice_process,
             'is_expense' => (bool) $this->is_expense,

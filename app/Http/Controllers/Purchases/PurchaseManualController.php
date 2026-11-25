@@ -28,14 +28,15 @@ class PurchaseManualController extends Controller
             'supplier_ruc' => 'nullable|string|max:20',
             'supplier_name' => 'nullable|string|max:255',
             'supplier_address' => 'nullable|string|max:500',
-            'invoice_number' => 'required',
+            'invoice_number' => 'nullable|string|max:100',
+            'document_type' => 'nullable|string|max:50',
             'issue_date' => 'required',
             'payment_type' => 'required|string|in:efectivo,credito,aporte',
             'account_id' => 'nullable|integer|exists:accounts,id',
             'partner_id' => 'nullable|integer|exists:partners,id',
             'access_key' => 'nullable',
             'subtotal' => 'required|numeric|min:0',
-            'tax' => 'required|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0',
             'total' => 'required|numeric|min:0',
             'is_expense' => 'nullable|boolean',
             'purchase_type' => 'nullable|string|in:products,supplies,expenses',
@@ -53,7 +54,7 @@ class PurchaseManualController extends Controller
                 'items.*.unit_price' => 'required|numeric|min:0',
                 'items.*.subtotal' => 'required|numeric|min:0',
                 'items.*.discount' => 'nullable|numeric|min:0',
-                'items.*.tax' => 'required|numeric|min:0',
+                'items.*.tax' => 'nullable|numeric|min:0',
                 'items.*.total' => 'required|numeric|min:0',
                 'items.*.item_type' => 'required',
                 'items.*.usage_type' => 'nullable|string',
@@ -76,7 +77,7 @@ class PurchaseManualController extends Controller
                 'items.*.unit_price' => 'required|numeric|min:0',
                 'items.*.subtotal' => 'required|numeric|min:0',
                 'items.*.discount' => 'nullable|numeric|min:0',
-                'items.*.tax' => 'required|numeric|min:0',
+                'items.*.tax' => 'nullable|numeric|min:0',
                 'items.*.total' => 'required|numeric|min:0',
                 'items.*.item_type' => 'required',
                 'items.*.usage_type' => 'nullable|string',
@@ -90,6 +91,27 @@ class PurchaseManualController extends Controller
         DB::beginTransaction();
 
         try {
+            // Resolver tipo de documento
+            $rawDocType = strtolower(trim((string) $request->input('document_type', 'invoice')));
+            if (in_array($rawDocType, ['sale_note', 'nota_venta', 'nota de venta'])) {
+                $documentType = Invoice::DOC_SALE_NOTE;
+            } elseif (in_array($rawDocType, ['internal', 'sin_documento', 'comprobante interno', 'comprobante_interno', 'sin documento'])) {
+                $documentType = Invoice::DOC_INTERNAL;
+            } else {
+                $documentType = Invoice::DOC_INVOICE;
+            }
+
+            // Resolver número de comprobante (autogenerar INT-XXXX si es interno o si no se especificó)
+            $invoiceNumber = trim((string) $request->input('invoice_number', ''));
+            if ($documentType === Invoice::DOC_INTERNAL || empty($invoiceNumber)) {
+                $lastInternal = Invoice::where('invoice_number', 'LIKE', 'INT-%')->orderByDesc('id')->first();
+                $nextNum = 1;
+                if ($lastInternal && preg_match('/INT-(\d+)/i', $lastInternal->invoice_number, $matches)) {
+                    $nextNum = ((int)$matches[1]) + 1;
+                }
+                $invoiceNumber = 'INT-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+            }
+
             // Resolver Proveedor (Existente por ID o por RUC, o crear nuevo)
             $supplierId = null;
             if ($request->supplier_id && is_numeric($request->supplier_id)) {
@@ -127,25 +149,46 @@ class PurchaseManualController extends Controller
                 }
             }
 
-            // 1. Validar duplicados de Factura (Clave de Acceso y Número de Factura)
+            // 1. Validar duplicados de Comprobante (Clave de Acceso y Número de Documento)
             if (!empty($request->access_key)) {
                 $duplicateAccess = Invoice::where('access_key', $request->access_key)->first();
                 if ($duplicateAccess) {
                     return response()->json([
                         'status' => 422,
-                        'message' => 'Esta factura ya fue ingresada anteriormente en el sistema (Clave de Acceso ya registrada).',
+                        'message' => 'Este comprobante ya fue ingresado anteriormente en el sistema (Clave de Acceso ya registrada).',
                     ], 422);
                 }
             }
 
-            $duplicateNumber = Invoice::where('invoice_number', $request->invoice_number)
-                ->where('supplier_id', $supplierId)
-                ->first();
-            if ($duplicateNumber) {
-                return response()->json([
-                    'status' => 422,
-                    'message' => 'La factura N° ' . $request->invoice_number . ' ya existe registrada para este proveedor.',
-                ], 422);
+            // Solo validar número duplicado si no es comprobante interno y tiene proveedor asignado
+            if ($documentType !== Invoice::DOC_INTERNAL && !empty($invoiceNumber) && $supplierId) {
+                $duplicateNumber = Invoice::where('invoice_number', $invoiceNumber)
+                    ->where('supplier_id', $supplierId)
+                    ->where('document_type', $documentType)
+                    ->first();
+                if ($duplicateNumber) {
+                    $docLabel = $documentType === Invoice::DOC_SALE_NOTE ? 'La Nota de Venta' : 'La Factura';
+                    return response()->json([
+                        'status' => 422,
+                        'message' => "{$docLabel} N° {$invoiceNumber} ya existe registrada para este proveedor.",
+                    ], 422);
+                }
+            }
+
+            // Cálculos e impuestos (Si es Nota de Venta, no hay IVA)
+            $tax = (float) ($request->tax ?? 0);
+            $subtotal = (float) $request->subtotal;
+            $total = (float) $request->total;
+
+            if ($documentType === Invoice::DOC_SALE_NOTE) {
+                $tax = 0.0;
+                if ($total > 0 && $subtotal <= 0) {
+                    $subtotal = $total;
+                } elseif ($subtotal > 0 && $total <= 0) {
+                    $total = $subtotal;
+                } else {
+                    $subtotal = $total;
+                }
             }
 
             // 2. Create the Invoice (Purchase)
@@ -154,13 +197,14 @@ class PurchaseManualController extends Controller
 
             $invoice = Invoice::create([
                 'supplier_id' => $supplierId,
+                'document_type' => $documentType,
                 'access_key' => $accessKey,
-                'invoice_number' => $request->invoice_number,
+                'invoice_number' => $invoiceNumber,
                 'issue_date' => $issueDate,
-                'subtotal' => $request->subtotal,
+                'subtotal' => $subtotal,
                 'discount' => 0,
-                'tax' => $request->tax,
-                'total' => $request->total,
+                'tax' => $tax,
+                'total' => $total,
                 'invoice_process' => 1, // Ya procesado (inventario o gasto general)
                 'is_expense' => $isExpense,
                 'created_by' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
@@ -178,36 +222,43 @@ class PurchaseManualController extends Controller
                     $invoice,
                     $request->items,
                     $supplierId,
-                    (string) $request->invoice_number
+                    (string) $invoiceNumber,
+                    $documentType
                 );
             } elseif ($request->has('expense_details')) {
                 $this->storeExpenseDetails($invoice, $request->expense_details);
-                $breakdown['workshopTotal'] = (float) $request->total;
+                $breakdown['workshopTotal'] = (float) $total;
             }
 
             $hasProducts = $breakdown['hasCommercialProduct'];
 
             // 4. Financial Integration
             $expenseAmount = (!$hasProducts || !$request->is_shared)
-                ? (float) $request->total
-                : (float) ($request->taller_total ?? ($request->total - ($request->terceros_total ?? 0)));
+                ? (float) $total
+                : (float) ($request->taller_total ?? ($total - ($request->terceros_total ?? 0)));
 
             if ($request->payment_type === 'efectivo' || $request->payment_type === 'aporte') {
                 $supplier = \App\Models\Supplier\Supplier::find($supplierId);
                 $supplierName = $supplier ? ($supplier->trade_name ?? $supplier->name) : ('#' . $supplierId);
 
+                $docLabel = match($documentType) {
+                    Invoice::DOC_SALE_NOTE => 'Nota de Venta',
+                    Invoice::DOC_INTERNAL => 'Comprobante Interno',
+                    default => 'Factura',
+                };
+
                 if (!$hasProducts) {
                     $typeTitle = $purchaseType === 'supplies' ? 'Insumos de Taller' : 'Gasto General';
-                    $desc = 'Pago por ' . $typeTitle . ' a Proveedor ' . $supplierName;
+                    $desc = 'Pago por ' . $typeTitle . ' (' . $docLabel . ') a Proveedor ' . $supplierName;
                 } else {
-                    $desc = 'Pago por Compra a Proveedor ' . $supplierName;
+                    $desc = 'Pago por Compra (' . $docLabel . ') a Proveedor ' . $supplierName;
                     if ($breakdown['commercialTotal'] > 0 && $breakdown['workshopTotal'] > 0) {
                         $desc .= ' [Mercadería Comercial: $' . number_format($breakdown['commercialTotal'], 2) . ' | Insumos Taller: $' . number_format($breakdown['workshopTotal'], 2) . ']';
                     } elseif ($breakdown['commercialTotal'] > 0) {
                         $desc .= ' [Mercadería Comercial: $' . number_format($breakdown['commercialTotal'], 2) . ']';
                     }
                     if ($request->is_shared) {
-                        $desc .= ' [Factura Compartida: Taller $' . number_format($expenseAmount, 2) . ' / Total $' . number_format($request->total, 2) . ']';
+                        $desc .= ' [Comprobante Compartido: Taller $' . number_format($expenseAmount, 2) . ' / Total $' . number_format($total, 2) . ']';
                     }
                     $desc .= ' - Costo Operativo y Ventas';
                 }
@@ -233,7 +284,7 @@ class PurchaseManualController extends Controller
                     'type' => FinanceRecord::TYPE_EXPENSE,
                     'account_id' => $accountId,
                     'amount' => $expenseAmount,
-                    'invoice_number' => $request->invoice_number,
+                    'invoice_number' => $invoiceNumber,
                     'description' => $desc,
                     'user_id' => auth('api')->id() ?? auth()->id() ?? \App\Models\User::first()?->id ?? 1,
                     'entry_date' => $issueDate->toDateString(),
@@ -330,7 +381,7 @@ class PurchaseManualController extends Controller
      *
      * @return array Resumen de separación entre mercadería comercial e insumos/gastos operativos
      */
-    private function storeInventoryItems(Invoice $invoice, array $items, int $supplierId, string $invoiceNumber): array
+    private function storeInventoryItems(Invoice $invoice, array $items, int $supplierId, string $invoiceNumber, string $documentType = Invoice::DOC_INVOICE): array
     {
         $defaultWarehouseId = \App\Models\Config\Warehouse::first()?->id ?? 1;
         $defaultUnitId = \App\Models\Config\Unit::first()?->id ?? 1;
@@ -350,20 +401,27 @@ class PurchaseManualController extends Controller
                 ? trim($item['code_aux'])
                 : (!empty($itemCode) ? ('LE' . $itemCode) : null);
 
-            // Recordar configuración previa del ítem si ya existe en el sistema
-            $existingProduct = Product::withTrashed()
-                ->where(function ($query) use ($itemCode, $itemCodeAux, $item) {
-                    if (!empty($itemCode)) {
-                        $query->where('sku', $itemCode);
-                    }
-                    if (!empty($itemCodeAux) && $itemCodeAux !== '-') {
-                        $query->orWhere('code_aux', $itemCodeAux);
-                    }
-                    if (!empty($item['description'])) {
-                        $query->orWhere('description', $item['description']);
-                    }
-                })
-                ->first();
+            // Recordar configuración previa del ítem si ya existe en el sistema (por ID o código/descripción)
+            $productId = $item['product_id'] ?? null;
+            $existingProduct = null;
+            if ($productId && is_numeric($productId)) {
+                $existingProduct = Product::withTrashed()->find($productId);
+            }
+            if (!$existingProduct) {
+                $existingProduct = Product::withTrashed()
+                    ->where(function ($query) use ($itemCode, $itemCodeAux, $item) {
+                        if (!empty($itemCode)) {
+                            $query->where('sku', $itemCode);
+                        }
+                        if (!empty($itemCodeAux) && $itemCodeAux !== '-') {
+                            $query->orWhere('code_aux', $itemCodeAux);
+                        }
+                        if (!empty($item['description'])) {
+                            $query->orWhere('description', $item['description']);
+                        }
+                    })
+                    ->first();
+            }
 
             // Si el ítem ya existe en el sistema y no se envió un usage_type explícito, recordar la clasificación previa
             if (empty($rawUsageType)) {
@@ -410,6 +468,12 @@ class PurchaseManualController extends Controller
             $itemDiscount = (float) ($item['discount'] ?? 0);
             $itemTax = (float) ($item['tax'] ?? 0);
             $itemTotal = (float) ($item['total'] ?? ($itemSubtotal + $itemTax));
+
+            // Si es Nota de Venta, no hay IVA por normativa RIMPE
+            if ($documentType === Invoice::DOC_SALE_NOTE) {
+                $itemTax = 0.0;
+                $itemTotal = $itemSubtotal;
+            }
 
             if ($itemUnitPrice <= 0 && $itemQty > 0 && $itemSubtotal > 0) {
                 $itemUnitPrice = round(($itemSubtotal + $itemDiscount) / $itemQty, 4);
@@ -490,6 +554,7 @@ class PurchaseManualController extends Controller
                     $product->state = 1;
                     $product->item_type = 1;
                     $product->usage_type = Product::USAGE_COMMERCIAL_PRODUCT;
+                    $product->supplier_id = $supplierId; // Registrar última procedencia de proveedor
                     $product->price = $realPurchasePrice;
                     $product->purchase_price = $realPurchasePrice;
                     $product->price_sale = $salePrice;
@@ -548,6 +613,7 @@ class PurchaseManualController extends Controller
                     $product->state = 1;
                     $product->item_type = 3;
                     $product->usage_type = Product::USAGE_WORKSHOP_STOCK_UNIT;
+                    $product->supplier_id = $supplierId;
                     $product->price = $realPurchasePrice;
                     $product->purchase_price = $realPurchasePrice;
                     if (!empty($item['brand'])) {

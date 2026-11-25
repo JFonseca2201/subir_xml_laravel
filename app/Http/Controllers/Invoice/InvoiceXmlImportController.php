@@ -196,6 +196,7 @@ class InvoiceXmlImportController extends Controller
 
             $invoice = Invoice::create([
                 'supplier_id' => $supplier->id,
+                'document_type' => 'invoice',
                 'access_key' => $accessKey,
                 'invoice_number' => (string) $xml->infoTributaria->secuencial,
                 'issue_date' => $issueDate,
@@ -312,6 +313,24 @@ class InvoiceXmlImportController extends Controller
         }
     }
 
+    public function generateNextInternalNumber(): string
+    {
+        $lastInternal = Invoice::where('invoice_number', 'LIKE', 'INT-%')->orderByDesc('id')->first();
+        $nextNum = 1;
+        if ($lastInternal && preg_match('/INT-(\d+)/i', $lastInternal->invoice_number, $matches)) {
+            $nextNum = ((int)$matches[1]) + 1;
+        }
+        return 'INT-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+    }
+
+    public function nextInternalNumber()
+    {
+        return response()->json([
+            'status' => 200,
+            'next_internal_number' => $this->generateNextInternalNumber(),
+        ]);
+    }
+
     public function config()
     {
         $suppliers = Supplier::orderBy('name', 'asc')->get();
@@ -327,6 +346,7 @@ class InvoiceXmlImportController extends Controller
             'suppliers' => $suppliers,
             'categories' => $category,
             'brands' => $brands,
+            'next_internal_number' => $this->generateNextInternalNumber(),
         ]);
     }
 
@@ -442,6 +462,7 @@ class InvoiceXmlImportController extends Controller
                         'ruc' => $invoice->supplier->ruc,
                     ],
                     'invoice_number' => $invoice->invoice_number,
+                    'document_type' => $invoice->document_type ?: 'invoice',
                     'invoice_process' => $invoice->invoice_process,
                     'is_expense' => (bool) $invoice->is_expense,
                     'issue_date' => $invoice->issue_date,

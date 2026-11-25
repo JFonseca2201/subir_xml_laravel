@@ -15,8 +15,13 @@ class Invoice extends Model
     use HasAttachments;
     protected $table = 'invoices';
 
+    const DOC_INVOICE = 'invoice';
+    const DOC_SALE_NOTE = 'sale_note';
+    const DOC_INTERNAL = 'internal';
+
     protected $fillable = [
         'supplier_id',
+        'document_type',
         'access_key',
         'invoice_number',
         'issue_date',

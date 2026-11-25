@@ -107,6 +107,7 @@ Route::group(
         Route::resource('categories', ProductCategorieController::class);
 
         // ============= RUTAS DE FACTURAS / COMPRAS ==============
+        Route::get('invoices/next-internal-number', [InvoiceXmlImportController::class, 'nextInternalNumber']);
         Route::post('invoices/check-duplicate', [InvoiceXmlImportController::class, 'checkDuplicate']);
         Route::post('invoices/import-xml', [InvoiceXmlImportController::class, 'store']);
         Route::post('purchases/manual', [PurchaseManualController::class, 'store']);
@@ -212,6 +213,7 @@ Route::group(
         // ============= RUTAS DE DASHBOARD FINANCIERO ==========
         Route::get('dashboard-financiero', [FinanzasController::class, 'getDashboardData']);
         Route::get('financial-movements', [FinanzasController::class, 'getMovements']);
+        Route::get('financial-movements/{id}', [FinanzasController::class, 'getMovementDetail'])->whereNumber('id');
         Route::match(['get', 'post'], 'financial-movements/pdf', [FinanzasController::class, 'generatePDF']);
         Route::get('financial-movements/{id}/pdf', [FinanzasController::class, 'generateSinglePDF'])->whereNumber('id');
         Route::put('financial-movements/{id}', [FinanzasController::class, 'updateMovement'])->whereNumber('id');

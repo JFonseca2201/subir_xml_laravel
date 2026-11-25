@@ -43,12 +43,12 @@ class FinanzasController extends Controller
             'attachments',
             'movable' => function ($morphTo) {
                 $morphTo->morphWith([
-                    \App\Models\Sales\Sale::class => ['client', 'vehicle', 'workOrder', 'attachments'],
+                    \App\Models\Sales\Sale::class => ['client', 'vehicle', 'workOrder', 'attachments', 'details.product'],
                     \App\Models\Finance\PaymentDistribution::class => ['financeRecord.attachments', 'account'],
                     \App\Models\Finance\FinanceRecord::class => ['user', 'attachments'],
-                    \App\Models\Finance\InternalTransfer::class => ['attachments'],
+                    \App\Models\Finance\InternalTransfer::class => ['attachments', 'sourceAccount', 'destinationAccount'],
                     \App\Models\Partner\AporteCapital::class => ['attachments', 'partner'],
-                    \App\Models\WorkOrder\WorkOrder::class => ['attachments', 'client', 'vehicle'],
+                    \App\Models\WorkOrder\WorkOrder::class => ['attachments', 'client', 'vehicle', 'items.product'],
                     \App\Models\Employee\EmployeePayment::class => ['attachments'],
                     \App\Models\Employee\EmployeeAdvance::class => ['attachments'],
                 ]);
@@ -354,6 +354,262 @@ class FinanzasController extends Controller
         } catch (\Exception $e) {
             Log::error('Error generating PDF: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Obtiene el detalle completo y normalizado de un movimiento financiero,
+     * incluyendo los productos/servicios asignados (Venta, Compra, OT o Transferencia).
+     */
+    public function getMovementDetail(int $id)
+    {
+        try {
+            $movement = FinancialMovement::with([
+                'account',
+                'attachments',
+                'movable',
+            ])->findOrFail($id);
+
+            $items = [];
+            $sourceType = null;
+            $sourceId = null;
+            $sourceData = null;
+            $party = null;
+            $vehicle = null;
+            $transferInfo = null;
+            $totals = [
+                'subtotal' => 0,
+                'discount' => 0,
+                'tax' => 0,
+                'total' => (float)$movement->amount,
+            ];
+
+            $movable = $movement->movable;
+            $movableType = (string)$movement->movable_type;
+            $meta = is_array($movement->metadata) ? $movement->metadata : [];
+
+            // 1. Venta (Sale)
+            if ($movable instanceof \App\Models\Sales\Sale || str_contains($movableType, 'Sale')) {
+                $sale = $movable ?: \App\Models\Sales\Sale::find($movement->movable_id);
+                if ($sale) {
+                    $sale->load(['details.product', 'client', 'vehicle', 'workOrder', 'attachments']);
+                    $sourceType = 'sale';
+                    $sourceId = $sale->id;
+                    $sourceData = $sale;
+                    $party = [
+                        'type' => 'client',
+                        'name' => $sale->client ? ($sale->client->full_name ?? trim(($sale->client->name ?? '') . ' ' . ($sale->client->surname ?? ''))) : 'Consumidor Final',
+                        'document' => $sale->client?->n_document,
+                        'phone' => $sale->client?->phone,
+                        'email' => $sale->client?->email,
+                    ];
+                    if ($sale->vehicle) {
+                        $vehicle = [
+                            'license_plate' => $sale->vehicle->license_plate,
+                            'brand' => $sale->vehicle->brand,
+                            'model' => $sale->vehicle->model,
+                            'year' => $sale->vehicle->year,
+                        ];
+                    }
+                    $totals = [
+                        'subtotal' => (float)($sale->subtotal ?? 0),
+                        'discount' => (float)($sale->discount ?? 0),
+                        'tax' => (float)($sale->tax ?? 0),
+                        'total' => (float)($sale->total ?? $movement->amount),
+                    ];
+                    foreach ($sale->details as $d) {
+                        $items[] = [
+                            'id' => $d->id,
+                            'code' => $d->product?->sku ?? '-',
+                            'description' => $d->description ?: ($d->product?->description ?? 'Ítem de venta'),
+                            'quantity' => (float)$d->quantity,
+                            'unit_price' => (float)$d->price,
+                            'discount' => (float)($d->discount ?? 0),
+                            'tax_rate' => (float)($d->tax_rate ?? 0),
+                            'tax_value' => (float)($d->tax_value ?? 0),
+                            'total' => (float)$d->total,
+                            'item_type' => (int)($d->product?->item_type ?? 1),
+                            'is_service' => ((int)($d->product?->item_type ?? 1) === 2),
+                        ];
+                    }
+                }
+            }
+            // 2. Compra / Gasto (PaymentDistribution o FinanceRecord o Invoice)
+            else if ($movable instanceof \App\Models\Finance\PaymentDistribution || str_contains($movableType, 'PaymentDistribution') || $movable instanceof \App\Models\Finance\FinanceRecord || str_contains($movableType, 'FinanceRecord')) {
+                $financeRecord = ($movable instanceof \App\Models\Finance\PaymentDistribution) ? $movable->financeRecord : $movable;
+                $invNumber = $meta['invoice'] ?? $meta['invoice_number'] ?? $financeRecord?->invoice_number ?? null;
+                $invId = $meta['invoice_id'] ?? null;
+
+                $invoice = null;
+                if ($invId) {
+                    $invoice = \App\Models\Invoice\Invoice::with(['invoice_items', 'expenseDetails', 'supplier', 'attachments'])->find($invId);
+                }
+                if (!$invoice && $invNumber) {
+                    $invoice = \App\Models\Invoice\Invoice::with(['invoice_items', 'expenseDetails', 'supplier', 'attachments'])->where('invoice_number', $invNumber)->first();
+                }
+
+                if ($invoice) {
+                    $sourceType = 'invoice';
+                    $sourceId = $invoice->id;
+                    $sourceData = $invoice;
+                    $party = [
+                        'type' => 'supplier',
+                        'name' => $invoice->supplier?->name ?? 'Proveedor',
+                        'document' => $invoice->supplier?->ruc ?? '-',
+                        'phone' => $invoice->supplier?->phone ?? '-',
+                        'email' => $invoice->supplier?->email ?? '-',
+                    ];
+                    $totals = [
+                        'subtotal' => (float)$invoice->subtotal,
+                        'discount' => (float)$invoice->discount,
+                        'tax' => (float)$invoice->tax,
+                        'total' => (float)$invoice->total,
+                    ];
+                    foreach ($invoice->invoice_items as $it) {
+                        $items[] = [
+                            'id' => $it->id,
+                            'code' => $it->code ?: '-',
+                            'description' => $it->description,
+                            'quantity' => (float)$it->quantity,
+                            'unit_price' => (float)$it->unit_price,
+                            'discount' => (float)($it->discount ?? 0),
+                            'tax' => (float)($it->tax ?? 0),
+                            'total' => (float)$it->total,
+                            'item_type' => (int)$it->item_type,
+                            'usage_type' => $it->usage_type ?: 'commercial_product',
+                            'is_service' => ((int)$it->item_type === 2),
+                        ];
+                    }
+                    foreach ($invoice->expenseDetails as $exp) {
+                        $expTotal = (float)($exp->total ?? $exp->amount ?? 0);
+                        if ($expTotal > 0 || count($invoice->invoice_items) === 0) {
+                            $items[] = [
+                                'id' => 'exp_' . $exp->id,
+                                'code' => 'GASTO',
+                                'description' => $exp->description ?: ($exp->category ?? 'Gasto general'),
+                                'quantity' => 1,
+                                'unit_price' => $expTotal,
+                                'discount' => 0,
+                                'tax' => 0,
+                                'total' => $expTotal,
+                                'item_type' => 2,
+                                'usage_type' => 'workshop_consumable',
+                                'is_service' => true,
+                            ];
+                        }
+                    }
+                } else if ($financeRecord) {
+                    $sourceType = 'expense';
+                    $sourceId = $financeRecord->id;
+                    $sourceData = $financeRecord;
+                    $items[] = [
+                        'id' => 'fr_' . $financeRecord->id,
+                        'code' => $financeRecord->invoice_number ?: 'EGRESO',
+                        'description' => $financeRecord->description ?: 'Egreso general registrado',
+                        'quantity' => 1,
+                        'unit_price' => (float)$movement->amount,
+                        'discount' => 0,
+                        'tax' => 0,
+                        'total' => (float)$movement->amount,
+                        'item_type' => 2,
+                        'usage_type' => 'expense',
+                        'is_service' => true,
+                    ];
+                }
+            }
+            // 3. Orden de Trabajo / Anticipo de OT (WorkOrder)
+            else if ($movable instanceof \App\Models\WorkOrder\WorkOrder || str_contains($movableType, 'WorkOrder')) {
+                $wo = $movable ?: \App\Models\WorkOrder\WorkOrder::find($movement->movable_id);
+                if ($wo) {
+                    $wo->load(['items.product', 'client', 'vehicle', 'attachments']);
+                    $sourceType = 'work_order';
+                    $sourceId = $wo->id;
+                    $sourceData = $wo;
+                    $party = [
+                        'type' => 'client',
+                        'name' => $wo->client ? ($wo->client->full_name ?? trim(($wo->client->name ?? '') . ' ' . ($wo->client->surname ?? ''))) : 'Cliente',
+                        'document' => $wo->client?->n_document,
+                        'phone' => $wo->client?->phone,
+                    ];
+                    if ($wo->vehicle) {
+                        $vehicle = [
+                            'license_plate' => $wo->vehicle->license_plate,
+                            'brand' => $wo->vehicle->brand,
+                            'model' => $wo->vehicle->model,
+                        ];
+                    }
+                    $subtotalSum = 0;
+                    foreach ($wo->items as $it) {
+                        $itemSubtotal = (float)($it->subtotal ?? ($it->quantity * $it->unit_price));
+                        $subtotalSum += $itemSubtotal;
+                        $items[] = [
+                            'id' => $it->id,
+                            'code' => $it->product?->sku ?? '-',
+                            'description' => $it->description,
+                            'quantity' => (float)$it->quantity,
+                            'unit_price' => (float)$it->unit_price,
+                            'discount' => (float)($it->discount ?? 0),
+                            'total' => $itemSubtotal,
+                            'item_type' => $it->type === 'service' ? 2 : 1,
+                            'is_service' => ($it->type === 'service'),
+                        ];
+                    }
+                    $totals['subtotal'] = $subtotalSum;
+                }
+            }
+            // 4. Transferencia Interna (InternalTransfer)
+            else if ($movable instanceof \App\Models\Finance\InternalTransfer || str_contains($movableType, 'InternalTransfer') || $movement->type === 'transfer') {
+                $sourceType = 'internal_transfer';
+                $transfer = $movable ?: \App\Models\Finance\InternalTransfer::find($movement->movable_id);
+                if ($transfer) {
+                    $transfer->load(['sourceAccount', 'destinationAccount', 'user', 'attachments']);
+                    $sourceId = $transfer->id;
+                    $sourceData = $transfer;
+                    $transferInfo = [
+                        'from_account' => $transfer->sourceAccount?->name ?? ($meta['from_account_name'] ?? 'Cuenta Origen'),
+                        'to_account' => $transfer->destinationAccount?->name ?? ($meta['to_account_name'] ?? 'Cuenta Destino'),
+                        'amount' => (float)$transfer->amount,
+                        'reference_number' => $transfer->reference_number ?? ($meta['reference'] ?? null),
+                        'user_name' => $transfer->user?->name ?? null,
+                        'date' => $transfer->transfer_date ? $transfer->transfer_date->format('Y-m-d') : null,
+                        'description' => $transfer->description,
+                    ];
+                }
+            }
+            // 5. Aporte de Capital
+            else if ($movable instanceof \App\Models\Partner\AporteCapital || str_contains($movableType, 'AporteCapital')) {
+                $aporte = $movable ?: \App\Models\Partner\AporteCapital::find($movement->movable_id);
+                $sourceType = 'aporte';
+                if ($aporte) {
+                    $aporte->load(['partner', 'attachments']);
+                    $sourceId = $aporte->id;
+                    $sourceData = $aporte;
+                    $party = [
+                        'type' => 'partner',
+                        'name' => $aporte->partner?->name ?? ($meta['partner_name'] ?? 'Socio'),
+                        'document' => $aporte->partner?->cedula ?? null,
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'movement' => $movement,
+                'source_type' => $sourceType,
+                'source_id' => $sourceId,
+                'source_data' => $sourceData,
+                'items' => $items,
+                'party' => $party,
+                'vehicle' => $vehicle,
+                'transfer_info' => $transferInfo,
+                'totals' => $totals,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error en getMovementDetail: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener detalle del movimiento: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
