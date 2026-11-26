@@ -213,10 +213,13 @@ class DistributorCatalogPdfController extends Controller
                     }
 
                     if ($matchesAll) {
-                        $snippet = $this->generateSnippet($pageText, $searchTerm);
+                        $snippetData = $this->generateSnippetLines($pageText, $searchTerm);
                         $fileUrl = $catalog->file_url;
                         $pageNumber = $pageItem['page'];
-                        $price = $this->detectPrice($pageText, $searchTerm);
+                        // Usar la línea con mayor coincidencia para extraer el precio de referencia exacto
+                        $price = $this->detectPrice($snippetData['best_line'] ?: $pageText, $searchTerm);
+                        // Extraer código de producto / referencia / SKU de la mejor línea coincidente
+                        $code = $this->extractProductCode($snippetData['best_line'] ?: $pageText);
 
                         $allMatches[] = [
                             'id'            => "cat_{$catalog->id}_p_{$pageNumber}",
@@ -226,8 +229,9 @@ class DistributorCatalogPdfController extends Controller
                             'catalog_title' => $catalog->title ?: $catalog->file_name,
                             'file_name'     => $catalog->file_name,
                             'page_number'   => $pageNumber,
+                            'code'          => $code,
                             'price'         => $price,
-                            'snippet'       => $snippet,
+                            'snippet'       => $snippetData['snippet'],
                             'pdf_url'       => "{$fileUrl}#page={$pageNumber}",
                             'created_at'    => $catalog->created_at?->format('Y-m-d H:i:s'),
                         ];
@@ -438,51 +442,189 @@ class DistributorCatalogPdfController extends Controller
     /**
      * Extrae un fragmento de texto legible limpio centrado en la coincidencia
      */
+    /**
+     * Genera un fragmento de texto con líneas separadas respetando los saltos de línea del PDF:
+     * - Cada línea con coincidencias se muestra en su propia fila independiente.
+     * - Si una misma línea tiene varias coincidencias (ej: 195, 55 y 15), la línea solo se muestra una vez.
+     * - Si hay más líneas con coincidencias, se presentan con saltos de línea y separadores visuales.
+     */
+    private function generateSnippetLines(string $content, string $searchTerm, int $maxLines = 6): array
+    {
+        $rawLines = preg_split('/\r\n|\r|\n/', $content);
+        $cleanLines = [];
+        foreach ($rawLines as $l) {
+            $trimmed = trim(preg_replace('/[ \t]+/', ' ', $l));
+            if (!empty($trimmed)) {
+                $cleanLines[] = $trimmed;
+            }
+        }
+
+        if (empty($cleanLines)) {
+            return ['snippet' => '', 'best_line' => ''];
+        }
+
+        $tokens = array_filter(
+            explode(' ', mb_strtolower(trim($searchTerm))),
+            fn($t) => mb_strlen(trim($t)) >= 2
+        );
+
+        if (empty($tokens)) {
+            $tokens = [mb_strtolower(trim($searchTerm))];
+        }
+
+        $scoredLines = [];
+        $maxMatchedTokens = 0;
+
+        foreach ($cleanLines as $idx => $line) {
+            $lowerLine = mb_strtolower($line);
+            $score = 0;
+            $matchedTokens = 0;
+
+            foreach ($tokens as $token) {
+                if (mb_strpos($lowerLine, $token) !== false) {
+                    $matchedTokens++;
+                    $score += 20;
+                }
+            }
+
+            // Bonus si la frase de búsqueda completa aparece textualmente
+            if (mb_strpos($lowerLine, mb_strtolower(trim($searchTerm))) !== false) {
+                $score += 60;
+            }
+
+            if ($matchedTokens > 0) {
+                if ($matchedTokens > $maxMatchedTokens) {
+                    $maxMatchedTokens = $matchedTokens;
+                }
+                $scoredLines[] = [
+                    'idx'           => $idx,
+                    'line'          => $line,
+                    'score'         => $score,
+                    'matchedTokens' => $matchedTokens,
+                ];
+            }
+        }
+
+        if (empty($scoredLines)) {
+            $firstLines = array_slice($cleanLines, 0, 3);
+            $safe = array_map(fn($l) => htmlspecialchars($l, ENT_QUOTES, 'UTF-8'), $firstLines);
+            return [
+                'snippet'   => implode('<br>', $safe),
+                'best_line' => $cleanLines[0] ?? ''
+            ];
+        }
+
+        // Ordenar para determinar la mejor línea (para extracción de precio de referencia)
+        $sortedByScore = $scoredLines;
+        usort($sortedByScore, fn($a, $b) => $b['score'] <=> $a['score']);
+        $bestLine = $sortedByScore[0]['line'] ?? '';
+
+        // Filtrar líneas relevantes según el número de tokens coincidentes
+        $threshold = ($maxMatchedTokens >= 3) ? max(2, $maxMatchedTokens - 1) : max(1, $maxMatchedTokens);
+        $selected = array_filter($scoredLines, fn($item) => $item['matchedTokens'] >= $threshold);
+
+        if (empty($selected)) {
+            $selected = $scoredLines;
+        }
+
+        // Deduplicación de líneas idénticas (evita repetir líneas duplicadas en el PDF)
+        $uniqueLines = [];
+        $seen = [];
+        foreach ($selected as $item) {
+            if (!isset($seen[$item['line']])) {
+                $seen[$item['line']] = true;
+                $uniqueLines[] = $item;
+            }
+        }
+
+        $totalMatchesCount = count($uniqueLines);
+
+        // Limitar al máximo de líneas deseadas
+        $moreCount = 0;
+        if ($totalMatchesCount > $maxLines) {
+            $moreCount = $totalMatchesCount - $maxLines;
+            // Tomar las mejores puntuadas
+            usort($uniqueLines, fn($a, $b) => $b['score'] <=> $a['score']);
+            $uniqueLines = array_slice($uniqueLines, 0, $maxLines);
+            // Volver a ordenar por su orden original de aparición en la página
+            usort($uniqueLines, fn($a, $b) => $a['idx'] <=> $b['idx']);
+        }
+
+        // Resaltar términos de búsqueda en cada línea individual
+        $escapedWords = array_map(fn($w) => preg_quote(trim($w), '/'), $tokens);
+        $pattern = '/(' . implode('|', $escapedWords) . ')/iu';
+
+        $formattedLines = [];
+        foreach ($uniqueLines as $item) {
+            $safe = htmlspecialchars($item['line'], ENT_QUOTES, 'UTF-8');
+            $highlighted = preg_replace($pattern, '<span class="catalog-highlight">$1</span>', $safe);
+            $formattedLines[] = '<div class="pdf-snippet-line">' . $highlighted . '</div>';
+        }
+
+        if ($moreCount > 0) {
+            $formattedLines[] = '<div class="pdf-snippet-more">... (+ ' . $moreCount . ' líneas coincidentes más en esta pág.)</div>';
+        }
+
+        return [
+            'snippet'   => implode("\n", $formattedLines),
+            'best_line' => $bestLine
+        ];
+    }
+
     private function generateSnippet(string $content, string $searchTerm, int $contextChars = 140): string
     {
-        $cleanContent = preg_replace('/\s+/', ' ', trim($content));
-        $lowerContent = mb_strtolower($cleanContent);
-        $lowerTerm = mb_strtolower(trim($searchTerm));
+        $res = $this->generateSnippetLines($content, $searchTerm);
+        return $res['snippet'];
+    }
 
-        $pos = mb_strpos($lowerContent, $lowerTerm);
+    /**
+     * Extrae de forma inteligente el código de producto, referencia, medida o SKU de la línea del catálogo:
+     * - Detecta medidas de neumáticos estándar (ej: 185/60 R14, 195/55 R15, 12 R22.5)
+     * - Detecta códigos con guiones típicos de repuestos automotrices (ej: 5497136-TRA, 03-005-05-0005)
+     * - Detecta prefijos explícitos (COD, SKU, REF, ART)
+     * - Detecta códigos alfanuméricos iniciales (ej: 1138MM, 1040, 9250582)
+     */
+    private function extractProductCode(string $line): ?string
+    {
+        $line = trim($line);
+        if (empty($line)) {
+            return null;
+        }
 
-        if ($pos === false) {
-            $words = array_filter(explode(' ', $lowerTerm), fn($w) => mb_strlen($w) >= 2);
-            foreach ($words as $word) {
-                $pos = mb_strpos($lowerContent, $word);
-                if ($pos !== false) {
-                    break;
+        $ignoreWords = [
+            'DESCRIPCION', 'PRECIO', 'STOCK', 'P.V.D.', 'INC.IVA.', 'LISTADO', 'NUESTROS',
+            'OCTUBRE', 'CODIGO', 'ARTICULO', 'MARCA', 'PAGINA', 'USUARIO', 'FECHA'
+        ];
+
+        // 1. Medidas de neumáticos / llantas (ej: 185 60 R 14, 195/55 R 15, LT 235 75 R 15)
+        if (preg_match('/(?:^|\s)(?:LT\s*)?([0-9]{3})\s*(?:\/|\s)\s*([0-9]{2})\s*R\s*([0-9]{2}(?:\.[0-9])?)/i', $line, $m)) {
+            return "{$m[1]}/{$m[2]} R{$m[3]}";
+        }
+        if (preg_match('/(?:^|\s)(?:LT\s*)?([0-9]{1,2}(?:\.[0-9]+)?)\s*R\s*([0-9]{2}(?:\.[0-9])?)/i', $line, $m)) {
+            return "{$m[1]} R{$m[2]}";
+        }
+
+        // 2. Prefijos explícitos de código (ej: COD: 12345, SKU: 34963MM, REF: 5543)
+        if (preg_match('/(?:COD|CODIGO|CÓDIGO|SKU|REF|ART|ITEM)\.?\s*:?\s*([A-Z0-9\-_]{3,20})/i', $line, $m)) {
+            return strtoupper($m[1]);
+        }
+
+        // 3. Códigos de repuestos con guiones (ej: 03-005-05-0005, 5497136-TRA, AH254738-IND)
+        if (preg_match('/^([A-Z0-9]{2,8}(?:-[A-Z0-9]{2,8})+)/i', $line, $m)) {
+            return strtoupper($m[1]);
+        }
+
+        // 4. Primer token alfanumérico que actúa como código/referencia (ej: 1138MM, 1040, 9250582)
+        if (preg_match('/^([A-Z0-9\-_]{3,15})\s+/i', $line, $m)) {
+            $candidate = strtoupper($m[1]);
+            if (!in_array($candidate, $ignoreWords) && !preg_match('/^(LLANTA|ACEITE|FILTRO|PASTILLA|DISCO|AMORTIGUADOR|BUJIA|BATERIA)$/i', $candidate)) {
+                if (preg_match('/[0-9]/', $candidate)) {
+                    return $candidate;
                 }
             }
         }
 
-        if ($pos === false) {
-            return mb_substr($cleanContent, 0, $contextChars * 2) . '...';
-        }
-
-        $start = max(0, $pos - $contextChars);
-        $length = ($pos - $start) + mb_strlen($lowerTerm) + $contextChars;
-
-        $snippet = mb_substr($cleanContent, $start, $length);
-
-        if ($start > 0) {
-            $snippet = '...' . ltrim($snippet);
-        }
-
-        if (($start + $length) < mb_strlen($cleanContent)) {
-            $snippet = rtrim($snippet) . '...';
-        }
-
-        // Escapar HTML por seguridad y resaltar palabras clave con clase catalog-highlight
-        $safeSnippet = htmlspecialchars($snippet, ENT_QUOTES, 'UTF-8');
-        $words = array_filter(explode(' ', trim($searchTerm)), fn($w) => mb_strlen(trim($w)) >= 2);
-        if (!empty($words)) {
-            $escapedWords = array_map(fn($w) => preg_quote(trim($w), '/'), $words);
-            $pattern = '/(' . implode('|', $escapedWords) . ')/iu';
-            $safeSnippet = preg_replace($pattern, '<span class="catalog-highlight">$1</span>', $safeSnippet);
-        }
-
-        return $safeSnippet;
+        return null;
     }
 
     /**
@@ -600,8 +742,8 @@ class DistributorCatalogPdfController extends Controller
         }
 
         // 2. Patrón numérico con formato decimal estricto (con miles o sin miles)
-        // Ejemplo: 1,500.00 | 1.500,00 | 23.88 | 23,88
-        $decimalPattern = '/(?:^|[\s\(\[\:\;\-])([0-9]{1,3}(?:[,.][0-9]{3})+(?:[.,][0-9]{2})|[0-9]{1,5}[.,][0-9]{2})(?=$|[\s\)\]\,\;\.\-])/u';
+        // Ejemplo: 1,500.00 | 1.500,00 | 23.88 | 23,88 | 65.00APAC (pegado a letras)
+        $decimalPattern = '/(?:^|[\s\(\[\:\;\-])([0-9]{1,3}(?:[,.][0-9]{3})+(?:[.,][0-9]{2})|[0-9]{1,5}[.,][0-9]{2})(?=$|[\s\)\]\,\;\.\-]|[A-Za-z])/u';
         if (preg_match_all($decimalPattern, $window, $matches, PREG_OFFSET_CAPTURE)) {
             foreach ($matches[1] as $m) {
                 $val = $this->parsePriceValue($m[0]);
